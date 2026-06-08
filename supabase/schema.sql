@@ -96,8 +96,9 @@ CREATE TABLE public.predictions (
     tournament_id UUID REFERENCES public.tournaments(id) ON DELETE CASCADE NOT NULL,
     predicted_home INTEGER NOT NULL,
     predicted_away INTEGER NOT NULL,
-    predicted_winner team_choice, -- Elección de penales si predice empate en playoffs
-    points_earned INTEGER, -- null hasta que el partido finalice y se calcule
+    predicted_winner team_choice,                -- Elección de ganador si predice empate en playoffs
+    predicted_penalty_winner TEXT DEFAULT NULL,  -- Equipo ganador en penales ('home' | 'away')
+    points_earned INTEGER,                       -- null hasta que el partido finalice y se calcule
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     UNIQUE(match_id, user_id, tournament_id)
 );
