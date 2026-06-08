@@ -59,3 +59,11 @@
   - [x] Registrar la competencia de Amistosos Internacionales (ID 10) y Copa del Mundo (ID 1) en la tabla `competitions`. (¡Completado! Ligas sincronizadas)
   - [x] Ejecutar el primer polling de partidos amistosos para poblar la base de datos real. (¡Completado! Sincronización exitosa de partidos)
   - [/] Validar flujos reales de apuestas, chat y notificaciones push en producción. (En progreso - Resolviendo RLS circular)
+
+## Bugs Corregidos
+
+- [x] **Bug: Logout → Sesión Demo en lugar de pantalla de Login** *(2026-06-08)*
+  - **Causa raíz**: `ProtectedRoute.tsx` tenía un `useEffect` que al detectar `user === null` (estado post-logout), forzaba inmediatamente el estado del store a un usuario demo hardcodeado (`demo@prodear.app`), impidiendo que la redirección al login ocurriera.
+  - **Archivos modificados**:
+    - `src/components/layout/ProtectedRoute.tsx`: Eliminado el `useEffect` de inyección de usuario demo. El componente ahora actúa como un guardia de ruta real: muestra un spinner de carga mientras `isLoading` es `true`, redirige a `/` con `<Navigate replace>` si no hay sesión, y renderiza `<Outlet />` si el usuario está autenticado.
+    - `src/stores/authStore.ts`: El estado inicial de `isLoading` cambió de `false` a `true`. Esto garantiza que durante el arranque de la app, el guardia de ruta espere a que `hydrate()` termine de verificar la sesión antes de tomar decisiones de ruteo, evitando redirecciones prematuras al login en un refresh de página.
