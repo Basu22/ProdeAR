@@ -5,9 +5,9 @@ import { GlassCard } from "../components/ui/GlassCard";
 import { MatchCardSkeleton } from "../components/ui/Skeletons";
 import { useGlobalRankings } from "../hooks/useGlobalRankings";
 import { useMatches } from "../hooks/useMatches";
-import { useUserStats } from "../hooks/useUserStats";
-import { useTournaments } from "../hooks/useTournament";
 import { usePredictions, useSavePrediction } from "../hooks/usePredictions";
+import { useTournaments } from "../hooks/useTournament";
+import { useUserStats } from "../hooks/useUserStats";
 import { pushApi } from "../lib/api/push";
 import { isSupabaseConfigured } from "../lib/supabase";
 import type { Match } from "../lib/types";
@@ -458,9 +458,7 @@ export function Dashboard() {
 						groupedMatches[selectedDay].length > 0 ? (
 						<div className="grid gap-4">
 							{groupedMatches[selectedDay].map((match, idx) => {
-								const pred = predictions?.find(
-									(p) => p.matchId === match.id,
-								);
+								const pred = predictions?.find((p) => p.matchId === match.id);
 								return (
 									<div
 										key={match.id}
@@ -471,15 +469,19 @@ export function Dashboard() {
 											match={match}
 											showPrediction={!!activeTournament}
 											prediction={pred}
-											onSave={activeTournament ? async (home, away, penaltyWinner) => {
-												await savePrediction({
-													matchId: match.id,
-													tournamentId: activeTournament.id,
-													predictedHome: home,
-													predictedAway: away,
-													predictedWinner: penaltyWinner,
-												});
-											} : undefined}
+											onSave={
+												activeTournament
+													? async (home, away, penaltyWinner) => {
+															await savePrediction({
+																matchId: match.id,
+																tournamentId: activeTournament.id,
+																predictedHome: home,
+																predictedAway: away,
+																predictedWinner: penaltyWinner,
+															});
+														}
+													: undefined
+											}
 										/>
 									</div>
 								);
