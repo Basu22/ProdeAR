@@ -9,7 +9,7 @@ export function AppLayout() {
 			<TopAppBar />
 			<div className="flex-1 flex w-full">
 				<NavSidebar />
-				<main className="flex-1 pt-16 pb-28 md:pb-8 md:pl-64 min-w-0">
+				<main className="flex-1 pt-16 pb-28 md:pb-8 md:pl-64 min-w-0 overflow-x-hidden">
 					<Outlet />
 				</main>
 			</div>

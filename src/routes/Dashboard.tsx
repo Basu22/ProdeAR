@@ -303,7 +303,7 @@ export function Dashboard() {
 	);
 
 	return (
-		<div className="px-4 py-8 max-w-container-max mx-auto grid lg:grid-cols-12 gap-8 items-start relative z-10">
+		<div className="px-4 py-8 max-w-container-max mx-auto flex flex-col lg:grid lg:grid-cols-12 gap-8 items-start relative z-10 w-full min-w-0">
 			{/* Ambient glowing effect */}
 			<div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
@@ -342,7 +342,7 @@ export function Dashboard() {
 			)}
 
 			{/* Main Column */}
-			<div className="lg:col-span-8 space-y-8">
+			<div className="lg:col-span-8 space-y-8 w-full min-w-0">
 				{/* Editorial welcome banner */}
 				<div className="relative w-full overflow-hidden p-6 md:p-8 rounded-2xl glass-card border-white/10 celestial-glow">
 					<div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-2xl" />
@@ -504,7 +504,7 @@ export function Dashboard() {
 					)}
 				</section>
 			</div>
-			<div className="lg:col-span-4 space-y-6">
+			<div className="lg:col-span-4 space-y-6 w-full min-w-0">
 				{/* ESTADÍSTICAS DEL CAPITÁN (SÓLO ESCRITORIO) */}
 				<div className="hidden lg:block">{renderCaptainStats()}</div>
 
