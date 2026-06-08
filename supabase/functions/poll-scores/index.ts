@@ -227,6 +227,20 @@ serve(async (req) => {
 			});
 		}
 
+		const listMatches = url.searchParams.get("list_matches");
+		if (listMatches) {
+			const { data, error } = await supabase
+				.from("matches")
+				.select("*, competitions(name, api_football_id)")
+				.order("kick_off", { ascending: true })
+				.limit(10);
+
+			return new Response(JSON.stringify({ listMatches, data, error }), {
+				headers: { ...corsHeaders, "Content-Type": "application/json" },
+				status: error ? 400 : 200,
+			});
+		}
+
 		const seed = url.searchParams.get("seed");
 		if (seed === "true") {
 			const defaultComps = [

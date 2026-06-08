@@ -571,13 +571,13 @@ export function Tournament() {
 						type="button"
 						onClick={() =>
 							tournaments &&
-							tournaments.length > 1 &&
+							tournaments.length >= 1 &&
 							setIsSwitcherOpen(!isSwitcherOpen)
 						}
-						className={`flex items-center justify-center gap-2 mx-auto font-display-lg text-3xl md:text-5xl font-black text-white uppercase tracking-tight text-balance group ${tournaments && tournaments.length > 1 ? "cursor-pointer hover:text-primary transition-colors" : "cursor-default"}`}
+						className={`flex items-center justify-center gap-2 mx-auto font-display-lg text-3xl md:text-5xl font-black text-white uppercase tracking-tight text-balance group ${tournaments && tournaments.length >= 1 ? "cursor-pointer hover:text-primary transition-colors" : "cursor-default"}`}
 					>
 						{tournament.name}
-						{tournaments && tournaments.length > 1 && (
+						{tournaments && tournaments.length >= 1 && (
 							<span className="material-symbols-outlined text-xl md:text-2xl text-on-surface-variant group-hover:text-primary transition-all">
 								keyboard_arrow_down
 							</span>
@@ -621,6 +621,21 @@ export function Tournament() {
 											</span>
 										</button>
 									))}
+								</div>
+								<div className="border-t border-white/5 mt-1.5 pt-1.5 px-1">
+									<button
+										type="button"
+										onClick={() => {
+											setIsSwitcherOpen(false);
+											navigate("/join");
+										}}
+										className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-label-caps text-[10px] font-bold transition-all active:scale-[0.98] cursor-pointer"
+									>
+										<span className="material-symbols-outlined text-sm">
+											add
+										</span>
+										UNIRSE / CREAR TORNEO
+									</button>
 								</div>
 							</div>
 						</>

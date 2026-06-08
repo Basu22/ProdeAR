@@ -2,6 +2,25 @@
 <html class="dark" lang="es">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Force unregister all service workers and clear cache to prevent stale assets
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (const registration of registrations) {
+            registration.unregister();
+            console.log('🧹 Service Worker desregistrado automáticamente.');
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (const name of names) {
+            caches.delete(name);
+            console.log('🧹 Caché de la aplicación borrada automáticamente.');
+          }
+        });
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ProdeAR — La plataforma definitiva de prodes y predicciones de fútbol argentino. Competí en torneos privados, chateá en vivo y demostrá tu conocimiento táctico." />
     <meta name="theme-color" content="#0a0f1a" />

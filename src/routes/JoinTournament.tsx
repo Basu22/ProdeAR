@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { GlassCard } from "../components/ui/GlassCard";
+import { useCompetitions } from "../hooks/useTournament";
 import { tournamentsApi } from "../lib/api/tournaments";
 
 const extractInviteCode = (input: string): string => {
@@ -26,6 +27,11 @@ export function JoinTournament() {
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
 
+	const [activeTab, setActiveTab] = useState<"join" | "create">("join");
+	const [tournamentName, setTournamentName] = useState("");
+	const [selectedCompId, setSelectedCompId] = useState("");
+	const { data: competitions } = useCompetitions();
+
 	const handleJoin = useCallback(
 		async (targetCode: string) => {
 			if (!targetCode.trim()) return;
@@ -34,9 +40,7 @@ export function JoinTournament() {
 			try {
 				const tournament = await tournamentsApi.joinTournament(targetCode);
 				setSuccess(true);
-				// Invalidate tournaments query so the list updates
 				queryClient.invalidateQueries({ queryKey: ["tournaments"] });
-				// Redirect to tournament page after success animation
 				setTimeout(() => {
 					navigate(`/torneo/${tournament.id}`);
 				}, 1500);
@@ -52,6 +56,29 @@ export function JoinTournament() {
 		},
 		[navigate, queryClient],
 	);
+
+	const handleCreate = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!tournamentName.trim() || !selectedCompId) return;
+
+		setIsLoading(true);
+		setError(null);
+		try {
+			const tournament = await tournamentsApi.createTournament(
+				tournamentName,
+				selectedCompId,
+			);
+			setSuccess(true);
+			queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+			setTimeout(() => {
+				navigate(`/torneo/${tournament.id}`);
+			}, 1500);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Error al crear el torneo");
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
 	// Auto-join if code is in query param
 	useEffect(() => {
@@ -85,10 +112,14 @@ export function JoinTournament() {
 						</div>
 						<div className="space-y-2">
 							<h3 className="font-headline-md text-2xl text-white uppercase tracking-wider">
-								Procesando Invitación
+								{activeTab === "join"
+									? "Procesando Invitación"
+									: "Creando Vestuario"}
 							</h3>
 							<p className="font-body-md text-sm text-on-surface-variant">
-								Validando código y uniéndote al vestuario...
+								{activeTab === "join"
+									? "Validando código y uniéndote al vestuario..."
+									: "Configurando las reglas de puntuación..."}
 							</p>
 						</div>
 					</div>
@@ -102,10 +133,12 @@ export function JoinTournament() {
 						</span>
 						<div className="space-y-2">
 							<h3 className="font-headline-md text-2xl text-white uppercase tracking-wider">
-								¡Unido Exitosamente!
+								{activeTab === "join"
+									? "¡Unido Exitosamente!"
+									: "¡Torneo Creado!"}
 							</h3>
 							<p className="font-body-md text-sm text-on-surface-variant">
-								Ya sos parte del torneo. Redirigiéndote...
+								Redirigiéndote al torneo...
 							</p>
 						</div>
 					</div>
@@ -119,7 +152,9 @@ export function JoinTournament() {
 								dangerous
 							</span>
 							<h3 className="font-headline-md text-2xl text-white uppercase tracking-wider">
-								Error de Ingreso
+								{activeTab === "join"
+									? "Error de Ingreso"
+									: "Error de Creación"}
 							</h3>
 							<div className="bg-error/10 border border-error/20 rounded-xl p-4 text-left">
 								<p className="font-body-md text-sm text-error font-semibold leading-relaxed">
@@ -129,13 +164,21 @@ export function JoinTournament() {
 						</div>
 
 						<div className="flex flex-col gap-3">
-							{codeParam && (
+							{activeTab === "join" ? (
 								<button
 									type="button"
 									onClick={() => setError(null)}
 									className="w-full py-3 rounded-lg font-label-caps text-xs font-bold bg-surface-container-high hover:bg-surface-container-highest text-white transition-colors cursor-pointer border border-white/5 active:scale-[0.98]"
 								>
 									Intentar con otro código
+								</button>
+							) : (
+								<button
+									type="button"
+									onClick={() => setError(null)}
+									className="w-full py-3 rounded-lg font-label-caps text-xs font-bold bg-surface-container-high hover:bg-surface-container-highest text-white transition-colors cursor-pointer border border-white/5 active:scale-[0.98]"
+								>
+									Intentar nuevamente
 								</button>
 							)}
 							<Link
@@ -147,53 +190,149 @@ export function JoinTournament() {
 						</div>
 					</div>
 				) : (
-					<form onSubmit={handleSubmit} className="space-y-6">
-						<div className="text-center space-y-2">
-							<span className="material-symbols-outlined text-tertiary text-5xl stadium-glow-gold">
-								workspace_premium
-							</span>
-							<h3 className="font-headline-md text-2xl text-white uppercase tracking-wider">
-								Unirse a un Torneo
-							</h3>
-							<p className="font-body-md text-xs text-on-surface-variant">
-								Ingresá el código de invitación para competir con tus amigos.
-							</p>
-						</div>
-
-						<div className="space-y-2">
-							<label
-								htmlFor="code-input"
-								className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider block font-bold"
-							>
-								Código de Invitación
-							</label>
-							<input
-								id="code-input"
-								type="text"
-								value={code}
-								onChange={(e) => {
-									const extracted = extractInviteCode(e.target.value);
-									if (extracted.length <= 7) {
-										setCode(extracted);
-									} else {
-										setCode(extracted.substring(0, 7));
-									}
+					<div className="space-y-6">
+						{/* Tabs Selector */}
+						<div className="flex bg-surface-container rounded-xl p-1 border border-white/5">
+							<button
+								type="button"
+								onClick={() => {
+									setError(null);
+									setActiveTab("join");
 								}}
-								placeholder="Ej: AR-XXXX"
-								maxLength={100}
-								className="w-full px-4 py-3 bg-surface-container rounded-xl border border-white/10 text-white placeholder-on-surface-variant/40 font-headline-md text-xl tracking-widest text-center focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
-							/>
+								className={`flex-1 py-2 text-center rounded-lg font-label-caps text-xs font-bold transition-all cursor-pointer ${
+									activeTab === "join"
+										? "bg-primary text-black shadow-md"
+										: "text-on-surface-variant hover:text-white"
+								}`}
+							>
+								UNIRSE A TORNEO
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setError(null);
+									setActiveTab("create");
+								}}
+								className={`flex-1 py-2 text-center rounded-lg font-label-caps text-xs font-bold transition-all cursor-pointer ${
+									activeTab === "create"
+										? "bg-primary text-black shadow-md"
+										: "text-on-surface-variant hover:text-white"
+								}`}
+							>
+								CREAR TORNEO
+							</button>
 						</div>
 
-						<button
-							type="submit"
-							disabled={!code.trim()}
-							className="w-full py-3 rounded-lg font-label-caps text-xs font-extrabold bg-primary hover:bg-primary/90 disabled:bg-primary/20 text-black text-center transition-all active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,229,255,0.2)] disabled:shadow-none"
-						>
-							INGRESAR AL TORNEO
-						</button>
+						{activeTab === "join" ? (
+							<form onSubmit={handleSubmit} className="space-y-6">
+								<div className="text-center space-y-2">
+									<span className="material-symbols-outlined text-tertiary text-5xl stadium-glow-gold">
+										workspace_premium
+									</span>
+									<h3 className="font-headline-md text-2xl text-white uppercase tracking-wider">
+										Unirse a un Torneo
+									</h3>
+									<p className="font-body-md text-xs text-on-surface-variant">
+										Ingresá el código de invitación para competir con tus
+										amigos.
+									</p>
+								</div>
 
-						<div className="text-center">
+								<div className="space-y-2">
+									<label
+										htmlFor="code-input"
+										className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider block font-bold"
+									>
+										Código de Invitación
+									</label>
+									<input
+										id="code-input"
+										type="text"
+										value={code}
+										onChange={(e) => {
+											const extracted = extractInviteCode(e.target.value);
+											setCode(extracted.substring(0, 7));
+										}}
+										placeholder="Ej: AR-XXXX"
+										maxLength={100}
+										className="w-full px-4 py-3 bg-surface-container rounded-xl border border-white/10 text-white placeholder-on-surface-variant/40 font-headline-md text-xl tracking-widest text-center focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+									/>
+								</div>
+
+								<button
+									type="submit"
+									disabled={!code.trim()}
+									className="w-full py-3 rounded-lg font-label-caps text-xs font-extrabold bg-primary hover:bg-primary/90 disabled:bg-primary/20 text-black text-center transition-all active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,229,255,0.2)] disabled:shadow-none"
+								>
+									INGRESAR AL TORNEO
+								</button>
+							</form>
+						) : (
+							<form onSubmit={handleCreate} className="space-y-6">
+								<div className="text-center space-y-2">
+									<span className="material-symbols-outlined text-primary text-5xl stadium-glow">
+										add_circle
+									</span>
+								</div>
+
+								<div className="space-y-2">
+									<label
+										htmlFor="tournamentName"
+										className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider block font-bold"
+									>
+										Nombre del Torneo
+									</label>
+									<input
+										id="tournamentName"
+										type="text"
+										required
+										value={tournamentName}
+										onChange={(e) => setTournamentName(e.target.value)}
+										placeholder="Ej: El Prode de los Pibes"
+										className="w-full px-4 py-3 bg-surface-container rounded-xl border border-white/10 text-white placeholder-on-surface-variant/40 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all font-body-md text-sm"
+									/>
+								</div>
+
+								<div className="space-y-2">
+									<label
+										htmlFor="selectedCompId"
+										className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider block font-bold"
+									>
+										Seleccionar Competencia
+									</label>
+									<select
+										id="selectedCompId"
+										required
+										value={selectedCompId}
+										onChange={(e) => setSelectedCompId(e.target.value)}
+										className="w-full px-4 py-3 bg-surface-container rounded-xl border border-white/10 text-white focus:outline-none focus:border-primary/50 transition-all font-body-md text-sm cursor-pointer"
+									>
+										<option value="" disabled>
+											-- Elegí un Torneo/Liga --
+										</option>
+										{competitions?.map((comp) => (
+											<option
+												key={comp.id}
+												value={comp.id}
+												className="bg-surface-container-highest text-white"
+											>
+												{comp.name} ({comp.season})
+											</option>
+										))}
+									</select>
+								</div>
+
+								<button
+									type="submit"
+									disabled={!tournamentName.trim() || !selectedCompId}
+									className="w-full py-3 rounded-lg font-label-caps text-xs font-extrabold bg-primary hover:bg-primary/90 disabled:bg-primary/20 text-black text-center transition-all active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,229,255,0.2)] disabled:shadow-none"
+								>
+									CREAR TORNEO
+								</button>
+							</form>
+						)}
+
+						<div className="text-center mt-4 pt-2 border-t border-white/5">
 							<Link
 								to="/dashboard"
 								className="font-label-caps text-[10px] text-on-surface-variant hover:text-primary transition-colors uppercase block font-bold"
@@ -201,7 +340,7 @@ export function JoinTournament() {
 								Cancelar y volver
 							</Link>
 						</div>
-					</form>
+					</div>
 				)}
 			</GlassCard>
 		</div>

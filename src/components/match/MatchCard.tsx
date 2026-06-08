@@ -307,47 +307,47 @@ export function MatchCard({
 				className="flex items-center justify-between p-3.5 md:px-5 cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
 			>
 				{/* Left Section: Time or Status + League Badge */}
-				<div className="flex items-center gap-2.5 w-[95px] flex-none">
+				<div className="flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-2.5 w-[65px] md:w-[95px] flex-none">
 					{isLive ? (
-						<span className="flex items-center gap-1 bg-error/10 border border-error/30 text-error px-2 py-0.5 rounded-full text-[9px] font-black uppercase animate-pulse">
+						<span className="flex items-center gap-1 bg-error/10 border border-error/30 text-error px-1.5 py-0.5 rounded-full text-[8px] md:text-[9px] font-black uppercase animate-pulse">
 							<span className="w-1 h-1 rounded-full bg-error inline-block animate-ping" />
 							{typeof liveMinute === "number" ? `${liveMinute}'` : liveMinute}
 						</span>
 					) : isCancelled ? (
-						<span className="bg-red-500/15 border border-red-500/30 text-red-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
+						<span className="bg-red-500/15 border border-red-500/30 text-red-400 px-1.5 md:px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-wider">
 							Susp
 						</span>
 					) : isFinished ? (
-						<span className="bg-white/5 border border-white/10 text-on-surface-variant px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
+						<span className="bg-white/5 border border-white/10 text-on-surface-variant px-1.5 md:px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-bold uppercase">
 							Fin
 						</span>
 					) : (
-						<span className="text-[10px] text-on-surface-variant font-bold tabular-nums">
+						<span className="text-[9px] md:text-[10px] text-on-surface-variant font-bold tabular-nums">
 							{new Date(match.kickOff).toLocaleTimeString("es-AR", {
 								hour: "2-digit",
 								minute: "2-digit",
 							})}
 						</span>
 					)}
-					<span className="text-[9px] bg-white/5 text-secondary border border-white/10 px-1.5 py-0.5 rounded font-black tracking-wider">
+					<span className="text-[8px] md:text-[9px] bg-white/5 text-secondary border border-white/10 px-1 md:px-1.5 py-0.5 rounded font-black tracking-wider">
 						{getCompAbrev()}
 					</span>
 				</div>
 
 				{/* Middle Section: Matchup (Home - Score - Away) */}
-				<div className="flex-1 flex items-center justify-center px-4">
+				<div className="flex-1 min-w-0 flex items-center justify-center px-1.5 md:px-4">
 					{/* Home Team */}
-					<div className="flex-1 flex items-center justify-end gap-2 min-w-0">
+					<div className="flex-1 flex items-center justify-end gap-1 md:gap-2 min-w-0">
 						{latestHomeEvent && (
 							<span className="hidden md:inline-flex items-center gap-0.5 text-[9px] text-on-surface-variant bg-white/5 px-2 py-0.5 rounded-full border border-white/5 truncate max-w-[120px] animate-enter">
 								{getEventEmoji(latestHomeEvent.type)} {latestHomeEvent.minute}'{" "}
 								{latestHomeEvent.playerName}
 							</span>
 						)}
-						<span className="font-headline-md text-xs font-bold text-white truncate max-w-[100px] md:max-w-[140px] uppercase">
+						<span className="font-headline-md text-xs font-bold text-white truncate max-w-[60px] md:max-w-[140px] uppercase">
 							{translateTeamName(match.homeTeam)}
 						</span>
-						<div className="w-8 h-8 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
+						<div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
 							{match.homeLogo ? (
 								<img
 									src={match.homeLogo}
@@ -372,9 +372,9 @@ export function MatchCard({
 					</div>
 
 					{/* Score / VS Pill */}
-					<div className="flex-none mx-3">
+					<div className="flex-none mx-1.5 md:mx-3">
 						{isLive || isFinished || isCancelled ? (
-							<div className="bg-surface-container-high border border-white/10 px-3 py-1 rounded-full text-xs font-black select-none tabular-nums flex items-center gap-2">
+							<div className="bg-surface-container-high border border-white/10 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-black select-none tabular-nums flex items-center gap-2">
 								<span
 									className={`${match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore ? "text-primary text-glowing" : "text-white"}`}
 								>
@@ -388,15 +388,15 @@ export function MatchCard({
 								</span>
 							</div>
 						) : (
-							<div className="bg-surface-container border border-white/5 px-3 py-1 rounded-full text-[9px] font-black text-tertiary tracking-wider uppercase select-none">
+							<div className="bg-surface-container border border-white/5 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[9px] font-black text-tertiary tracking-wider uppercase select-none">
 								VS
 							</div>
 						)}
 					</div>
 
 					{/* Away Team */}
-					<div className="flex-1 flex items-center justify-start gap-2 min-w-0">
-						<div className="w-8 h-8 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
+					<div className="flex-1 flex items-center justify-start gap-1 md:gap-2 min-w-0">
+						<div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
 							{match.awayLogo ? (
 								<img
 									src={match.awayLogo}
@@ -418,7 +418,7 @@ export function MatchCard({
 								shield
 							</span>
 						</div>
-						<span className="font-headline-md text-xs font-bold text-white truncate max-w-[100px] md:max-w-[140px] uppercase">
+						<span className="font-headline-md text-xs font-bold text-white truncate max-w-[60px] md:max-w-[140px] uppercase">
 							{translateTeamName(match.awayTeam)}
 						</span>
 						{latestAwayEvent && (
@@ -431,7 +431,7 @@ export function MatchCard({
 				</div>
 
 				{/* Right Section: TV + Expand arrow */}
-				<div className="flex items-center justify-end gap-2.5 min-w-[120px] md:min-w-[160px] flex-none">
+				<div className="flex items-center justify-end gap-2.5 w-auto md:w-[160px] md:min-w-[160px] flex-none">
 					{isLive && match.events && match.events.length > 0 && (
 						<div className="hidden sm:flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full select-none shadow-[0_0_10px_rgba(255,255,255,0.02)]">
 							{match.events.slice(-3).map((e) => (
