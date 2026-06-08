@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+@view-transition {
+	navigation: auto;
+}
+
+@theme {
+	--color-surface-dim: #000b14;
+	--color-surface: #001526;
+	--color-surface-bright: #00233d;
+	--color-surface-container-lowest: #00070d;
+	--color-surface-container-low: #000f1a;
+	--color-surface-container: #001526;
+	--color-surface-container-high: #001e33;
+	--color-surface-container-highest: #002b4a;
+	--color-surface-variant: #001e33;
+
+	--color-primary: #00e5ff; /* Celeste Neón Albiceleste */
+	--color-primary-container: #00365d;
+	--color-on-primary: #000000;
+	--color-on-primary-container: #00e5ff;
+	--color-primary-fixed: #7dd3fc;
+	--color-primary-fixed-dim: #38bdf8;
+
+	--color-secondary: #ffffff; /* Blanco puro */
+	--color-secondary-container: #1a2e40;
+	--color-on-secondary: #001526;
+	--color-on-secondary-container: #ffffff;
+	--color-secondary-fixed: #ffffff;
+	--color-secondary-fixed-dim: #e2e8f0;
+
+	--color-tertiary: #ffd600; /* Sol de Mayo Neón */
+	--color-tertiary-container: #4d4000;
+	--color-on-tertiary: #000000;
+	--color-on-tertiary-container: #ffd600;
+	--color-tertiary-fixed: #fef08a;
+	--color-tertiary-fixed-dim: #eab308;
+
+	--color-background: #000b14; /* Deep night stadium blue */
+	--color-on-background: #ffffff;
+	--color-on-surface: #ffffff;
+	--color-on-surface-variant: #94a3b8;
+
+	--color-error: #ff2a2a; /* Tarjeta Roja */
+	--color-error-container: #4d0000;
+	--color-on-error: #ffffff;
+	--color-on-error-container: #ff2a2a;
+
+	--color-outline: #00365d;
+	--color-outline-variant: #001e33;
+
+	--color-inverse-surface: #ffffff;
+	--color-inverse-on-surface: #001526;
+	--color-inverse-primary: #007ca3;
+	--color-surface-tint: #00e5ff;
+
+	--color-pitch-green: #00ff41; /* Verde Césped LED */
+
+	--font-headline-md: "Teko", sans-serif;
+	--font-display-lg: "Teko", sans-serif;
+	--font-display-lg-mobile: "Teko", sans-serif;
+	--font-stat-value: "Teko", sans-serif;
+	--font-body-lg: "Outfit", sans-serif;
+	--font-body-md: "Outfit", sans-serif;
+	--font-label-caps: "Outfit", sans-serif;
+
+	--spacing-container-max: 1200px;
+
+	--radius-xl: 0;
+	--radius-full: 9999px;
+}
+
+@layer base {
+	* {
+		@apply border-outline-variant;
+	}
+
+	body {
+		@apply bg-background text-on-background font-body-md antialiased overflow-x-hidden relative;
+	}
+
+	/* Structural Noise & Grid background */
+	body::before {
+		content: "";
+		position: fixed;
+		inset: 0;
+		z-index: -10;
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+		background-size: 40px 40px;
+		pointer-events: none;
+	}
+
+	body::after {
+		content: "";
+		position: fixed;
+		inset: 0;
+		z-index: -9;
+		background-image: radial-gradient(
+			circle at 50% 50%,
+			rgba(56, 189, 248, 0.08) 0%,
+			transparent 60%
+		);
+		pointer-events: none;
+		mix-blend-mode: screen;
+	}
+
+	::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: var(--color-background);
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: var(--color-outline);
+		border-radius: 999px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: var(--color-primary);
+	}
+
+	::selection {
+		background: var(--color-primary-container);
+		color: var(--color-on-primary-container);
+	}
+}
+
+@layer components {
+	/* Stadium Brutalism Cards */
+	.brutal-card {
+		background: var(--color-surface);
+		border: 2px solid var(--color-outline);
+		box-shadow: 4px 4px 0px 0px var(--color-outline);
+		transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.brutal-card:hover {
+		border-color: var(--color-primary);
+		box-shadow: 4px 4px 0px 0px var(--color-primary);
+		transform: translate(-2px, -2px);
+	}
+
+	.brutal-button {
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+		border: 2px solid var(--color-primary);
+		box-shadow: 4px 4px 0px 0px rgba(255, 255, 255, 0.2);
+		text-transform: uppercase;
+		font-family: var(--font-headline-md);
+		font-weight: bold;
+		transition: all 0.1s step-end;
+	}
+
+	.brutal-button:active {
+		transform: translate(4px, 4px);
+		box-shadow: 0px 0px 0px 0px transparent;
+	}
+
+	.stadium-glow-celeste {
+		filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.25));
+	}
+
+	.stadium-glow-gold {
+		filter: drop-shadow(0 0 25px rgba(245, 158, 11, 0.3));
+	}
+
+	.pitch-grid {
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+		background-size: 30px 30px;
+		background-color: var(--color-pitch-green);
+	}
+
+	/* Custom animations */
+	@keyframes stadiumPulse {
+		0%,
+		100% {
+			opacity: 0.15;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.3;
+			transform: scale(1.08);
+		}
+	}
+
+	.stadium-floodlight-1 {
+		animation: stadiumPulse 12s ease-in-out infinite;
+	}
+
+	.stadium-floodlight-2 {
+		animation: stadiumPulse 8s ease-in-out infinite;
+	}
+
+	@keyframes fadeInSlideUp {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.animate-enter {
+		animation: fadeInSlideUp 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	}
+
+	/* Text & Utility */
+	.hide-scrollbar::-webkit-scrollbar {
+		display: none;
+	}
+	.hide-scrollbar {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
+	.text-glowing {
+		text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+	}
+
+	.text-glowing-gold {
+		text-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+	}
+
+	@keyframes shimmer {
+		0% {
+			background-position: -200% 0;
+		}
+		100% {
+			background-position: 200% 0;
+		}
+	}
+
+	.shimmer-bg {
+		background: linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.03) 25%,
+			rgba(255, 255, 255, 0.09) 50%,
+			rgba(255, 255, 255, 0.03) 75%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.6s infinite linear;
+	}
+}

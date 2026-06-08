@@ -1,0 +1,4 @@
+# Supabase Project Configuration
+
+[functions.poll-scores]
+verify_jwt = false
