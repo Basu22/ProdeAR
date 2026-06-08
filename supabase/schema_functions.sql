@@ -81,8 +81,8 @@ DECLARE
     score_config JSONB;
     penalty_bonus_val INTEGER;
 BEGIN
-    -- Only run when a match status changes to 'Finished' and scores are set
-    IF NEW.status = 'Finished' AND (OLD.status IS DISTINCT FROM 'Finished' OR OLD.home_score IS DISTINCT FROM NEW.home_score OR OLD.away_score IS DISTINCT FROM NEW.away_score) THEN
+    -- Only run when a match status changes to 'finished' and scores are set
+    IF NEW.status = 'finished'::match_status AND (OLD.status IS DISTINCT FROM NEW.status OR OLD.home_score IS DISTINCT FROM NEW.home_score OR OLD.away_score IS DISTINCT FROM NEW.away_score) THEN
         
         -- Loop through all predictions for this match
         FOR pred_row IN 
@@ -160,7 +160,7 @@ CREATE OR REPLACE FUNCTION public.check_and_trigger_poll_scores()
 RETURNS VOID AS $$
 DECLARE
     has_active_matches BOOLEAN;
-    api_url TEXT := 'https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?live=all';
+    api_url TEXT := 'https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?live=all'; -- PRODUCCIÓN: actualizar si cambia el project-ref
     headers JSONB := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer TU_ANON_KEY'

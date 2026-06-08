@@ -49,6 +49,7 @@ CREATE TABLE public.tournaments (
     code TEXT UNIQUE NOT NULL,
     invite_link TEXT,
     status tournament_status DEFAULT 'active'::tournament_status NOT NULL,
+    scoring_config JSONB DEFAULT '{"exact_score": 10, "goal_difference": 6, "correct_result": 3, "penalty_bonus": 4}'::jsonb, -- Configuración de puntos del torneo
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
