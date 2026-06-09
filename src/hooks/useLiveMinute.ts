@@ -75,9 +75,13 @@ export function useLiveMinute(match: Match): number | string | undefined {
 	const rawStatus = match.rawStatus;
 
 	// Si está en vivo y no es entretiempo ni penales, buscamos si hay un timer guardado localmente más actualizado
-	const startMinute = isLive && rawStatus !== "HT" && rawStatus !== "P" && match.minute !== undefined
-		? getSavedLiveMinute(match.id, match.minute)
-		: match.minute;
+	const startMinute =
+		isLive &&
+		rawStatus !== "HT" &&
+		rawStatus !== "P" &&
+		match.minute !== undefined
+			? getSavedLiveMinute(match.id, match.minute)
+			: match.minute;
 
 	const [liveMinute, setLiveMinute] = useState<number | string | undefined>(
 		isLive && rawStatus === "HT"
@@ -99,9 +103,10 @@ export function useLiveMinute(match: Match): number | string | undefined {
 		}
 
 		// Al recibir una actualización de props, volvemos a evaluar contra localStorage
-		const currentStart = isLive && match.minute !== undefined
-			? getSavedLiveMinute(match.id, match.minute)
-			: startMinute;
+		const currentStart =
+			isLive && match.minute !== undefined
+				? getSavedLiveMinute(match.id, match.minute)
+				: startMinute;
 
 		setLiveMinute(currentStart);
 

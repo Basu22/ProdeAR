@@ -50,3 +50,31 @@ export function useDeleteTournament() {
 		},
 	});
 }
+
+export function useRemoveMember(tournamentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (userId: string) =>
+			tournamentsApi.removeMember(tournamentId, userId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: ["tournament-members", tournamentId],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["predictions", tournamentId],
+			});
+		},
+	});
+}
+
+export function useLeaveTournament() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (tournamentId: string) =>
+			tournamentsApi.leaveTournament(tournamentId),
+		onSuccess: (_, tournamentId) => {
+			queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+			queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+		},
+	});
+}

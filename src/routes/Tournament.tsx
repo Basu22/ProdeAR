@@ -8,6 +8,8 @@ import { useMatches } from "../hooks/useMatches";
 import { usePredictions, useSavePrediction } from "../hooks/usePredictions";
 import {
 	useDeleteTournament,
+	useLeaveTournament,
+	useRemoveMember,
 	useTournament,
 	useTournamentMembers,
 	useTournaments,
@@ -402,12 +404,20 @@ export function Tournament() {
 	const { mutateAsync: savePrediction } = useSavePrediction();
 	const { mutateAsync: updateTournament } = useUpdateTournament(id ?? "");
 	const { mutateAsync: deleteTournament } = useDeleteTournament();
+	const { mutateAsync: removeMember } = useRemoveMember(id ?? "");
+	const { mutateAsync: leaveTournament, isPending: isLeavingTournament } =
+		useLeaveTournament();
 
 	const [tab, setTab] = useState("ranking");
 	const [copied, setCopied] = useState(false);
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [editName, setEditName] = useState("");
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [isLeaving, setIsLeaving] = useState(false);
+	const [memberToKick, setMemberToKick] = useState<{
+		userId: string;
+		displayName: string;
+	} | null>(null);
 	const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 	const [subTab, setSubTab] = useState("grupos");
 	const [selectedRound, setSelectedRound] = useState("");
@@ -549,7 +559,7 @@ export function Tournament() {
 						</span>
 						{copied ? "¡COPIADO!" : "COPIAR LINK"}
 					</button>
-					{currentUser && currentUser.id === tournament.ownerId && (
+					{currentUser && (
 						<button
 							type="button"
 							onClick={() => {
@@ -557,7 +567,7 @@ export function Tournament() {
 								setIsSettingsOpen(true);
 							}}
 							className="p-1 rounded bg-white/5 border border-white/10 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors cursor-pointer flex items-center justify-center"
-							title="Ajustes del torneo"
+							title="Opciones del torneo"
 						>
 							<span className="material-symbols-outlined text-[16px]">
 								settings
@@ -687,6 +697,11 @@ export function Tournament() {
 								<th className="py-4 px-4 font-label-caps text-[10px] text-primary text-center font-bold tracking-widest bg-primary/5">
 									TOTAL PTS
 								</th>
+								{currentUser && currentUser.id === tournament.ownerId && (
+									<th className="py-4 px-4 font-label-caps text-[10px] text-on-surface-variant text-center font-bold tracking-widest">
+										ACCIONES
+									</th>
+								)}
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/5">
@@ -723,6 +738,31 @@ export function Tournament() {
 									<td className="py-4 px-4 font-stat-value text-base text-primary text-center font-black bg-primary/5 tabular-nums">
 										{member.totalPoints}
 									</td>
+									{currentUser && currentUser.id === tournament.ownerId && (
+										<td className="py-4 px-4 text-center">
+											{member.userId !== currentUser.id ? (
+												<button
+													type="button"
+													onClick={() =>
+														setMemberToKick({
+															userId: member.userId,
+															displayName: member.displayName || member.userId,
+														})
+													}
+													className="p-1 rounded bg-error/10 border border-error/30 hover:bg-error/20 text-error hover:text-error-light transition-all cursor-pointer inline-flex items-center justify-center active:scale-[0.92]"
+													title="Eliminar participante del torneo"
+												>
+													<span className="material-symbols-outlined text-[16px]">
+														person_remove
+													</span>
+												</button>
+											) : (
+												<span className="font-label-caps text-[9px] text-on-surface-variant/40 select-none uppercase font-bold">
+													ADMIN
+												</span>
+											)}
+										</td>
+									)}
 								</tr>
 							))}
 						</tbody>
@@ -1086,7 +1126,7 @@ export function Tournament() {
 				</div>
 			)}
 
-			{/* MODAL CONFIGURACIÓN DE TORNEO (OWNER) */}
+			{/* MODAL CONFIGURACIÓN DE TORNEO (OWNER / USER) */}
 			{isSettingsOpen && (
 				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 					<GlassCard
@@ -1104,6 +1144,7 @@ export function Tournament() {
 								onClick={() => {
 									setIsSettingsOpen(false);
 									setIsDeleting(false);
+									setIsLeaving(false);
 								}}
 								className="text-on-surface-variant hover:text-white transition-colors cursor-pointer"
 							>
@@ -1111,70 +1152,166 @@ export function Tournament() {
 							</button>
 						</div>
 
-						{!isDeleting ? (
-							<form
-								onSubmit={async (e) => {
-									e.preventDefault();
-									if (!editName.trim()) return;
-									try {
-										await updateTournament({ name: editName });
-										setIsSettingsOpen(false);
-									} catch (err) {
-										alert(
-											err instanceof Error
-												? err.message
-												: "Error al actualizar",
-										);
-									}
-								}}
-								className="space-y-6"
-							>
-								<div className="space-y-1">
-									<label
-										htmlFor="editName"
-										className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold"
-									>
-										Nombre del Torneo
-									</label>
-									<input
-										id="editName"
-										type="text"
-										required
-										value={editName}
-										onChange={(e) => setEditName(e.target.value)}
-										className="w-full px-4 py-2.5 bg-surface-container rounded-xl border border-white/10 text-white placeholder-on-surface-variant/40 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all font-body-md text-sm"
-									/>
-								</div>
+						{currentUser?.id === tournament.ownerId ? (
+							// OWNER / ADMIN VIEW
+							!isDeleting ? (
+								<form
+									onSubmit={async (e) => {
+										e.preventDefault();
+										if (!editName.trim()) return;
+										try {
+											await updateTournament({ name: editName });
+											setIsSettingsOpen(false);
+										} catch (err) {
+											alert(
+												err instanceof Error
+													? err.message
+													: "Error al actualizar",
+											);
+										}
+									}}
+									className="space-y-6"
+								>
+									<div className="space-y-1">
+										<label
+											htmlFor="editName"
+											className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold"
+										>
+											Nombre del Torneo
+										</label>
+										<input
+											id="editName"
+											type="text"
+											required
+											value={editName}
+											onChange={(e) => setEditName(e.target.value)}
+											className="w-full px-4 py-2.5 bg-surface-container rounded-xl border border-white/10 text-white placeholder-on-surface-variant/40 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all font-body-md text-sm"
+										/>
+									</div>
 
-								<div className="flex flex-col gap-3 pt-2">
+									<div className="flex flex-col gap-3 pt-2">
+										<div className="flex gap-3">
+											<button
+												type="button"
+												onClick={() => setIsSettingsOpen(false)}
+												className="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-center rounded-lg font-label-caps text-xs font-bold active:scale-[0.98] transition-colors cursor-pointer border border-white/5"
+											>
+												Cerrar
+											</button>
+											<button
+												type="submit"
+												disabled={!editName.trim()}
+												className="flex-1 py-2.5 bg-primary hover:bg-primary/90 disabled:bg-primary/20 text-black text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-all cursor-pointer disabled:cursor-not-allowed"
+											>
+												Guardar Cambios
+											</button>
+										</div>
+
+										<div className="border-t border-white/5 my-2" />
+
+										<button
+											type="button"
+											onClick={() => setIsDeleting(true)}
+											className="w-full py-2.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error hover:text-error-light text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer"
+										>
+											Eliminar Torneo
+										</button>
+									</div>
+								</form>
+							) : (
+								<div className="space-y-6">
+									<div className="bg-error/10 border border-error/20 rounded-xl p-4 text-center">
+										<span className="material-symbols-outlined text-error text-4xl mb-2">
+											warning
+										</span>
+										<p className="font-headline-md text-sm text-white uppercase font-bold tracking-wider">
+											¿Estás completamente seguro?
+										</p>
+										<p className="font-body-md text-xs text-on-surface-variant mt-2 leading-relaxed">
+											Esta acción es irreversible. Se eliminará permanentemente
+											el torneo, sus participantes, chats y predicciones.
+										</p>
+									</div>
+
 									<div className="flex gap-3">
 										<button
 											type="button"
-											onClick={() => setIsSettingsOpen(false)}
+											onClick={() => setIsDeleting(false)}
 											className="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-center rounded-lg font-label-caps text-xs font-bold active:scale-[0.98] transition-colors cursor-pointer border border-white/5"
 										>
-											Cerrar
+											Cancelar
 										</button>
 										<button
-											type="submit"
-											disabled={!editName.trim()}
-											className="flex-1 py-2.5 bg-primary hover:bg-primary/90 disabled:bg-primary/20 text-black text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-all cursor-pointer disabled:cursor-not-allowed"
+											type="button"
+											onClick={async () => {
+												try {
+													await deleteTournament(tournament.id);
+													navigate("/dashboard");
+												} catch (err) {
+													alert(
+														err instanceof Error
+															? err.message
+															: "Error al eliminar",
+													);
+												}
+											}}
+											className="flex-1 py-2.5 bg-error hover:bg-error-light text-white text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer"
 										>
-											Guardar Cambios
+											Confirmar Eliminar
 										</button>
 									</div>
+								</div>
+							)
+						) : // REGULAR MEMBER VIEW (LEAVE TOURNAMENT)
+						!isLeaving ? (
+							<div className="space-y-6">
+								<div className="space-y-4">
+									<div className="space-y-1">
+										<span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">
+											Nombre del Torneo
+										</span>
+										<p className="font-body-lg text-white font-bold">
+											{tournament.name}
+										</p>
+									</div>
+									<div className="space-y-1">
+										<span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">
+											Código de Invitación
+										</span>
+										<p className="font-mono text-sm text-primary font-bold">
+											{tournament.code}
+										</p>
+									</div>
+									<div className="space-y-1">
+										<span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">
+											Estado
+										</span>
+										<p className="font-body-md text-secondary capitalize">
+											{tournament.status === "active" ? "Activo" : "Finalizado"}
+										</p>
+									</div>
+								</div>
+
+								<div className="flex flex-col gap-3 pt-2">
+									<button
+										type="button"
+										onClick={() => setIsSettingsOpen(false)}
+										className="w-full py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-center rounded-lg font-label-caps text-xs font-bold active:scale-[0.98] transition-colors cursor-pointer border border-white/5"
+									>
+										Cerrar
+									</button>
 
 									<div className="border-t border-white/5 my-2" />
 
 									<button
 										type="button"
-										onClick={() => setIsDeleting(true)}
+										onClick={() => setIsLeaving(true)}
 										className="w-full py-2.5 bg-error/10 hover:bg-error/20 border border-error/30 text-error hover:text-error-light text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer"
 									>
-										Eliminar Torneo
+										Salir del Torneo
 									</button>
 								</div>
-							</form>
+							</div>
 						) : (
 							<div className="space-y-6">
 								<div className="bg-error/10 border border-error/20 rounded-xl p-4 text-center">
@@ -1182,19 +1319,21 @@ export function Tournament() {
 										warning
 									</span>
 									<p className="font-headline-md text-sm text-white uppercase font-bold tracking-wider">
-										¿Estás completamente seguro?
+										¿Querés salir del torneo?
 									</p>
 									<p className="font-body-md text-xs text-on-surface-variant mt-2 leading-relaxed">
-										Esta acción es irreversible. Se eliminará permanentemente el
-										torneo, sus participantes, chats y predicciones.
+										Esta acción eliminará de forma irreversible todos tus
+										pronósticos registrados en este torneo, tus estadísticas
+										acumuladas y tu posición actual en la tabla.
 									</p>
 								</div>
 
 								<div className="flex gap-3">
 									<button
 										type="button"
-										onClick={() => setIsDeleting(false)}
+										onClick={() => setIsLeaving(false)}
 										className="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-center rounded-lg font-label-caps text-xs font-bold active:scale-[0.98] transition-colors cursor-pointer border border-white/5"
+										disabled={isLeavingTournament}
 									>
 										Cancelar
 									</button>
@@ -1202,23 +1341,90 @@ export function Tournament() {
 										type="button"
 										onClick={async () => {
 											try {
-												await deleteTournament(tournament.id);
+												await leaveTournament(tournament.id);
+												setIsSettingsOpen(false);
 												navigate("/dashboard");
 											} catch (err) {
 												alert(
 													err instanceof Error
 														? err.message
-														: "Error al eliminar",
+														: "Error al salir del torneo",
 												);
 											}
 										}}
-										className="flex-1 py-2.5 bg-error hover:bg-error-light text-white text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer"
+										className="flex-1 py-2.5 bg-error hover:bg-error-light text-white text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer disabled:opacity-50"
+										disabled={isLeavingTournament}
 									>
-										Confirmar Eliminar
+										{isLeavingTournament ? "Saliendo..." : "Confirmar Salida"}
 									</button>
 								</div>
 							</div>
 						)}
+					</GlassCard>
+				</div>
+			)}
+
+			{/* MODAL CONFIRMACIÓN DE EXPULSIÓN DE MIEMBRO */}
+			{memberToKick && (
+				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+					<GlassCard
+						className="w-full max-w-sm p-6 rounded-2xl border-white/10 shadow-2xl relative overflow-hidden"
+						glow
+					>
+						<div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-error to-error-light" />
+
+						<div className="text-center space-y-4">
+							<div className="w-12 h-12 rounded-full bg-error/10 border border-error/30 flex items-center justify-center mx-auto text-error">
+								<span className="material-symbols-outlined text-2xl">
+									person_remove
+								</span>
+							</div>
+
+							<div className="space-y-2">
+								<h3 className="font-headline-md text-lg text-white uppercase tracking-wider font-bold">
+									¿Expulsar participante?
+								</h3>
+								<p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
+									Estás por eliminar de forma definitiva a{" "}
+									<strong className="text-white">
+										{memberToKick.displayName}
+									</strong>{" "}
+									de este torneo.
+								</p>
+								<p className="font-body-md text-[11px] text-error leading-relaxed">
+									Se borrarán de forma permanente todas sus predicciones y
+									estadísticas de ranking en el torneo.
+								</p>
+							</div>
+
+							<div className="flex gap-3 pt-2">
+								<button
+									type="button"
+									onClick={() => setMemberToKick(null)}
+									className="flex-1 py-2 bg-surface-container-high hover:bg-surface-container-highest text-white text-center rounded-lg font-label-caps text-xs font-bold active:scale-[0.98] transition-colors cursor-pointer border border-white/5"
+								>
+									Cancelar
+								</button>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											await removeMember(memberToKick.userId);
+											setMemberToKick(null);
+										} catch (err) {
+											alert(
+												err instanceof Error
+													? err.message
+													: "Error al expulsar participante",
+											);
+										}
+									}}
+									className="flex-1 py-2 bg-error hover:bg-error-light text-white text-center rounded-lg font-label-caps text-xs font-extrabold active:scale-[0.98] transition-colors cursor-pointer"
+								>
+									Confirmar Expulsar
+								</button>
+							</div>
+						</div>
 					</GlassCard>
 				</div>
 			)}

@@ -180,17 +180,46 @@ export const tournamentsApi = {
 	async getTournaments(): Promise<Tournament[]> {
 		await new Promise((r) => setTimeout(r, 150));
 		if (isSupabaseConfigured) {
-			const { data, error } = await supabase.from("tournaments").select("*");
+			const {
+				data: { user },
+				error: userError,
+			} = await supabase.auth.getUser();
+			if (userError || !user) return [];
+
+			// Consultamos los miembros de torneos para el usuario actual y traemos la información del torneo asociada
+			const { data, error } = await supabase
+				.from("tournament_members")
+				.select("tournaments(*)")
+				.eq("user_id", user.id);
+
 			if (error) throw error;
-			return data.map((t) => ({
-				id: t.id,
-				ownerId: t.owner_id,
-				competitionId: String(t.competition_id),
-				name: t.name,
-				code: t.code,
-				scoringConfig: defaultScoringConfig,
-				status: t.status,
-			}));
+
+			interface MemberWithTournament {
+				tournaments: {
+					id: string;
+					owner_id: string;
+					competition_id: number;
+					name: string;
+					code: string;
+					status: "active" | "finished";
+				} | null;
+			}
+
+			const tournaments: Tournament[] = [];
+			for (const row of (data as unknown as MemberWithTournament[]) || []) {
+				if (row.tournaments) {
+					tournaments.push({
+						id: row.tournaments.id,
+						ownerId: row.tournaments.owner_id,
+						competitionId: String(row.tournaments.competition_id),
+						name: row.tournaments.name,
+						code: row.tournaments.code,
+						scoringConfig: defaultScoringConfig,
+						status: row.tournaments.status,
+					});
+				}
+			}
+			return tournaments;
 		}
 		const currentUser = authApi.getPersistedUser();
 		const tournaments = getLocalTournaments();
@@ -690,5 +719,53 @@ export const tournamentsApi = {
 				JSON.stringify(filteredPreds),
 			);
 		}
+	},
+
+	async removeMember(tournamentId: string, userId: string): Promise<void> {
+		await new Promise((r) => setTimeout(r, 150));
+		if (isSupabaseConfigured) {
+			const { error } = await supabase
+				.from("tournament_members")
+				.delete()
+				.eq("tournament_id", tournamentId)
+				.eq("user_id", userId);
+			if (error) throw error;
+			return;
+		}
+
+		// Fallback LocalStorage
+		const members = getLocalMembers();
+		const filteredMembers = members.filter(
+			(m) => !(m.tournamentId === tournamentId && m.userId === userId),
+		);
+		saveLocalMembers(filteredMembers);
+
+		// Limpieza local en cascada de predicciones
+		const rawPreds = localStorage.getItem("prodear_predictions");
+		if (rawPreds) {
+			const preds: Prediction[] = JSON.parse(rawPreds);
+			const filteredPreds = preds.filter(
+				(p) => !(p.tournamentId === tournamentId && p.userId === userId),
+			);
+			localStorage.setItem(
+				"prodear_predictions",
+				JSON.stringify(filteredPreds),
+			);
+		}
+	},
+
+	async leaveTournament(tournamentId: string): Promise<void> {
+		if (isSupabaseConfigured) {
+			const {
+				data: { user },
+				error: userError,
+			} = await supabase.auth.getUser();
+			if (userError || !user) throw new Error("Usuario no autenticado");
+			return tournamentsApi.removeMember(tournamentId, user.id);
+		}
+
+		const currentUser = authApi.getPersistedUser();
+		if (!currentUser) throw new Error("Usuario no autenticado");
+		return tournamentsApi.removeMember(tournamentId, currentUser.id);
 	},
 };

@@ -292,6 +292,21 @@ BEFORE INSERT OR UPDATE ON public.predictions
 FOR EACH ROW
 EXECUTE FUNCTION public.check_prediction_lock();
 
+-- Trigger: Borrado en cascada de predicciones al desvincularse un miembro del torneo
+CREATE OR REPLACE FUNCTION public.proc_delete_predictions_on_member_leave()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM public.predictions
+    WHERE user_id = OLD.user_id AND tournament_id = OLD.tournament_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_delete_predictions_on_member_leave
+BEFORE DELETE ON public.tournament_members
+FOR EACH ROW
+EXECUTE FUNCTION public.proc_delete_predictions_on_member_leave();
+
 -- ====================================================================
 -- Helper Function to prevent RLS circular recursion
 -- ====================================================================

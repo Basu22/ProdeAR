@@ -275,8 +275,9 @@ Para evitar errores de discrepancia de esquema en producción (típicos fallos d
 PostgreSQL en Supabase permite aplicar seguridad a nivel de fila (Row Level Security). Esto garantiza que un usuario no pueda alterar datos ajenos ni leer información privada de otros torneos.
 
 * **Tabla USERS**: Un usuario solo puede modificar su propio perfil (`auth.uid() = id`). Todos los usuarios autenticados pueden leer los perfiles de otros para mostrar nombres y avatares en las tablas de posiciones.
-* **Tabla TOURNAMENTS**: Lectura pública o limitada a usuarios que conozcan el código. Solo el creador (`owner_id = auth.uid()`) puede editar el nombre, las reglas de puntuación o finalizar el torneo.
-* **Tabla TOURNAMENT_MEMBERS**: Un usuario puede agregarse a sí mismo a un torneo si tiene el código correspondiente. No puede modificar los puntajes directamente.
+* **Tabla TOURNAMENTS**: Lectura pública para cualquier usuario autenticado (para permitir buscar la información del torneo antes de unirse y evitar bloqueos de RLS). Únicamente el creador/administrador (`owner_id = auth.uid()`) tiene permisos para editar el nombre o eliminar el torneo.
+* **Tabla TOURNAMENT_MEMBERS**: Un usuario puede agregarse a sí mismo a un torneo si tiene el código correspondiente. Solo el propio participante o el creador del torneo pueden eliminar una fila de membresía (desvinculación o expulsión).
+  * *Borrado en cascada*: La eliminación de una membresía ejecuta el trigger `trigger_delete_predictions_on_member_leave` que borra automáticamente todos los pronósticos del usuario correspondientes a ese torneo para evitar registros huérfanos.
 * **Tabla PREDICTIONS**: Un usuario solo puede crear o editar sus propias predicciones (`user_id = auth.uid()`).
   * *Seguridad del Prode*: Un usuario **no puede leer** las predicciones de otros usuarios para un partido específico hasta que falten 15 minutos para el inicio del partido (lock) o hasta que el partido comience. Esto evita el plagio de pronósticos.
 * **Tabla CHAT_MESSAGES**: Solo los usuarios que son miembros activos del torneo (`tournament_id` presente en sus membresías de torneo) pueden leer y enviar mensajes de chat en ese torneo.
