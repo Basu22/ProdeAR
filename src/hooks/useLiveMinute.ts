@@ -1,6 +1,64 @@
 import { useEffect, useState } from "react";
 import type { Match } from "../lib/types";
 
+const STORAGE_KEY = "prodear_live_timers";
+
+interface LiveTimerData {
+	minute: number;
+	savedAt: number;
+}
+
+/**
+ * Recupera el minuto de juego estimado desde localStorage.
+ * Compara el minuto estimado localmente con el de la base de datos y
+ * devuelve el mayor para evitar retrocesos por delays en la API de fútbol.
+ */
+function getSavedLiveMinute(matchId: string, dbMinute: number): number {
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY);
+		if (!raw) return dbMinute;
+		const timers: Record<string, LiveTimerData> = JSON.parse(raw);
+		const saved = timers[matchId];
+		if (!saved) return dbMinute;
+
+		// Si el timer guardado tiene más de 3 horas, está obsoleto
+		const now = Date.now();
+		const ageMs = now - saved.savedAt;
+		if (ageMs > 3 * 60 * 60 * 1000) {
+			return dbMinute;
+		}
+
+		// Calcular cuántos minutos transcurrieron desde que se guardó
+		const elapsedMinutes = Math.floor(ageMs / 60000);
+		const estimatedMinute = saved.minute + elapsedMinutes;
+
+		// Si el minuto estimado es mayor al de la DB, lo usamos
+		if (estimatedMinute > dbMinute) {
+			return estimatedMinute;
+		}
+	} catch (e) {
+		console.error("Error reading saved live minute:", e);
+	}
+	return dbMinute;
+}
+
+/**
+ * Guarda el minuto actual del partido en localStorage.
+ */
+function saveLiveMinute(matchId: string, minute: number) {
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY) || "{}";
+		const timers: Record<string, LiveTimerData> = JSON.parse(raw);
+		timers[matchId] = {
+			minute,
+			savedAt: Date.now(),
+		};
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(timers));
+	} catch (e) {
+		console.error("Error saving live minute:", e);
+	}
+}
+
 /**
  * Custom hook to simulate the progress of a live match timer in the frontend.
  * This prevents user anxiety by incrementing the elapsed minute locally between database syncs.
@@ -13,16 +71,20 @@ import type { Match } from "../lib/types";
  * - Not ticking during halftime or full-time
  */
 export function useLiveMinute(match: Match): number | string | undefined {
-	const initialMinute = match.minute;
 	const isLive = match.status === "live";
 	const rawStatus = match.rawStatus;
+
+	// Si está en vivo y no es entretiempo ni penales, buscamos si hay un timer guardado localmente más actualizado
+	const startMinute = isLive && rawStatus !== "HT" && rawStatus !== "P" && match.minute !== undefined
+		? getSavedLiveMinute(match.id, match.minute)
+		: match.minute;
 
 	const [liveMinute, setLiveMinute] = useState<number | string | undefined>(
 		isLive && rawStatus === "HT"
 			? "ET"
 			: isLive && rawStatus === "P"
 				? "PEN"
-				: initialMinute,
+				: startMinute,
 	);
 
 	useEffect(() => {
@@ -36,9 +98,14 @@ export function useLiveMinute(match: Match): number | string | undefined {
 			return;
 		}
 
-		setLiveMinute(initialMinute);
+		// Al recibir una actualización de props, volvemos a evaluar contra localStorage
+		const currentStart = isLive && match.minute !== undefined
+			? getSavedLiveMinute(match.id, match.minute)
+			: startMinute;
 
-		if (!isLive || initialMinute === undefined) {
+		setLiveMinute(currentStart);
+
+		if (!isLive || currentStart === undefined) {
 			return;
 		}
 
@@ -51,29 +118,31 @@ export function useLiveMinute(match: Match): number | string | undefined {
 
 			if (elapsedMinutes > 0) {
 				setLiveMinute(() => {
+					let nextMinute = currentStart;
 					// Football-specific stopwatch capping logic
-					if (initialMinute > 0 && initialMinute < 45) {
-						return Math.min(initialMinute + elapsedMinutes, 45);
+					if (currentStart > 0 && currentStart < 45) {
+						nextMinute = Math.min(currentStart + elapsedMinutes, 45);
+					} else if (currentStart === 45) {
+						nextMinute = 45;
+					} else if (currentStart > 45 && currentStart < 90) {
+						nextMinute = Math.min(currentStart + elapsedMinutes, 90);
+					} else if (currentStart === 90) {
+						nextMinute = 90;
+					} else if (currentStart > 90 && currentStart < 120) {
+						nextMinute = Math.min(currentStart + elapsedMinutes, 120);
 					}
-					if (initialMinute === 45) {
-						return 45;
+
+					// Guardar el minuto progresado en localStorage para que no se pierda al recargar
+					if (typeof nextMinute === "number") {
+						saveLiveMinute(match.id, nextMinute);
 					}
-					if (initialMinute > 45 && initialMinute < 90) {
-						return Math.min(initialMinute + elapsedMinutes, 90);
-					}
-					if (initialMinute === 90) {
-						return 90;
-					}
-					if (initialMinute > 90 && initialMinute < 120) {
-						return Math.min(initialMinute + elapsedMinutes, 120);
-					}
-					return initialMinute; // Default fallback
+					return nextMinute;
 				});
 			}
 		}, 10000); // Check every 10 seconds to update the minute smoothly
 
 		return () => clearInterval(interval);
-	}, [initialMinute, isLive, rawStatus]);
+	}, [match.id, match.minute, isLive, rawStatus, startMinute]);
 
 	return liveMinute;
 }
