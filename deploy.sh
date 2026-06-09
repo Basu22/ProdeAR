@@ -2,7 +2,7 @@
 
 # ⚽ ProdeAR — Script de Despliegue Automatizado
 # --- CONFIGURACIÓN DE PRODUCCIÓN ---
-SUPABASE_PROJECT_ID="cdwefeqlxktliumtaqdc"
+SUPABASE_PROJECT_ID="ijscgcpdfwlkgucjrmna"
 # -----------------------------------
 
 REAL_USER=${SUDO_USER:-$(whoami)}
@@ -34,7 +34,7 @@ CHANGES_IN_FUNCTIONS=$(sudo -u $REAL_USER git diff --name-only HEAD~1 HEAD | gre
 if [ -n "$CHANGES_IN_FUNCTIONS" ] || [ "$1" == "--force-functions" ]; then
     echo "⚡ Cambios detectados en Edge Functions. Desplegando a Supabase..."
     # Pasar explícitamente el token al comando ejecutado por sudo para evitar restricciones de entorno
-    if ! sudo -u $REAL_USER SUPABASE_ACCESS_TOKEN="$SUPABASE_ACCESS_TOKEN" npx supabase functions deploy poll-scores --project-ref "$SUPABASE_PROJECT_ID"; then
+    if ! sudo -u $REAL_USER SUPABASE_ACCESS_TOKEN="$SUPABASE_ACCESS_TOKEN" npx supabase functions deploy poll-scores --no-verify-jwt --project-ref "$SUPABASE_PROJECT_ID"; then
         echo "❌ ERROR: Falló el despliegue de las Edge Functions."
         exit 1
     fi

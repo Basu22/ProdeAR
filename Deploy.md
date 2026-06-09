@@ -24,7 +24,7 @@ La infraestructura de producción está diseñada bajo un enfoque **100% Serverl
 ```
 
 * **Frontend (Vercel):** Hospeda los archivos estáticos de la SPA (`prode-ar.vercel.app`). El despliegue es continuo desde la rama `main` de GitHub.
-* **Backend & DB (Supabase):** Aloja la base de datos PostgreSQL de producción (`cdwefeqlxktliumtaqdc`), la autenticación (Google OAuth y Email) y el servicio de tiempo real.
+* **Backend & DB (Supabase):** Aloja la base de datos PostgreSQL de producción (`ijscgcpdfwlkgucjrmna`), la autenticación (Google OAuth y Email) y el servicio de tiempo real.
 * **Sincronizador (Edge Functions):** La función `poll-scores` se ejecuta en la nube de Supabase y actualiza los marcadores y rankings consultando a **API-Football**.
 
 ---
@@ -54,37 +54,33 @@ Al crear una base de datos de producción nueva, los catálogos y partidos deben
 
 1. **Inicializar Ligas (Seeding):**
    Crea la "Copa del Mundo 2026" y los "Amistosos Internacionales" en la tabla `competitions`:
-   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?seed=true`
+   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?seed=true`
 2. **Importar Fixture de Amistosos Internacionales 2026 (Liga 10):**
-   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?league=10&season=2026`
+   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?league=10&season=2026`
 3. **Importar Fixture de Copa del Mundo 2026 (Liga 1):**
-   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?league=1&season=2026`
+   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?league=1&season=2026`
 
 ---
 
 ## 4. Automatización de Partidos en Vivo (Cron Job)
 
-La base de datos de producción actualiza sus marcadores en vivo de forma autónoma mediante la extensión `pg_cron` de PostgreSQL en Supabase, llamando a la Edge Function cada 10 minutos:
+La base de datos de producción actualiza sus marcadores en vivo de forma autónoma mediante la extensión `pg_cron` de PostgreSQL en Supabase, llamando a la función inteligente de comprobación cada 10 minutos para optimizar la cuota de la API:
 
 ```sql
--- Habilitar extensiones
+-- Habilitar extensiones requeridas
 create extension if not exists pg_net;
 create extension if not exists pg_cron;
 
--- Programar sincronización periódica
+-- Programar sincronización periódica optimizada (Smart Sync)
 select cron.schedule(
   'sincronizar-partidos-cron',
   '*/10 * * * *',
   $$
-  select net.http_post(
-    url := 'https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores',
-    headers := '{"Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
-  );
+  select public.check_and_trigger_poll_scores();
   $$
 );
 ```
-*Nota: Para que el Cron Job funcione sin autenticación, la verificación JWT para la función `poll-scores` debe estar deshabilitada en la configuración de la Edge Function en el panel de Supabase.*
+*Nota: Para que el Cron Job funcione sin autenticación hardcodeada, la verificación JWT para la función `poll-scores` debe estar deshabilitada en la configuración de la Edge Function en el panel de Supabase (desplegada usando la opción `--no-verify-jwt`).*
 
 ---
 

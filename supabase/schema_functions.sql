@@ -160,10 +160,9 @@ CREATE OR REPLACE FUNCTION public.check_and_trigger_poll_scores()
 RETURNS VOID AS $$
 DECLARE
     has_active_matches BOOLEAN;
-    api_url TEXT := 'https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?live=all'; -- PRODUCCIÓN: actualizar si cambia el project-ref
+    api_url TEXT := 'https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?live=all'; -- PRODUCCIÓN: actualizar si cambia el project-ref
     headers JSONB := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer TU_ANON_KEY'
+        'Content-Type', 'application/json'
     );
 BEGIN
     -- Comprobar si hay partidos activos (en vivo o programados en la ventana de juego)
