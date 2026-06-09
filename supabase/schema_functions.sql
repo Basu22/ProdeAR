@@ -174,8 +174,8 @@ BEGIN
             status = 'live'::match_status
             OR (
                 status = 'scheduled'::match_status
-                AND kick_off >= NOW() - INTERVAL '3 hours'
-                AND kick_off <= NOW() + INTERVAL '15 minutes'
+                AND kick_off >= NOW() - INTERVAL '4 hours'         -- Ampliado a 4 horas para cubrir prórrogas/penales
+                AND kick_off <= NOW() + INTERVAL '2 minutes'        -- Reducido de 15 a 2 minutos
             )
     ) INTO has_active_matches;
 
