@@ -2,7 +2,7 @@
 
 # ⚽ ProdeAR — Script de Despliegue Automatizado
 # --- CONFIGURACIÓN DE PRODUCCIÓN ---
-SUPABASE_PROJECT_ID="ijscgcpdfwlkgucjrmna"
+SUPABASE_PROJECT_ID="cdwefeqlxktliumtaqdc"
 # -----------------------------------
 
 REAL_USER=${SUDO_USER:-$(whoami)}

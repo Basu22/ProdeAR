@@ -24,7 +24,7 @@ La infraestructura de producción está diseñada bajo un enfoque **100% Serverl
 ```
 
 * **Frontend (Vercel):** Hospeda los archivos estáticos de la SPA (`prode-ar.vercel.app`). El despliegue es continuo desde la rama `main` de GitHub.
-* **Backend & DB (Supabase):** Aloja la base de datos PostgreSQL de producción (`ijscgcpdfwlkgucjrmna`), la autenticación (Google OAuth y Email) y el servicio de tiempo real.
+* **Backend & DB (Supabase):** Aloja la base de datos PostgreSQL de producción (`cdwefeqlxktliumtaqdc`), la autenticación (Google OAuth y Email) y el servicio de tiempo real.
 * **Sincronizador (Edge Functions):** La función `poll-scores` se ejecuta en la nube de Supabase y actualiza los marcadores y rankings consultando a **API-Football**.
 
 ---
@@ -54,11 +54,11 @@ Al crear una base de datos de producción nueva, los catálogos y partidos deben
 
 1. **Inicializar Ligas (Seeding):**
    Crea la "Copa del Mundo 2026" y los "Amistosos Internacionales" en la tabla `competitions`:
-   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?seed=true`
+   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?seed=true`
 2. **Importar Fixture de Amistosos Internacionales 2026 (Liga 10):**
-   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?league=10&season=2026`
+   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?league=10&season=2026`
 3. **Importar Fixture de Copa del Mundo 2026 (Liga 1):**
-   👉 `https://ijscgcpdfwlkgucjrmna.supabase.co/functions/v1/poll-scores?league=1&season=2026`
+   👉 `https://cdwefeqlxktliumtaqdc.supabase.co/functions/v1/poll-scores?league=1&season=2026`
 
 ---
 
