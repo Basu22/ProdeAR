@@ -298,3 +298,37 @@ PostgreSQL en Supabase permite aplicar seguridad a nivel de fila (Row Level Secu
    * Visualizador dinámico de brackets (diagrama de playoffs interactivo).
    * Bonos por madrugar (Early Picks) y por completar a tiempo la fecha.
    * Predicción a largo plazo de Goleador de Torneo.
+
+---
+
+## 8. Estrategia de Cache Busting
+
+ProdeAR es una aplicación **100% online** (no requiere soporte offline). La estrategia de cache busting garantiza que los usuarios siempre vean la última versión sin intervención manual.
+
+### Arquitectura de 3 capas
+
+| Capa | Archivo | Estrategia |
+|------|---------|------------|
+| **HTTP Headers** | `vercel.json` | `index.html` → `no-cache, no-store, must-revalidate`. Assets con hash → `public, max-age=31536000, immutable` |
+| **HTML Meta Tags** | `index.html` | Triple defensa: `Cache-Control`, `Pragma`, `Expires` meta tags en el `<head>` |
+| **Service Worker** | `vite.config.ts` (VitePWA) | `navigateFallback: undefined` — no sirve HTML cacheado. Google Fonts con `CacheFirst` |
+
+### Content-Hash en assets
+
+Vite genera automáticamente hashes de contenido en todos los JS/CSS (`assets/[name]-[hash].js`). Si el contenido cambia, el filename cambia, invalidando cualquier cache anterior.
+
+### Migración de Service Workers viejos
+
+El `index.html` incluye un script inline que desregistra SWs de versiones anteriores y limpia caches stale. Este script es **temporal** y puede removerse 2-3 semanas después del deploy.
+
+### Validación post-deploy
+
+```bash
+# Verificar headers del HTML
+curl -I https://prodear.app/
+# Esperado: cache-control: no-cache, no-store, must-revalidate
+
+# Verificar headers de assets
+curl -I https://prodear.app/assets/index-XXXXX.js
+# Esperado: cache-control: public, max-age=31536000, immutable
+```
