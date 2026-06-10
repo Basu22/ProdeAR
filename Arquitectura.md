@@ -332,3 +332,103 @@ curl -I https://prodear.app/
 curl -I https://prodear.app/assets/index-XXXXX.js
 # Esperado: cache-control: public, max-age=31536000, immutable
 ```
+
+---
+
+## 9. Troubleshooting de Deploy en Vercel
+
+### Problema 1: "Invalid route source pattern" en vercel.json
+
+Vercel usa `path-to-regexp` (NO regex estándar) para parsear las rutas en `rewrites` y `headers`. **Sintaxis incorrecta causa que el deploy falle silenciosamente.**
+
+#### Errores comunes
+
+| ❌ Incorrecto | ✅ Correcto | Por qué |
+|---------------|-------------|---------|
+| `"/(.*)"` | `"/:path(.*)"` | `(.*)` solo no es válido, necesita un parámetro |
+| `"/(a\|b\|c)"` (pipes) | Múltiples reglas separadas | `\|` no es válido en path-to-regexp |
+| `"/workbox-(.*).js"` | `"/workbox-:hash.js"` | Usar parámetros nombrados |
+| `"/assets/(.*)"` | `"/assets/:path(.*)"` | Necesita parámetro |
+
+#### Ejemplo correcto de `vercel.json`
+
+```json
+{
+  "rewrites": [
+    { "source": "/:path(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/workbox-:hash.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/assets/:path(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}
+```
+
+### Problema 2: Webhook de GitHub no triggera deploys
+
+Si los commits llegan a GitHub pero Vercel no los detecta:
+
+1. **Verificar webhooks en GitHub**: `github.com/[owner]/[repo]/settings/hooks` - debe haber un webhook de Vercel
+2. **Si no hay webhook**: Reconectar el repo en Vercel (`Settings → Git → Disconnect → Connect`)
+3. **Si hay webhook pero falla**: Verificar que el payload URL apunte al proyecto correcto de Vercel
+
+### Flujo de Deploy Correcto
+
+```bash
+# 1. Hacer cambios
+git add .
+git commit -m "Full Deploy: $(date '+%Y-%m-%d %H:%M:%S')"
+
+# 2. Push a GitHub (triggera webhook si está configurado)
+git push origin main
+
+# 3. Vercel detecta el push y hace deploy automático
+# 4. Verificar en vercel.com que aparezca "Ready" (verde)
+```
+
+### Deploy Manual (sin webhook)
+
+Si el webhook no funciona, usar Deploy Hook:
+
+1. Crear hook en Vercel (`Settings → Git → Deploy Hooks`)
+2. Branch: `main`
+3. Copiar la URL del hook
+4. Ejecutar: `curl -X POST "URL_DEL_HOOK"`
+
+### Script de Deploy (`deploy.sh`)
+
+El proyecto incluye un script automatizado que:
+1. Hace commit con timestamp
+2. Pushea a GitHub
+3. Deploya Edge Functions a Supabase (si hay cambios)
+
+```bash
+./deploy.sh
+```
+
+Para forzar deploy de Edge Functions:
+```bash
+./deploy.sh --force-functions
+```
