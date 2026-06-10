@@ -5,7 +5,7 @@ import { GlassCard } from "../components/ui/GlassCard";
 import { MatchCardSkeleton } from "../components/ui/Skeletons";
 import { useGlobalRankings } from "../hooks/useGlobalRankings";
 import { useMatches } from "../hooks/useMatches";
-import { usePredictions, useSavePrediction } from "../hooks/usePredictions";
+import { usePredictions } from "../hooks/usePredictions";
 import { useTournaments } from "../hooks/useTournament";
 import { useUserStats } from "../hooks/useUserStats";
 import { pushApi } from "../lib/api/push";
@@ -21,7 +21,6 @@ export function Dashboard() {
 	const { data: tournaments } = useTournaments();
 	const activeTournament = tournaments?.[0];
 	const { data: predictions } = usePredictions(activeTournament?.id || "");
-	const { mutate: savePrediction } = useSavePrediction();
 
 	// Generate today's date key in YYYY-MM-DD format (local time)
 	const todayKey = useMemo(() => {

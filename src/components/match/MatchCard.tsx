@@ -88,60 +88,6 @@ function translateStage(stage: string): string {
 	return stage;
 }
 
-function translateStageShort(stage: string): string {
-	const lower = stage.toLowerCase();
-	if (lower.includes("group stage")) {
-		const groupMatch = stage.match(/group\s*([a-z])/i);
-		if (groupMatch) return `GRUPO ${groupMatch[1].toUpperCase()}`;
-		return "GRUPOS";
-	}
-	if (lower.includes("round of 32") || lower.includes("dieciseisavos"))
-		return "16VOS";
-	if (lower.includes("round of 16")) return "OCTAVOS";
-	if (lower.includes("quarter-finals") || lower.includes("quarter-final"))
-		return "CUARTOS";
-	if (lower.includes("semi-finals") || lower.includes("semi-final"))
-		return "SEMIS";
-	if (lower.includes("third place") || lower.includes("3rd place"))
-		return "3ER PUESTO";
-	if (lower.includes("final")) return "FINAL";
-	return stage;
-}
-
-function getStatusLabel(
-	status: "not_started" | "live" | "finished" | "postponed" | "cancelled",
-): string {
-	switch (status) {
-		case "live":
-			return "En Vivo";
-		case "finished":
-			return "Finalizado";
-		case "cancelled":
-			return "Suspendido";
-		case "postponed":
-			return "Pospuesto";
-		default:
-			return "Programado";
-	}
-}
-
-function getStatusIcon(
-	status: "not_started" | "live" | "finished" | "postponed" | "cancelled",
-): string {
-	switch (status) {
-		case "live":
-			return "radio_button_checked";
-		case "finished":
-			return "check_circle";
-		case "cancelled":
-			return "cancel";
-		case "postponed":
-			return "schedule";
-		default:
-			return "schedule";
-	}
-}
-
 interface MatchCardProps {
 	match: Match;
 	showPrediction?: boolean;
