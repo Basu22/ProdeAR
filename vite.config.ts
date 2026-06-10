@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      selfDestroying: true,
+      selfDestroying: false,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'gol_sound.mp3'],
       manifest: {
@@ -21,27 +21,27 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'favicon.svg',
+            src: 'logo-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'favicon.svg',
+            src: 'logo-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'favicon.svg',
+            src: 'logo-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: 'favicon.svg',
+            src: 'logo-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable'
           }
         ]
