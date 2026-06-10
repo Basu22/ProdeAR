@@ -239,6 +239,8 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 		if (type === "goal") return "⚽";
 		if (type === "yellow") return "🟨";
 		if (type === "red") return "🟥";
+		if (type === "subst") return "🔄";
+		if (type === "var") return "🖥️";
 		return "📢";
 	};
 
@@ -305,7 +307,11 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 										? "bg-tertiary"
 										: e.type === "red"
 											? "bg-error"
-											: "bg-primary shadow-[0_0_8px_rgba(56,189,248,0.5)]";
+											: e.type === "subst"
+												? "bg-[var(--color-pitch-green)] shadow-[0_0_8px_rgba(0,255,65,0.4)]"
+												: e.type === "var"
+													? "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+													: "bg-primary shadow-[0_0_8px_rgba(56,189,248,0.5)]";
 
 								return (
 									<div key={e.id} className="relative">
@@ -314,14 +320,38 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 											className={`absolute -left-[29px] top-1.5 w-2.5 h-2.5 rounded-full ${dotColor} border-2 border-background`}
 										/>
 										<div className="flex items-center justify-between bg-surface-container-low/40 rounded-xl p-2.5 border border-white/5">
-											<div className="flex items-center gap-2 min-w-0">
-												<span className="font-stat-value text-xs font-black text-primary tabular-nums">
-													{e.minute}'
+											<div className="flex items-center gap-2 min-w-0 w-full">
+												<span className="font-stat-value text-xs font-black text-primary tabular-nums flex-shrink-0">
+													{e.minute}'{e.extra ? `+${e.extra}` : ""}
 												</span>
-												<span className="text-xs">{getEventEmoji(e.type)}</span>
-												<span className="text-xs text-white font-bold truncate">
-													{e.playerName}
+												<span className="text-xs flex-shrink-0">
+													{getEventEmoji(e.type)}
 												</span>
+												<div className="flex flex-col min-w-0 leading-tight">
+													{e.type === "subst" && e.assistName ? (
+														<span className="text-xs text-white font-bold truncate">
+															{e.assistName}{" "}
+															<span className="text-on-surface-variant text-[9px] font-normal">
+																🔄 {e.playerName}
+															</span>
+														</span>
+													) : (
+														<span className="text-xs text-white font-bold truncate">
+															{e.playerName}
+														</span>
+													)}
+													{e.type === "goal" && e.assistName && (
+														<span className="text-[9px] text-on-surface-variant/80 truncate">
+															Asist: {e.assistName}
+														</span>
+													)}
+													{(e.type === "var" || e.type === "info") &&
+														e.detail && (
+															<span className="text-[9px] text-on-surface-variant/80 truncate">
+																{e.detail}
+															</span>
+														)}
+												</div>
 											</div>
 											<span className="text-[8px] text-on-surface-variant font-black bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
 												{isHome ? "LOC" : "VIS"}

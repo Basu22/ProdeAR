@@ -518,67 +518,127 @@ serve(async (req) => {
 					(!existingMatch || existingMatch.status !== "finished");
 			}
 
-			// Mapear eventos inline del fixture (goals, cards)
-			const mappedEvents = (f.events || [])
-				.filter((e: any) => e.type === "Goal" || e.type === "Card")
-				.map((e: any, idx: number) => ({
+			let stats = existingMatch?.stats || [];
+			let lineups = existingMatch?.lineups || [];
+			let events = existingMatch?.events || [];
+
+			// Mapear eventos inline de la API como fallback inicial si existen
+			if (f.events && f.events.length > 0) {
+				events = f.events.map((e: any, idx: number) => ({
 					id: `evt-${f.fixture.id}-${idx}`,
 					type:
 						e.type === "Goal"
 							? "goal"
 							: e.detail?.includes("Red")
 								? "red"
-								: "yellow",
+								: e.type === "Card"
+									? "yellow"
+									: e.type === "subst"
+										? "subst"
+										: e.type === "Var"
+											? "var"
+											: "info",
 					minute: e.time?.elapsed ?? 0,
+					extra: e.time?.extra ?? null,
 					team: e.team?.id === f.teams.home.id ? "home" : "away",
 					playerName: e.player?.name || "Desconocido",
+					assistName: e.assist?.name || null,
+					detail: e.detail || null,
+					comments: e.comments || null,
 				}));
+			}
 
-			let stats = existingMatch?.stats || [];
-			let lineups = existingMatch?.lineups || [];
+			if (!preview) {
+				const isLive = mappedStatus === "live";
 
-			// Fetch stats and lineups if the match is live or newly finished, or if they are missing/empty
-			const needsDetails =
-				mappedStatus === "live" ||
-				isNewlyFinished ||
-				(mappedStatus === "finished" &&
-					(!stats || stats.length === 0 || !lineups || lineups.length === 0));
-
-			if (needsDetails && !preview) {
-				// Fetch statistics
-				try {
-					const statsResp = await fetch(
-						`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`,
-						{
-							headers: {
-								"x-apisports-key": apiFootballKey,
+				// 1. Obtener estadísticas si está en vivo, recién finalizado o si faltan estadísticas
+				const needsStats = isLive || isNewlyFinished || (mappedStatus === "finished" && (!stats || stats.length === 0));
+				if (needsStats) {
+					try {
+						await new Promise((resolve) => setTimeout(resolve, 100));
+						const statsResp = await fetch(
+							`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`,
+							{
+								headers: {
+									"x-apisports-key": apiFootballKey,
+								},
 							},
-						},
-					);
-					if (statsResp.ok) {
-						const statsData = await statsResp.json();
-						stats = statsData.response || [];
+						);
+						if (statsResp.ok) {
+							const statsData = await statsResp.json();
+							stats = statsData.response || [];
+						}
+					} catch (e) {
+						console.error(`Error fetching stats for match ${f.fixture.id}:`, e);
 					}
-				} catch (e) {
-					console.error(`Error fetching stats for match ${f.fixture.id}:`, e);
 				}
 
-				// Fetch lineups
-				try {
-					const lineupsResp = await fetch(
-						`https://v3.football.api-sports.io/fixtures/lineups?fixture=${f.fixture.id}`,
-						{
-							headers: {
-								"x-apisports-key": apiFootballKey,
+				// 2. Obtener alineaciones si está en vivo, recién finalizado o si faltan alineaciones
+				const needsLineups = isLive || isNewlyFinished || (mappedStatus === "finished" && (!lineups || lineups.length === 0));
+				if (needsLineups) {
+					try {
+						await new Promise((resolve) => setTimeout(resolve, 100));
+						const lineupsResp = await fetch(
+							`https://v3.football.api-sports.io/fixtures/lineups?fixture=${f.fixture.id}`,
+							{
+								headers: {
+									"x-apisports-key": apiFootballKey,
+								},
 							},
-						},
-					);
-					if (lineupsResp.ok) {
-						const lineupsData = await lineupsResp.json();
-						lineups = lineupsData.response || [];
+						);
+						if (lineupsResp.ok) {
+							const lineupsData = await lineupsResp.json();
+							lineups = lineupsData.response || [];
+						}
+					} catch (e) {
+						console.error(`Error fetching lineups for match ${f.fixture.id}:`, e);
 					}
-				} catch (e) {
-					console.error(`Error fetching lineups for match ${f.fixture.id}:`, e);
+				}
+
+				// 3. Obtener eventos detallados si está en vivo, recién finalizado o si faltan eventos
+				const needsEvents = isLive || isNewlyFinished || (mappedStatus === "finished" && (!events || events.length === 0));
+				if (needsEvents) {
+					try {
+						await new Promise((resolve) => setTimeout(resolve, 100));
+						const eventsResp = await fetch(
+							`https://v3.football.api-sports.io/fixtures/events?fixture=${f.fixture.id}`,
+							{
+								headers: {
+									"x-apisports-key": apiFootballKey,
+								},
+							},
+						);
+						if (eventsResp.ok) {
+							const eventsData = await eventsResp.json();
+							const apiEvents = eventsData.response || [];
+							if (apiEvents.length > 0) {
+								events = apiEvents.map((e: any, idx: number) => ({
+									id: `evt-${f.fixture.id}-${idx}`,
+									type:
+										e.type === "Goal"
+											? "goal"
+											: e.detail?.includes("Red")
+												? "red"
+												: e.type === "Card"
+													? "yellow"
+													: e.type === "subst"
+														? "subst"
+														: e.type === "Var"
+															? "var"
+															: "info",
+									minute: e.time?.elapsed ?? 0,
+									extra: e.time?.extra ?? null,
+									team: e.team?.id === f.teams.home.id ? "home" : "away",
+									playerName: e.player?.name || "Desconocido",
+									assistName: e.assist?.name || null,
+									detail: e.detail || null,
+									comments: e.comments || null,
+								}));
+							}
+						}
+					} catch (e) {
+						console.error(`Error fetching events for match ${f.fixture.id}:`, e);
+					}
 				}
 			}
 
@@ -586,7 +646,7 @@ serve(async (req) => {
 				competition_id: dbCompId || null,
 				api_match_id: f.fixture.id,
 				elapsed: f.fixture.status.elapsed ?? null,
-				events: mappedEvents,
+				events: events,
 				home_team: f.teams.home.name,
 				away_team: f.teams.away.name,
 				home_logo: f.teams.home.logo || null,

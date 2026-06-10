@@ -277,6 +277,8 @@ export function MatchCard({
 		if (type === "goal") return "⚽";
 		if (type === "yellow") return "🟨";
 		if (type === "red") return "🟥";
+		if (type === "subst") return "🔄";
+		if (type === "var") return "🖥️";
 		return "📢";
 	};
 
@@ -434,15 +436,38 @@ export function MatchCard({
 				<div className="flex items-center justify-end gap-2.5 w-auto md:w-[160px] md:min-w-[160px] flex-none">
 					{isLive && match.events && match.events.length > 0 && (
 						<div className="hidden sm:flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full select-none shadow-[0_0_10px_rgba(255,255,255,0.02)]">
-							{match.events.slice(-3).map((e) => (
-								<span
-									key={e.id}
-									className="text-[10px] cursor-help transition-transform hover:scale-110 active:scale-95"
-									title={`${e.minute}' - ${e.playerName} (${e.type === "goal" ? "Gol ⚽" : e.type === "yellow" ? "Tarj. Amarilla 🟨" : "Tarj. Roja 🟥"})`}
-								>
-									{e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : "🟥"}
-								</span>
-							))}
+							{match.events.slice(-3).map((e) => {
+								let emoji = "";
+								let typeLabel = "Info 📢";
+								if (e.type === "goal") {
+									emoji = "⚽";
+									typeLabel = "Gol";
+								} else if (e.type === "yellow") {
+									emoji = "🟨";
+									typeLabel = "Amarilla";
+								} else if (e.type === "red") {
+									emoji = "🟥";
+									typeLabel = "Roja";
+								} else if (e.type === "subst") {
+									emoji = "🔄";
+									typeLabel = "Cambio";
+								} else if (e.type === "var") {
+									emoji = "🖥️";
+									typeLabel = "VAR";
+								} else {
+									emoji = "📢";
+								}
+
+								return (
+									<span
+										key={e.id}
+										className="text-[10px] cursor-help transition-transform hover:scale-110 active:scale-95"
+										title={`${e.minute}' - ${e.playerName} (${typeLabel})`}
+									>
+										{emoji}
+									</span>
+								);
+							})}
 						</div>
 					)}
 					{isGoal && (

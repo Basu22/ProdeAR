@@ -51,11 +51,21 @@ export const LiveMatchRow = React.memo(({ match }: { match: Match }) => {
 						¡GOL!
 					</span>
 				)}
-				{match.events?.slice(-3).map((e) => (
-					<span key={e.id} className="text-[10px]">
-						{e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : "🟥"}
-					</span>
-				))}
+				{match.events?.slice(-3).map((e) => {
+					let emoji = "";
+					if (e.type === "goal") emoji = "⚽";
+					else if (e.type === "yellow") emoji = "🟨";
+					else if (e.type === "red") emoji = "🟥";
+					else if (e.type === "subst") emoji = "🔄";
+					else if (e.type === "var") emoji = "🖥️";
+
+					if (!emoji) return null;
+					return (
+						<span key={e.id} className="text-[10px]">
+							{emoji}
+						</span>
+					);
+				})}
 			</div>
 		</div>
 	);

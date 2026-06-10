@@ -35,10 +35,14 @@ export interface TournamentMember {
 
 export interface MatchEvent {
 	id: string;
-	type: "goal" | "yellow" | "red";
+	type: "goal" | "yellow" | "red" | "subst" | "var" | "info";
 	minute: number;
+	extra?: number | null;
 	team: "home" | "away";
 	playerName: string;
+	assistName?: string | null;
+	detail?: string | null;
+	comments?: string | null;
 }
 
 export interface TeamStats {
