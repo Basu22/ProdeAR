@@ -1,10 +1,15 @@
 import { Link } from "react-router-dom";
+import { useGlobalRankings } from "../../hooks/useGlobalRankings";
 import { useAuthStore } from "../../stores/authStore";
 import { useUIStore } from "../../stores/uiStore";
 
 export function TopAppBar() {
 	const user = useAuthStore((s) => s.user);
 	const { installPrompt, setInstallPrompt } = useUIStore();
+	const { data: rankings = [] } = useGlobalRankings();
+
+	const myRanking = user ? rankings.find((r) => r.userId === user.id) : null;
+	const totalPoints = myRanking ? myRanking.totalPoints : 0;
 
 	const handleInstallClick = async () => {
 		if (!installPrompt) return;
@@ -55,7 +60,8 @@ export function TopAppBar() {
 					<div className="flex items-center gap-2 bg-surface-container px-3.5 py-1.5 rounded-full border border-white/5 shadow-inner">
 						<div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
 						<span className="font-label-caps text-[11px] text-white font-bold select-none tabular-nums">
-							1,250 <span className="text-primary">PTS</span>
+							{totalPoints.toLocaleString()}{" "}
+							<span className="text-primary">PTS</span>
 						</span>
 					</div>
 
