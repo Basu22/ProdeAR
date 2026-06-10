@@ -465,24 +465,12 @@ export function Dashboard() {
 										className="animate-enter"
 										style={{ animationDelay: `${idx * 60}ms` }}
 									>
-										<MatchCard
-											match={match}
-											showPrediction={!!activeTournament}
-											prediction={pred}
-											onSave={
-												activeTournament
-													? async (home, away, penaltyWinner) => {
-															await savePrediction({
-																matchId: match.id,
-																tournamentId: activeTournament.id,
-																predictedHome: home,
-																predictedAway: away,
-																predictedWinner: penaltyWinner,
-															});
-														}
-													: undefined
-											}
-										/>
+								<MatchCard
+									match={match}
+									predictionViewMode={true}
+									tournamentName={activeTournament?.name}
+									prediction={pred}
+								/>
 									</div>
 								);
 							})}
@@ -594,23 +582,6 @@ export function Dashboard() {
 						)}
 					</div>
 				</GlassCard>
-
-				{/* Tactical Sol de Mayo Badge */}
-				<div className="glass-card rounded-xl p-6 border-white/10 relative overflow-hidden bg-gradient-to-br from-tertiary/10 to-transparent">
-					<div className="flex items-center gap-3">
-						<span className="material-symbols-outlined text-tertiary text-3xl stadium-glow-gold">
-							workspace_premium
-						</span>
-						<div>
-							<h4 className="font-headline-md text-sm text-white uppercase tracking-tight font-bold">
-								Sol de Mayo Club
-							</h4>
-							<p className="font-body-md text-xs text-on-surface-variant">
-								Reglas personalizadas de puntuación aplicadas de forma estricta.
-							</p>
-						</div>
-					</div>
-				</div>
 			</div>
 		</div>
 	);

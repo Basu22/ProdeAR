@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { PLAYERS } from "../../lib/api/mockData";
 import type {
 	Match,
+	MatchEvent,
 	TacticalPlayerInfo,
 	TeamLineup,
 	TeamStats,
@@ -9,6 +10,15 @@ import type {
 
 interface MatchDetailsTabsProps {
 	match: Match;
+}
+
+function getEventEmoji(type: string): string {
+	if (type === "goal") return "⚽";
+	if (type === "yellow") return "🟨";
+	if (type === "red") return "🟥";
+	if (type === "subst") return "🔄";
+	if (type === "var") return "🖥️";
+	return "📢";
 }
 
 export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
@@ -235,15 +245,6 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 		];
 	}, [match]);
 
-	const getEventEmoji = (type: string) => {
-		if (type === "goal") return "⚽";
-		if (type === "yellow") return "🟨";
-		if (type === "red") return "🟥";
-		if (type === "subst") return "🔄";
-		if (type === "var") return "🖥️";
-		return "📢";
-	};
-
 	const getStatValue = (
 		stats: TeamStats[] | null,
 		type: string,
@@ -287,7 +288,7 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 				))}
 			</div>
 
-			{/* EVENTOS TIMELINE */}
+			{/* EVENTOS TIMELINE — Layout 3 columnas (Home izq / Minuto centro / Away der) */}
 			{activeTab === "eventos" && (
 				<div className="space-y-3">
 					{!match.events || match.events.length === 0 ? (
@@ -299,68 +300,40 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 							</span>
 						</div>
 					) : (
-						<div className="relative pl-6 border-l border-white/10 ml-2 space-y-3 py-1">
-							{match.events.map((e) => {
-								const isHome = e.team === "home";
-								const dotColor =
-									e.type === "yellow"
-										? "bg-tertiary"
-										: e.type === "red"
-											? "bg-error"
-											: e.type === "subst"
-												? "bg-[var(--color-pitch-green)] shadow-[0_0_8px_rgba(0,255,65,0.4)]"
-												: e.type === "var"
-													? "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
-													: "bg-primary shadow-[0_0_8px_rgba(56,189,248,0.5)]";
+						<>
+							{/* Header con nombres de equipos */}
+							<div className="flex items-center justify-between px-2 pb-2 border-b border-white/5">
+								<span className="font-label-caps text-[10px] font-extrabold tracking-widest uppercase text-secondary truncate max-w-[40%]">
+									{match.homeTeam}
+								</span>
+								<span className="font-label-caps text-[9px] font-bold tracking-widest uppercase text-on-surface-variant/60">
+									EVENTOS
+								</span>
+								<span className="font-label-caps text-[10px] font-extrabold tracking-widest uppercase text-primary text-glowing truncate max-w-[40%]">
+									{match.awayTeam}
+								</span>
+							</div>
 
-								return (
-									<div key={e.id} className="relative">
-										{/* Dot indicator on timeline */}
-										<div
-											className={`absolute -left-[29px] top-1.5 w-2.5 h-2.5 rounded-full ${dotColor} border-2 border-background`}
+							{/* Timeline con 3 columnas y línea vertical central */}
+							<div className="relative py-1">
+								{/* Línea vertical central */}
+								<div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2 pointer-events-none" />
+
+								{/* Eventos ordenados por minuto */}
+								{match.events
+									.slice()
+									.sort((a, b) => a.minute - b.minute)
+									.map((event) => (
+										<EventRow
+											key={event.id}
+											event={event}
+											isHome={event.team === "home"}
+											homeLogo={match.homeLogo}
+											awayLogo={match.awayLogo}
 										/>
-										<div className="flex items-center justify-between bg-surface-container-low/40 rounded-xl p-2.5 border border-white/5">
-											<div className="flex items-center gap-2 min-w-0 w-full">
-												<span className="font-stat-value text-xs font-black text-primary tabular-nums flex-shrink-0">
-													{e.minute}'{e.extra ? `+${e.extra}` : ""}
-												</span>
-												<span className="text-xs flex-shrink-0">
-													{getEventEmoji(e.type)}
-												</span>
-												<div className="flex flex-col min-w-0 leading-tight">
-													{e.type === "subst" && e.assistName ? (
-														<span className="text-xs text-white font-bold truncate">
-															{e.assistName}{" "}
-															<span className="text-on-surface-variant text-[9px] font-normal">
-																🔄 {e.playerName}
-															</span>
-														</span>
-													) : (
-														<span className="text-xs text-white font-bold truncate">
-															{e.playerName}
-														</span>
-													)}
-													{e.type === "goal" && e.assistName && (
-														<span className="text-[9px] text-on-surface-variant/80 truncate">
-															Asist: {e.assistName}
-														</span>
-													)}
-													{(e.type === "var" || e.type === "info") &&
-														e.detail && (
-															<span className="text-[9px] text-on-surface-variant/80 truncate">
-																{e.detail}
-															</span>
-														)}
-												</div>
-											</div>
-											<span className="text-[8px] text-on-surface-variant font-black bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
-												{isHome ? "LOC" : "VIS"}
-											</span>
-										</div>
-									</div>
-								);
-							})}
-						</div>
+									))}
+							</div>
+						</>
 					)}
 				</div>
 			)}
@@ -369,11 +342,11 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 			{activeTab === "estadisticas" && (
 				<div className="space-y-4">
 					{!statsData ? (
-						<div className="text-center py-4">
-							<span className="text-[10px] text-on-surface-variant/70 italic uppercase tracking-wider">
-								Estadísticas no disponibles todavía
-							</span>
-						</div>
+						<EmptyState
+							icon="search_off"
+							message="SIN INFORMACIÓN DISPONIBLE"
+							submessage="Se actualizará cuando comience el partido"
+						/>
 					) : (
 						<div className="grid gap-3 bg-surface-container-low/30 rounded-xl p-3 border border-white/5">
 							{/* Ball Possession */}
@@ -427,11 +400,11 @@ export function MatchDetailsTabs({ match }: MatchDetailsTabsProps) {
 			{activeTab === "formaciones" && (
 				<div className="space-y-4">
 					{!lineupsData ? (
-						<div className="text-center py-4">
-							<span className="text-[10px] text-on-surface-variant/70 italic uppercase tracking-wider">
-								Formaciones no disponibles todavía
-							</span>
-						</div>
+						<EmptyState
+							icon="search_off"
+							message="SIN INFORMACIÓN DISPONIBLE"
+							submessage="Las alineaciones se publican cerca del inicio del partido"
+						/>
 					) : (
 						<div className="space-y-4">
 							{/* The Tactical Pitch Board */}
@@ -690,6 +663,142 @@ function TacticalPlayerPin({
 			<span className="font-label-caps text-[7px] text-white/95 bg-black/60 px-1 py-0.5 rounded border border-white/5 mt-0.5 max-w-[50px] truncate">
 				{displayName}
 			</span>
+		</div>
+	);
+}
+
+/**
+ * Fila individual de evento en el timeline de 3 columnas.
+ * Columna izquierda = equipo LOCAL (alineado a la derecha, hacia el centro).
+ * Columna central = minuto del evento (píldora).
+ * Columna derecha = equipo VISITANTE (alineado a la izquierda, hacia el centro).
+ */
+function EventRow({
+	event,
+	isHome,
+	homeLogo,
+	awayLogo,
+}: {
+	event: MatchEvent;
+	isHome: boolean;
+	homeLogo: string | null;
+	awayLogo: string | null;
+}) {
+	return (
+		<div className="relative flex items-center py-1.5">
+			{/* Columna IZQUIERDA (eventos del LOCAL) */}
+			<div
+				className={`flex-1 flex items-center gap-2 ${isHome ? "justify-end pr-3 md:pr-4" : "invisible"}`}
+			>
+				{isHome && (
+					<>
+						<div className="text-right min-w-0">
+							<div className="text-xs text-white font-bold truncate">
+								{event.playerName}
+							</div>
+							{event.type === "goal" && event.assistName && (
+								<div className="text-[9px] text-on-surface-variant/80 truncate">
+									Asist: {event.assistName}
+								</div>
+							)}
+							{event.type === "subst" && event.assistName && (
+								<div className="text-[9px] text-on-surface-variant/80 truncate">
+									🔄 {event.assistName}
+								</div>
+							)}
+						</div>
+						<span className="text-sm flex-shrink-0">
+							{getEventEmoji(event.type)}
+						</span>
+						{homeLogo && (
+							<div className="w-5 h-5 rounded-full bg-surface-container border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+								<img
+									src={homeLogo}
+									alt=""
+									className="w-full h-full object-contain"
+								/>
+							</div>
+						)}
+					</>
+				)}
+			</div>
+
+			{/* Columna CENTRAL — píldora con el minuto */}
+			<div className="flex-none w-12 flex items-center justify-center relative z-10">
+				<div className="w-10 h-10 rounded-full bg-surface-container-high border-2 border-white/10 flex items-center justify-center font-stat-value text-[12px] font-black text-primary tabular-nums shadow-[0_0_8px_rgba(56,189,248,0.15)]">
+					{event.minute}'
+					{event.extra ? (
+						<span className="text-[9px]">+{event.extra}</span>
+					) : null}
+				</div>
+			</div>
+
+			{/* Columna DERECHA (eventos del VISITANTE) */}
+			<div
+				className={`flex-1 flex items-center gap-2 ${!isHome ? "justify-start pl-3 md:pl-4" : "invisible"}`}
+			>
+				{!isHome && (
+					<>
+						{awayLogo && (
+							<div className="w-5 h-5 rounded-full bg-surface-container border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+								<img
+									src={awayLogo}
+									alt=""
+									className="w-full h-full object-contain"
+								/>
+							</div>
+						)}
+						<span className="text-sm flex-shrink-0">
+							{getEventEmoji(event.type)}
+						</span>
+						<div className="text-left min-w-0">
+							<div className="text-xs text-white font-bold truncate">
+								{event.playerName}
+							</div>
+							{event.type === "goal" && event.assistName && (
+								<div className="text-[9px] text-on-surface-variant/80 truncate">
+									Asist: {event.assistName}
+								</div>
+							)}
+							{event.type === "subst" && event.assistName && (
+								<div className="text-[9px] text-on-surface-variant/80 truncate">
+									🔄 {event.assistName}
+								</div>
+							)}
+						</div>
+					</>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Estado vacío reutilizable para pestañas sin data.
+ * Usado en Estadísticas y Formaciones cuando no hay información disponible.
+ */
+function EmptyState({
+	icon,
+	message,
+	submessage,
+}: {
+	icon: string;
+	message: string;
+	submessage?: string;
+}) {
+	return (
+		<div className="text-center py-6 flex flex-col items-center gap-2">
+			<span className="material-symbols-outlined text-3xl text-on-surface-variant/30">
+				{icon}
+			</span>
+			<span className="font-label-caps text-[10px] md:text-xs text-on-surface-variant/70 uppercase tracking-widest font-bold">
+				{message}
+			</span>
+			{submessage && (
+				<span className="text-[9px] md:text-[10px] text-on-surface-variant/40 leading-relaxed max-w-xs">
+					{submessage}
+				</span>
+			)}
 		</div>
 	);
 }

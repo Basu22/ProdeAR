@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
+import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
+import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";
 import { GlassCard } from "../components/ui/GlassCard";
 import { RankingTableSkeleton } from "../components/ui/Skeletons";
 import { useMatches } from "../hooks/useMatches";
@@ -23,6 +25,7 @@ const isKnockoutMatch = (match: Match): boolean => {
 	const stage = match.stageName.toLowerCase();
 	return (
 		stage.includes("round of") ||
+		stage.includes("dieciseisavos") ||
 		stage.includes("quarter") ||
 		stage.includes("semi") ||
 		stage.includes("final") ||
@@ -422,6 +425,7 @@ export function Tournament() {
 	const [subTab, setSubTab] = useState("grupos");
 	const [selectedRound, setSelectedRound] = useState("");
 	const [isRoundDropdownOpen, setIsRoundDropdownOpen] = useState(false);
+	const [isRulesOpen, setIsRulesOpen] = useState(false);
 
 	const isWorldCup =
 		tournament?.competitionId === "comp-1" ||
@@ -657,6 +661,8 @@ export function Tournament() {
 					de posiciones automatizadas.
 				</p>
 			</div>
+
+			<SolDeMayoCard onClick={() => setIsRulesOpen(true)} />
 
 			{/* Tabs */}
 			<div className="flex border-b border-white/10 mb-8 max-w-2xl mx-auto">
@@ -1428,6 +1434,11 @@ export function Tournament() {
 					</GlassCard>
 				</div>
 			)}
+
+			<SolDeMayoRulesModal
+				isOpen={isRulesOpen}
+				onClose={() => setIsRulesOpen(false)}
+			/>
 		</div>
 	);
 }

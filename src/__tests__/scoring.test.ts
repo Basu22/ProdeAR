@@ -128,4 +128,15 @@ describe("calculateScore (ChampSheep Rules)", () => {
 		expect(result.breakdown.correctWinner).toBe(false);
 		expect(result.breakdown.penaltyBonus).toBe(false);
 	});
+
+	it("apply stage multiplier x2 for Round of 32 (Dieciseisavos)", () => {
+		const exactResult = calculateScore(
+			{ predictedHome: 2, predictedAway: 0, predictedWinner: null },
+			2,
+			0,
+			null,
+			2, // ×2 para Dieciseisavos
+		);
+		expect(exactResult.points).toBe(20); // 10 * 2
+	});
 });
