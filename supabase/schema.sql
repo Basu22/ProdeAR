@@ -275,6 +275,16 @@ RETURNS TRIGGER AS $$
 DECLARE
     match_kickoff TIMESTAMP WITH TIME ZONE;
 BEGIN
+    -- Permitir actualizaciones que no modifican los pronósticos en sí (ej. cálculo de puntos)
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.predicted_home = NEW.predicted_home 
+           AND OLD.predicted_away = NEW.predicted_away 
+           AND (OLD.predicted_winner IS NOT DISTINCT FROM NEW.predicted_winner)
+           AND (OLD.predicted_penalty_winner IS NOT DISTINCT FROM NEW.predicted_penalty_winner) THEN
+            RETURN NEW;
+        END IF;
+    END IF;
+
     SELECT kick_off INTO match_kickoff
     FROM public.matches
     WHERE id = NEW.match_id;
