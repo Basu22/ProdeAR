@@ -6,7 +6,7 @@ const links = [
 	{ to: "/dashboard", icon: "home", label: "Inicio" },
 	{ to: "/torneos", icon: "emoji_events", label: "Torneos" },
 	{ to: "/ranking", icon: "military_tech", label: "Ranking" },
-	{ to: "/liga/comp-2", icon: "leaderboard", label: "Posiciones" },
+	// { to: "/liga/comp-2", icon: "leaderboard", label: "Posiciones" }, // ← oculto temporalmente (pendiente de redefinición con @brainstormer)
 ];
 
 export function NavSidebar() {

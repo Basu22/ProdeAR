@@ -4,13 +4,13 @@ const links = [
 	{ to: "/dashboard", icon: "home", label: "Inicio" },
 	{ to: "/torneos", icon: "emoji_events", label: "Torneos" },
 	{ to: "/ranking", icon: "military_tech", label: "Ranking" },
-	{ to: "/liga/comp-2", icon: "leaderboard", label: "Posiciones" },
+	// { to: "/liga/comp-2", icon: "leaderboard", label: "Posiciones" }, // ← oculto temporalmente (pendiente de redefinición con @brainstormer)
 ];
 
 export function BottomNavBar() {
 	return (
 		<nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-white/10 pt-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] md:hidden">
-			<div className="grid grid-cols-4 w-full px-2 max-w-lg mx-auto">
+			<div className="grid grid-cols-3 w-full px-2 max-w-lg mx-auto">
 				{links.map((link) => (
 					<NavLink
 						key={link.to}
