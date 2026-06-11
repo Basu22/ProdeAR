@@ -9,8 +9,13 @@ import { usePredictions } from "../hooks/usePredictions";
 import { useTournaments } from "../hooks/useTournament";
 import { useUserStats } from "../hooks/useUserStats";
 import { pushApi } from "../lib/api/push";
+import {
+	getDayFullName,
+	getDayLabel,
+	getTodayKey,
+	groupMatchesByDay,
+} from "../lib/dateHelpers";
 import { isSupabaseConfigured } from "../lib/supabase";
-import type { Match } from "../lib/types";
 import { useAuthStore } from "../stores/authStore";
 
 export function Dashboard() {
@@ -23,100 +28,54 @@ export function Dashboard() {
 	const { data: predictions } = usePredictions(activeTournament?.id || "");
 
 	// Generate today's date key in YYYY-MM-DD format (local time)
-	const todayKey = useMemo(() => {
-		const today = new Date();
-		const year = today.getFullYear();
-		const month = String(today.getMonth() + 1).padStart(2, "0");
-		const day = String(today.getDate()).padStart(2, "0");
-		return `${year}-${month}-${day}`;
-	}, []);
+	// TODO: Re-evaluar todayKey en cruce de medianoche (no es reactivo).
+	const todayKey = useMemo(() => getTodayKey(), []);
 
 	// Day filter state - default to today
 	const [selectedDay, setSelectedDay] = useState<string>(todayKey);
 	const pillsContainerRef = useRef<HTMLDivElement>(null);
 
 	// Group matches by local date and sort chronologically by kick-off
-	const { days, groupedMatches } = useMemo(() => {
-		if (!matches) {
-			const groups: Record<string, Match[]> = {};
-			groups[todayKey] = [];
-			return { days: [todayKey], groupedMatches: groups };
-		}
+	const { days, groupedMatches } = useMemo(
+		() => groupMatchesByDay(matches, todayKey),
+		[matches, todayKey],
+	);
 
-		const sorted = [...matches].sort(
-			(a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime(),
-		);
+	// Auto-scroll pills bar to center the selected day.
+	// Fix: el useEffect original solo dependía de [selectedDay], pero en el
+	// primer render las pastillas no están en el DOM (gate de !matchesLoading),
+	// por lo que el scroll nunca se ejecutaba al cargar la app.
+	// - Se agrega matchesLoading como dependencia para re-disparar al cargar.
+	// - hasScrolledRef garantiza scroll instantáneo en el mount y smooth después.
+	// - Se respeta prefers-reduced-motion para accesibilidad.
+	const hasScrolledRef = useRef(false);
 
-		const groups: Record<string, Match[]> = {};
-		const uniqueDays: string[] = [];
-
-		for (const match of sorted) {
-			const date = new Date(match.kickOff);
-			const year = date.getFullYear();
-			const month = String(date.getMonth() + 1).padStart(2, "0");
-			const day = String(date.getDate()).padStart(2, "0");
-			const dateKey = `${year}-${month}-${day}`;
-
-			if (!groups[dateKey]) {
-				groups[dateKey] = [];
-				uniqueDays.push(dateKey);
-			}
-			groups[dateKey].push(match);
-		}
-
-		// Ensure today's date is ALWAYS present in the days array
-		if (!uniqueDays.includes(todayKey)) {
-			uniqueDays.push(todayKey);
-			uniqueDays.sort();
-		}
-		if (!groups[todayKey]) {
-			groups[todayKey] = [];
-		}
-
-		return { days: uniqueDays, groupedMatches: groups };
-	}, [matches, todayKey]);
-
-	// Auto-scroll pills bar to center the selected day
 	useEffect(() => {
+		if (matchesLoading) return;
+
 		const container = pillsContainerRef.current;
 		if (!container) return;
+
 		const activeBtn = container.querySelector(
 			`[data-date="${selectedDay}"]`,
 		) as HTMLElement | null;
-		if (activeBtn) {
-			const scrollLeft =
-				activeBtn.offsetLeft -
-				container.clientWidth / 2 +
-				activeBtn.clientWidth / 2;
-			container.scrollTo({ left: scrollLeft, behavior: "smooth" });
-		}
-	}, [selectedDay]);
+		if (!activeBtn) return;
 
-	const getDayLabel = (dateKey: string) => {
-		const [year, month, day] = dateKey.split("-").map(Number);
-		const d = new Date(year, month - 1, day);
+		const scrollLeft =
+			activeBtn.offsetLeft -
+			container.clientWidth / 2 +
+			activeBtn.clientWidth / 2;
 
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const tomorrow = new Date(today);
-		tomorrow.setDate(today.getDate() + 1);
+		const isFirstScroll = !hasScrolledRef.current;
+		hasScrolledRef.current = true;
 
-		const matchDate = new Date(d);
-		matchDate.setHours(0, 0, 0, 0);
+		const prefersReducedMotion = window.matchMedia(
+			"(prefers-reduced-motion: reduce)",
+		).matches;
+		const behavior = prefersReducedMotion || isFirstScroll ? "auto" : "smooth";
 
-		if (matchDate.getTime() === today.getTime()) {
-			return { main: "Hoy", sub: String(day) };
-		}
-		if (matchDate.getTime() === tomorrow.getTime()) {
-			return { main: "Mañ", sub: String(day) };
-		}
-
-		const main = d
-			.toLocaleDateString("es-AR", { weekday: "short" })
-			.replace(".", "")
-			.toUpperCase();
-		return { main, sub: String(day) };
-	};
+		container.scrollTo({ left: scrollLeft, behavior });
+	}, [selectedDay, matchesLoading]);
 
 	const handlePrevDay = () => {
 		const currentIndex = days.indexOf(selectedDay);
@@ -397,7 +356,7 @@ export function Dashboard() {
 								className="flex-1 flex gap-2.5 overflow-x-auto pb-2 scrollbar-none mask-image-horizontal"
 							>
 								{days.map((dateKey) => {
-									const { main, sub } = getDayLabel(dateKey);
+									const { main, sub } = getDayLabel(dateKey, todayKey);
 									const matchCount = groupedMatches[dateKey]?.length ?? 0;
 									const isActive = selectedDay === dateKey;
 									const isToday = dateKey === todayKey;
@@ -412,22 +371,26 @@ export function Dashboard() {
 											"bg-amber-500/10 border-amber-500/30 text-amber-400 hover:border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.05)]";
 									}
 
+									const fullName = getDayFullName(dateKey, todayKey);
+									const matchCountLabel = `${matchCount} ${matchCount === 1 ? "partido" : "partidos"}`;
+									const ariaLabel = `${fullName} ${sub}, ${matchCountLabel}${
+										isToday ? ", día actual" : ""
+									}${isActive ? ", seleccionado" : ""}`;
+
 									return (
 										<button
 											key={dateKey}
 											type="button"
 											data-date={dateKey}
 											onClick={() => setSelectedDay(dateKey)}
+											aria-label={ariaLabel}
 											className={`flex flex-col items-center justify-center min-w-[64px] h-[52px] rounded-2xl border transition-all duration-300 cursor-pointer flex-shrink-0 ${btnStyle}`}
 										>
 											<span className="font-label-caps text-[9px] font-bold tracking-widest uppercase">
 												{main}
 											</span>
 											<span className="font-stat-value text-xs font-black mt-0.5 tabular-nums">
-												{sub}{" "}
-												<span className="text-[9px] font-normal opacity-70">
-													({matchCount})
-												</span>
+												{sub}
 											</span>
 										</button>
 									);
@@ -464,12 +427,12 @@ export function Dashboard() {
 										className="animate-enter"
 										style={{ animationDelay: `${idx * 60}ms` }}
 									>
-								<MatchCard
-									match={match}
-									predictionViewMode={true}
-									tournamentName={activeTournament?.name}
-									prediction={pred}
-								/>
+										<MatchCard
+											match={match}
+											predictionViewMode={true}
+											tournamentName={activeTournament?.name}
+											prediction={pred}
+										/>
 									</div>
 								);
 							})}

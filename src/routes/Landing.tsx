@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { GoogleButton } from "../components/auth/GoogleButton";
+import { InviteBanner } from "../components/auth/InviteBanner";
+import { tournamentsApi } from "../lib/api/tournaments";
 import { isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../stores/authStore";
+import { useInviteStore } from "../stores/inviteStore";
 
 export function Landing() {
+	const [searchParams] = useSearchParams();
+	const codeParam = searchParams.get("code");
 	const {
 		user,
 		isLoading,
@@ -14,10 +19,44 @@ export function Landing() {
 		register,
 		clearError,
 	} = useAuthStore();
-	const [mode, setMode] = useState<"login" | "register">("login");
+	const {
+		setPendingInvite,
+		setTournamentPreview,
+		setLoadingPreview,
+		setPreviewError,
+		pendingInviteCode,
+	} = useInviteStore();
+	const [mode, setMode] = useState<"login" | "register">(
+		codeParam ? "register" : "login",
+	);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [displayName, setDisplayName] = useState("");
+
+	useEffect(() => {
+		if (!codeParam || pendingInviteCode) return;
+		setPendingInvite(codeParam);
+		setLoadingPreview(true);
+		tournamentsApi
+			.getTournamentByCode(codeParam)
+			.then((preview) => {
+				if (preview) {
+					setTournamentPreview(preview);
+				} else {
+					setPreviewError("Torneo no encontrado");
+				}
+			})
+			.catch(() => {
+				setPreviewError("Error al cargar la información del torneo");
+			});
+	}, [
+		codeParam,
+		pendingInviteCode,
+		setPendingInvite,
+		setLoadingPreview,
+		setTournamentPreview,
+		setPreviewError,
+	]);
 
 	if (user) return <Navigate to="/dashboard" replace />;
 
@@ -101,6 +140,7 @@ export function Landing() {
 
 				{/* Login Card - Width fijo en desktop, full en mobile */}
 				<div className="w-full lg:w-[420px] shrink-0">
+					{pendingInviteCode && <InviteBanner />}
 					<div className="glass-card p-8 rounded-2xl space-y-6 border border-white/5 shadow-2xl relative">
 						<div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
@@ -129,7 +169,13 @@ export function Landing() {
 
 						<div className="text-center space-y-2">
 							<h2 className="font-headline-md text-2xl font-bold text-white tracking-tight uppercase">
-								{mode === "login" ? "Acceso Analista" : "Registrar Cuenta"}
+								{pendingInviteCode
+									? mode === "login"
+										? "Ingresá para sumarte"
+										: "Creá tu cuenta y unite"
+									: mode === "login"
+										? "Acceso Analista"
+										: "Registrar Cuenta"}
 							</h2>
 						</div>
 
@@ -210,9 +256,11 @@ export function Landing() {
 							>
 								{isLoading
 									? "PROCESANDO..."
-									: mode === "login"
-										? "Ingresar a la cancha"
-										: "Registrarme"}
+									: pendingInviteCode
+										? "Sumarme al torneo"
+										: mode === "login"
+											? "Ingresar a la cancha"
+											: "Registrarme"}
 							</button>
 						</form>
 
@@ -224,9 +272,13 @@ export function Landing() {
 							}}
 							className="w-full text-center text-xs text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
 						>
-							{mode === "login"
-								? "¿No tenés cuenta? Creá una"
-								: "¿Ya tenés cuenta? Iniciá sesión"}
+							{pendingInviteCode
+								? mode === "login"
+									? "¿No tenés cuenta? Creá una para sumarte"
+									: "¿Ya tenés cuenta? Iniciá sesión"
+								: mode === "login"
+									? "¿No tenés cuenta? Creá una"
+									: "¿Ya tenés cuenta? Iniciá sesión"}
 						</button>
 					</div>
 				</div>

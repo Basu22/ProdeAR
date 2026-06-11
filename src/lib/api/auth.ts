@@ -30,10 +30,14 @@ export function mapSupabaseUser(sbUser: SupabaseUser): User {
 export const authApi = {
 	async loginWithGoogle(): Promise<User> {
 		if (isSupabaseConfigured) {
+			const search = window.location.search;
+			const redirectTo = search
+				? `${window.location.origin}/${search}`
+				: window.location.origin;
 			const { error } = await supabase.auth.signInWithOAuth({
 				provider: "google",
 				options: {
-					redirectTo: window.location.origin,
+					redirectTo,
 				},
 			});
 			if (error) throw error;

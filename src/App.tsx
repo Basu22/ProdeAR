@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { PostAuthRedirect } from "./components/auth/PostAuthRedirect";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
@@ -50,6 +51,7 @@ function AppContent() {
 
 	return (
 		<>
+			<PostAuthRedirect />
 			<Routes>
 				<Route path="/" element={<Landing />} />
 				<Route element={<ProtectedRoute />}>

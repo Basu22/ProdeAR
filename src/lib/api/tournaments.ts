@@ -234,6 +234,52 @@ export const tournamentsApi = {
 		);
 	},
 
+	async getTournamentByCode(
+		code: string,
+	): Promise<{ name: string; code: string; memberCount: number } | null> {
+		await new Promise((r) => setTimeout(r, 100));
+		const cleanCode = code.trim().toUpperCase();
+
+		if (isSupabaseConfigured) {
+			const { data: tournament, error } = await supabase
+				.from("tournaments")
+				.select("id, name, code")
+				.eq("code", cleanCode)
+				.eq("status", "active")
+				.maybeSingle();
+			if (error || !tournament) return null;
+
+			const { count, error: countError } = await supabase
+				.from("tournament_members")
+				.select("*", { count: "exact", head: true })
+				.eq("tournament_id", tournament.id);
+			if (countError) throw countError;
+
+			return {
+				name: tournament.name,
+				code: tournament.code,
+				memberCount: count ?? 0,
+			};
+		}
+
+		const tournaments = getLocalTournaments();
+		const tournament = tournaments.find(
+			(t) => t.code.toUpperCase() === cleanCode,
+		);
+		if (!tournament) return null;
+
+		const members = getLocalMembers();
+		const memberCount = members.filter(
+			(m) => m.tournamentId === tournament.id,
+		).length;
+
+		return {
+			name: tournament.name,
+			code: tournament.code,
+			memberCount,
+		};
+	},
+
 	async getTournamentById(id: string): Promise<Tournament | undefined> {
 		await new Promise((r) => setTimeout(r, 100));
 		if (isSupabaseConfigured) {

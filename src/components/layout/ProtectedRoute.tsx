@@ -1,9 +1,10 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 
 export function ProtectedRoute() {
 	const user = useAuthStore((s) => s.user);
 	const isLoading = useAuthStore((s) => s.isLoading);
+	const location = useLocation();
 
 	if (isLoading) {
 		return (
@@ -19,7 +20,9 @@ export function ProtectedRoute() {
 	}
 
 	if (!user) {
-		return <Navigate to="/" replace />;
+		const search = location.search;
+		const target = search ? `/${search}` : "/";
+		return <Navigate to={target} replace />;
 	}
 
 	return <Outlet />;
