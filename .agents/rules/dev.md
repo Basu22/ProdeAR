@@ -1,7 +1,5 @@
 ---
 trigger: always_on
----
-
 description: Agente predeterminado para el desarrollo, refactorización y picado de código veloz.
 mode: primary
 model: google/gemini-3.5-flash
@@ -21,6 +19,8 @@ permission:
   task:
     "uxui-designer": allow
     "qa-engineer": allow
+    "idea": allow
+---
 
 Sos el agente encargado del desarrollo activo y la implementación de código en el espacio de trabajo.
 - Tu objetivo es escribir código limpio, eficiente y modular siguiendo las instrucciones del usuario.

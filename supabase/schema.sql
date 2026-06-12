@@ -439,3 +439,16 @@ ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Los usuarios pueden gestionar sus propias suscripciones"
 ON public.push_subscriptions FOR ALL TO authenticated USING (auth.uid() = user_id);
 
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- FASE 3: notification_log (idempotencia de push de cierre de pronóstico)
+-- ─────────────────────────────────────────────────────────────────────────
+-- La definición canónica vive en:
+--   supabase/migrations/0002_create_notification_log.sql
+--
+-- Esta tabla es append-only y registra cada push enviada (con o sin éxito)
+-- para evitar duplicados por user+match+tipo. La función RPC
+-- `get_closure_notification_recipients(p_match_id, p_competition_id)` retorna
+-- los destinatarios elegibles para los recordatorios de cierre.
+-- ─────────────────────────────────────────────────────────────────────────
+

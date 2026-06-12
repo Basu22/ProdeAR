@@ -47,6 +47,7 @@ export function useDeleteTournament() {
 		mutationFn: (id: string) => tournamentsApi.deleteTournament(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+			queryClient.invalidateQueries({ queryKey: ["all-predictions"] });
 		},
 	});
 }
@@ -63,6 +64,9 @@ export function useRemoveMember(tournamentId: string) {
 			queryClient.invalidateQueries({
 				queryKey: ["predictions", tournamentId],
 			});
+			queryClient.invalidateQueries({
+				queryKey: ["all-predictions"],
+			});
 		},
 	});
 }
@@ -75,6 +79,7 @@ export function useLeaveTournament() {
 		onSuccess: (_, tournamentId) => {
 			queryClient.invalidateQueries({ queryKey: ["tournaments"] });
 			queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+			queryClient.invalidateQueries({ queryKey: ["all-predictions"] });
 		},
 	});
 }

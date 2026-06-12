@@ -1,8 +1,5 @@
 ---
 trigger: always_on
----
-
----
 description: Ingeniero de QA y Testing Automático con control de presupuesto.
 mode: subagent
 model: google/gemini-3.1-pro

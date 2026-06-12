@@ -248,4 +248,206 @@
 		background-size: 200% 100%;
 		animation: shimmer 1.6s infinite linear;
 	}
+
+	/* === Ball Cross === */
+	@keyframes ballCrossLeft {
+		0% {
+			transform: translateX(-60px) rotate(0deg);
+		}
+		100% {
+			transform: translateX(calc(100vw + 60px)) rotate(720deg);
+		}
+	}
+	@keyframes ballCrossRight {
+		0% {
+			transform: translateX(calc(100vw + 60px)) rotate(0deg);
+		}
+		100% {
+			transform: translateX(-60px) rotate(-720deg);
+		}
+	}
+	.animate-ball-cross-ltr {
+		animation: ballCrossLeft 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	}
+	.animate-ball-cross-rtl {
+		animation: ballCrossRight 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	}
+
+	/* === Goal Impact === */
+	@keyframes goalImpact {
+		0% {
+			transform: scale(0.3);
+			opacity: 0;
+		}
+		30% {
+			transform: scale(1.15);
+			opacity: 1;
+		}
+		60% {
+			transform: scale(0.95);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+	@keyframes goalExit {
+		0% {
+			transform: scale(1) translateY(0);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(0.9) translateY(20px);
+			opacity: 0;
+		}
+	}
+	.animate-goal-impact {
+		animation: goalImpact 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+	}
+	.animate-goal-exit {
+		animation: goalExit 0.5s ease-in forwards;
+	}
+
+	/* === Toast === */
+	@keyframes toastEnter {
+		0% {
+			transform: translateY(20px);
+			opacity: 0;
+		}
+		100% {
+			transform: translateY(0);
+			opacity: 1;
+		}
+	}
+	@keyframes toastExit {
+		0% {
+			transform: translateY(0);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(20px);
+			opacity: 0;
+		}
+	}
+	.animate-toast-enter {
+		animation: toastEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+	}
+	.animate-toast-exit {
+		animation: toastExit 0.5s ease-in forwards;
+	}
+
+	/* === Detail === */
+	@keyframes detailEnter {
+		0% {
+			transform: translateY(15px) scale(0.95);
+			opacity: 0;
+		}
+		100% {
+			transform: translateY(0) scale(1);
+			opacity: 1;
+		}
+	}
+	@keyframes detailExit {
+		0% {
+			transform: translateY(0);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(15px);
+			opacity: 0;
+		}
+	}
+	.animate-detail-enter {
+		animation: detailEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+	}
+	.animate-detail-exit {
+		animation: detailExit 0.5s ease-in forwards;
+	}
+
+	/* === Confetti === */
+	@keyframes confettiFall {
+		0% {
+			transform: translate(0, 0) rotate(0deg) scale(1);
+			opacity: 1;
+		}
+		100% {
+			transform: translate(var(--confetti-x), var(--confetti-y))
+				rotate(var(--confetti-rotation)) scale(0);
+			opacity: 0;
+		}
+	}
+	.animate-confetti-fall {
+		animation: confettiFall var(--confetti-duration, 2.5s)
+			cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+	}
+
+	/* === Stadium Glow (border pulse) === */
+	@keyframes cardGlowGreen {
+		0%,
+		100% {
+			box-shadow:
+				0 0 15px rgba(0, 255, 65, 0.15),
+				inset 0 0 15px rgba(0, 255, 65, 0.05);
+		}
+		50% {
+			box-shadow:
+				0 0 30px rgba(0, 255, 65, 0.3),
+				inset 0 0 30px rgba(0, 255, 65, 0.1);
+		}
+	}
+	@keyframes cardGlowRed {
+		0%,
+		100% {
+			box-shadow:
+				0 0 15px rgba(255, 42, 42, 0.15),
+				inset 0 0 15px rgba(255, 42, 42, 0.05);
+		}
+		50% {
+			box-shadow:
+				0 0 30px rgba(255, 42, 42, 0.3),
+				inset 0 0 30px rgba(255, 42, 42, 0.1);
+		}
+	}
+	@keyframes cardGlowAmber {
+		0% {
+			box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+		}
+		100% {
+			box-shadow: 0 0 0px rgba(245, 158, 11, 0);
+		}
+	}
+	.stadium-glow-green {
+		animation: cardGlowGreen 2s ease-in-out infinite;
+		border-color: var(--color-pitch-green, #00ff41) !important;
+	}
+	.stadium-glow-red {
+		animation: cardGlowRed 1.5s ease-in-out infinite;
+		border-color: var(--color-error, #ff2a2a) !important;
+	}
+	.stadium-glow-amber {
+		animation: cardGlowAmber 2s ease-out 1;
+		border-color: #f59e0b !important;
+	}
+
+	/* === Reduced motion === */
+	@media (prefers-reduced-motion: reduce) {
+		.animate-ball-cross-ltr,
+		.animate-ball-cross-rtl,
+		.animate-confetti-fall {
+			animation: none !important;
+			display: none !important;
+		}
+		.animate-goal-impact,
+		.animate-toast-enter,
+		.animate-detail-enter {
+			animation-duration: 0.15s !important;
+			animation-timing-function: linear !important;
+		}
+		.stadium-glow-green,
+		.stadium-glow-red,
+		.stadium-glow-amber {
+			animation: none !important;
+		}
+	}
 }

@@ -602,6 +602,67 @@ export const tournamentsApi = {
 		);
 	},
 
+	async getAllMyPredictions(): Promise<Prediction[]> {
+		await new Promise((r) => setTimeout(r, 100));
+		if (isSupabaseConfigured) {
+			const {
+				data: { user },
+				error: userError,
+			} = await supabase.auth.getUser();
+			if (userError || !user) throw new Error("Usuario no autenticado");
+
+			const { data, error } = await supabase
+				.from("predictions")
+				.select("*")
+				.eq("user_id", user.id);
+			if (error) throw error;
+
+			// Deduplicar por (matchId, tournamentId) defensivamente
+			const mapped: Prediction[] = data.map((p) => ({
+				id: p.id,
+				matchId: p.match_id,
+				userId: p.user_id,
+				tournamentId: p.tournament_id,
+				predictedHome: p.predicted_home,
+				predictedAway: p.predicted_away,
+				predictedWinner: p.predicted_winner,
+				pointsEarned: p.points_earned,
+			}));
+			const dedupMap = new Map<string, Prediction>();
+			for (const p of mapped) {
+				const key = `${p.matchId}__${p.tournamentId}`;
+				if (!dedupMap.has(key)) dedupMap.set(key, p);
+			}
+			return Array.from(dedupMap.values());
+		}
+
+		// Fallback LocalStorage
+		const currentUser = authApi.getPersistedUser();
+		const userId = currentUser?.id || "user-1";
+		const raw = localStorage.getItem("prodear_predictions");
+		let predictions: Prediction[];
+		if (!raw) {
+			predictions = [...mockPredictions];
+			localStorage.setItem(
+				"prodear_predictions",
+				JSON.stringify(mockPredictions),
+			);
+		} else {
+			predictions = JSON.parse(raw);
+		}
+
+		// Filtrar por userId (sin importar torneo) y deduplicar por (matchId, tournamentId)
+		const dedupMap = new Map<string, Prediction>();
+		for (const p of predictions) {
+			if (p.userId !== userId) continue;
+			const key = `${p.matchId}__${p.tournamentId}`;
+			if (!dedupMap.has(key)) {
+				dedupMap.set(key, p);
+			}
+		}
+		return Array.from(dedupMap.values());
+	},
+
 	async savePrediction(
 		matchId: string,
 		tournamentId: string,

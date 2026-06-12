@@ -6,7 +6,20 @@ export const LiveMatchRow = React.memo(({ match }: { match: Match }) => {
 	const getAbrev = (name: string) => name.substring(0, 3).toUpperCase();
 	const [isGoal, setIsGoal] = useState(false);
 	const prevScoreRef = useRef({ home: match.homeScore, away: match.awayScore });
-	const liveMinute = useLiveMinute(match);
+	const {
+		minute: liveMinute,
+		freshness,
+		ageMinutes,
+		isStale,
+	} = useLiveMinute(match);
+
+	const freshnessPrefix =
+		freshness === "stale" ? "⏱️ " : freshness === "warm" ? "~" : "";
+	const freshnessTitle = isStale
+		? `Última actualización hace ${ageMinutes} min`
+		: freshness === "warm"
+			? `Actualizado hace ${ageMinutes} min`
+			: undefined;
 
 	useEffect(() => {
 		if (
@@ -28,8 +41,15 @@ export const LiveMatchRow = React.memo(({ match }: { match: Match }) => {
 		>
 			<div className="flex items-center gap-3 w-[80px]">
 				<div className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
-				<span className="font-label-caps text-[10px] text-error tabular-nums font-bold">
-					{typeof liveMinute === "number" ? `${liveMinute}'` : liveMinute}
+				<span
+					className={`font-label-caps text-[10px] tabular-nums font-bold ${
+						isStale ? "text-amber-400" : "text-error"
+					}`}
+					title={freshnessTitle}
+				>
+					{typeof liveMinute === "number"
+						? `${freshnessPrefix}${liveMinute}'`
+						: liveMinute}
 				</span>
 			</div>
 

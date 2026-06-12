@@ -7,7 +7,20 @@ interface ScoreboardProps {
 
 export function Scoreboard({ match }: ScoreboardProps) {
 	const isLive = match.status === "live";
-	const liveMinute = useLiveMinute(match);
+	const {
+		minute: liveMinute,
+		freshness,
+		ageMinutes,
+		isStale,
+	} = useLiveMinute(match);
+
+	const freshnessPrefix =
+		freshness === "stale" ? "⏱️ " : freshness === "warm" ? "~" : "";
+	const freshnessTitle = isStale
+		? `Última actualización hace ${ageMinutes} min`
+		: freshness === "warm"
+			? `Actualizado hace ${ageMinutes} min`
+			: undefined;
 
 	return (
 		<div className="glass-card rounded-xl p-md flex items-center justify-between celestial-glow relative overflow-hidden">
@@ -29,8 +42,15 @@ export function Scoreboard({ match }: ScoreboardProps) {
 				{isLive && (
 					<div className="flex items-center gap-1 mb-2 px-3 py-0.5 bg-error-container/20 rounded-full border border-error/20">
 						<span className="w-2 h-2 bg-error rounded-full animate-pulse" />
-						<span className="font-label-caps text-[10px] text-error tabular-nums">
-							{typeof liveMinute === "number" ? `${liveMinute}'` : liveMinute}
+						<span
+							className={`font-label-caps text-[10px] tabular-nums ${
+								isStale ? "text-amber-400" : "text-error"
+							}`}
+							title={freshnessTitle}
+						>
+							{typeof liveMinute === "number"
+								? `${freshnessPrefix}${liveMinute}'`
+								: liveMinute}
 						</span>
 					</div>
 				)}

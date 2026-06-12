@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# VAPID private key (generada por scripts/generate-vapid-keys.mjs)
+# Se borra tras configurar Supabase Secrets. La clave pública va en .env.local.
+.vapid-private.txt

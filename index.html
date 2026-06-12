@@ -38,26 +38,6 @@
     />
   </head>
   <body>
-    <!-- Script de migración: limpia caches de versiones viejas del Service Worker.
-         Se puede remover después de 2-3 semanas de deployado. -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (const registration of registrations) {
-            registration.unregister();
-          }
-        });
-      }
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (const name of names) {
-            if (!name.startsWith('workbox-')) {
-              caches.delete(name);
-            }
-          }
-        });
-      }
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

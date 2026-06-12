@@ -119,7 +119,7 @@ async function notifyFinishedMatch(
 		// Query predictions for this match
 		const { data: predictions, error: predError } = await supabase
 			.from("predictions")
-			.select("user_id, points")
+			.select("user_id, points_earned")
 			.eq("match_id", matchId);
 
 		if (predError) {
@@ -131,7 +131,7 @@ async function notifyFinishedMatch(
 
 		for (const pred of predictions) {
 			const userId = pred.user_id;
-			const points = pred.points || 0;
+			const points = pred.points_earned || 0;
 
 			// Fetch user rank in their tournaments
 			const { data: members } = await supabase
@@ -188,6 +188,207 @@ async function notifyFinishedMatch(
 	}
 }
 
+// =============================================================================
+// FASE 3: Notificaciones recordatorio de cierre de pronósticos
+// =============================================================================
+//
+// Envía push a los usuarios cuando faltan ~30 min y ~5 min para que cierre el
+// plazo de pronósticos (que es 15 min antes del kick_off).
+//
+// Ventanas de detección (con tolerancia ±5 min porque el cron corre cada 10 min):
+//   - prediction_closing_30 → kick_off entre NOW()+40min y NOW()+50min
+//   - prediction_closing_5  → kick_off entre NOW()+15min y NOW()+25min
+//
+// Idempotencia: tabla `notification_log` con UNIQUE (user_id, match_id, type).
+// Concurrencia: batching paralelo con Promise.allSettled().
+
+interface MatchForClosure {
+	id: string;
+	home_team: string;
+	away_team: string;
+	kick_off: string;
+	competition_id: number | null;
+	home_logo: string | null;
+	away_logo: string | null;
+}
+
+interface ClosureRecipient {
+	user_id: string;
+	tournament_id: string;
+	has_prediction: boolean;
+}
+
+interface ClosureWindow {
+	type: "prediction_closing_30" | "prediction_closing_5";
+	minMinutes: number;
+	maxMinutes: number;
+}
+
+const CLOSURE_WINDOWS: ClosureWindow[] = [
+	{ type: "prediction_closing_30", minMinutes: 40, maxMinutes: 50 },
+	{ type: "prediction_closing_5", minMinutes: 15, maxMinutes: 25 },
+];
+
+function buildClosurePayload(
+	match: MatchForClosure,
+	type: "prediction_closing_30" | "prediction_closing_5",
+	recipient: ClosureRecipient,
+): string {
+	const isUrgent = type === "prediction_closing_5";
+	const minutesLabel = isUrgent ? "5" : "30";
+	const matchLabel = `${match.home_team} vs ${match.away_team}`;
+
+	let title: string;
+	let body: string;
+	if (recipient.has_prediction) {
+		title = isUrgent ? "🔴 Último aviso" : "⏰ Partido por cerrar";
+		body = `${matchLabel} cierra en ${minutesLabel} min. Ya tenés tu pronóstico, ¡suerte!`;
+	} else {
+		title = isUrgent
+			? "🔴 ¡Última oportunidad!"
+			: "⏰ No te quedes sin pronosticar";
+		body = `${matchLabel} cierra en ${minutesLabel} min. ¡Hacé tu pronóstico ahora!`;
+	}
+
+	return JSON.stringify({
+		title,
+		body,
+		icon: match.home_logo || "/logo-192.png",
+		badge: "/logo-192.png",
+		tag: `closure-${type}-${match.id}`,
+		renotify: true,
+		vibrate: isUrgent ? [200, 100, 200, 100, 200] : [100, 50, 100],
+		url: `/torneo/${recipient.tournament_id}?match=${match.id}`,
+	});
+}
+
+async function notifyUpcomingClosures(
+	supabase: any,
+	options: { forceType?: string; forceMatchId?: string } = {},
+): Promise<{ processedMatches: number; totalSent: number; totalSkipped: number; totalFailed: number }> {
+	if (!vapidPublicKey || !vapidPrivateKey) {
+		console.warn("VAPID keys not configured. Skipping closure notifications.");
+		return { processedMatches: 0, totalSent: 0, totalSkipped: 0, totalFailed: 0 };
+	}
+
+	const stats = { processedMatches: 0, totalSent: 0, totalSkipped: 0, totalFailed: 0 };
+
+	const windowsToProcess = options.forceType
+		? CLOSURE_WINDOWS.filter((w) => w.type === options.forceType)
+		: CLOSURE_WINDOWS;
+
+	for (const window of windowsToProcess) {
+		try {
+			let matchesQuery = supabase
+				.from("matches")
+				.select("id, home_team, away_team, kick_off, competition_id, home_logo, away_logo")
+				.eq("status", "scheduled")
+				.gte("kick_off", new Date(Date.now() + window.minMinutes * 60_000).toISOString())
+				.lte("kick_off", new Date(Date.now() + window.maxMinutes * 60_000).toISOString());
+
+			if (options.forceMatchId) {
+				matchesQuery = matchesQuery.eq("id", options.forceMatchId);
+			}
+
+			const { data: matches, error: matchesErr } = await matchesQuery;
+			if (matchesErr) {
+				console.error(`[Phase 3] Error fetching matches for ${window.type}:`, matchesErr);
+				continue;
+			}
+			if (!matches || matches.length === 0) continue;
+
+			stats.processedMatches += matches.length;
+
+			// Para cada match, obtener destinatarios y enviar.
+			for (const match of matches as MatchForClosure[]) {
+				const { data: recipients, error: recErr } = await supabase.rpc(
+					"get_closure_notification_recipients",
+					{ p_match_id: match.id, p_competition_id: match.competition_id },
+				);
+				if (recErr) {
+					console.error(`[Phase 3] Error getting recipients for match ${match.id}:`, recErr);
+					continue;
+				}
+				if (!recipients || recipients.length === 0) continue;
+
+				// Batching paralelo de envíos.
+				const sendPromises: Promise<void>[] = [];
+
+				for (const recipient of recipients as ClosureRecipient[]) {
+					// Idempotencia: insertar en notification_log antes de enviar.
+					const { error: logErr } = await supabase
+						.from("notification_log")
+						.insert({
+							user_id: recipient.user_id,
+							match_id: match.id,
+							tournament_id: recipient.tournament_id,
+							type: window.type,
+						});
+
+					if (logErr) {
+						// unique_violation = ya se notificó antes; skip.
+						if (logErr.code === "23505") {
+							stats.totalSkipped++;
+							continue;
+						}
+						console.error(`[Phase 3] Error logging notification:`, logErr);
+						stats.totalSkipped++;
+						continue;
+					}
+
+					// Buscar TODAS las suscripciones del user (puede tener varios devices).
+					const { data: subscriptions } = await supabase
+						.from("push_subscriptions")
+						.select("endpoint, p256dh, auth")
+						.eq("user_id", recipient.user_id);
+
+					if (!subscriptions || subscriptions.length === 0) continue;
+
+					const payload = buildClosurePayload(match, window.type, recipient);
+
+					for (const sub of subscriptions) {
+						sendPromises.push(
+							(async () => {
+								try {
+									const pushSubscription = {
+										endpoint: sub.endpoint,
+										keys: { p256dh: sub.p256dh, auth: sub.auth },
+									};
+									await webpush.sendNotification(pushSubscription, payload);
+									stats.totalSent++;
+								} catch (err: any) {
+									console.error(
+										`[Phase 3] Error sending push to ${sub.endpoint}:`,
+										err?.message ?? err,
+									);
+									// Limpieza de suscripciones inválidas.
+									if (err?.statusCode === 410 || err?.statusCode === 404) {
+										await supabase
+											.from("push_subscriptions")
+											.delete()
+											.eq("endpoint", sub.endpoint);
+									}
+									stats.totalFailed++;
+								}
+							})(),
+						);
+					}
+				}
+
+				// Esperar todos los envíos de este match en paralelo.
+				await Promise.allSettled(sendPromises);
+			}
+		} catch (err) {
+			console.error(`[Phase 3] Error in window ${window.type}:`, err);
+		}
+	}
+
+	console.log(
+		`[Phase 3] Done: ${stats.processedMatches} matches, ${stats.totalSent} sent, ${stats.totalSkipped} skipped, ${stats.totalFailed} failed`,
+	);
+	return stats;
+}
+
 serve(async (req) => {
 	// CORS preflight requests
 	if (req.method === "OPTIONS") {
@@ -238,6 +439,36 @@ serve(async (req) => {
 			return new Response(JSON.stringify({ listMatches, data, error }), {
 				headers: { ...corsHeaders, "Content-Type": "application/json" },
 				status: error ? 400 : 200,
+			});
+		}
+
+		// Debug: simular notificaciones de cierre sin esperar el tiempo real
+		// Uso: ?simulate_closure=30min o ?simulate_closure=5min
+		// Opcional: ?match_id=<uuid> para simular contra un partido específico
+		const simulateClosure = url.searchParams.get("simulate_closure");
+		if (simulateClosure) {
+			const typeMap: Record<string, "prediction_closing_30" | "prediction_closing_5"> = {
+				"30min": "prediction_closing_30",
+				"5min": "prediction_closing_5",
+			};
+			const forceType = typeMap[simulateClosure];
+			if (!forceType) {
+				return new Response(
+					JSON.stringify({
+						error: `simulate_closure inválido: '${simulateClosure}'. Valores permitidos: 30min, 5min`,
+					}),
+					{
+						headers: { ...corsHeaders, "Content-Type": "application/json" },
+						status: 400,
+					},
+				);
+			}
+			const forceMatchId = url.searchParams.get("match_id") ?? undefined;
+			console.log(`[Phase 3] Simulating closure: type=${forceType}, match=${forceMatchId ?? "all"}`);
+			const stats = await notifyUpcomingClosures(supabase, { forceType, forceMatchId });
+			return new Response(JSON.stringify({ simulated: true, type: forceType, ...stats }), {
+				headers: { ...corsHeaders, "Content-Type": "application/json" },
+				status: 200,
 			});
 		}
 
@@ -708,6 +939,19 @@ serve(async (req) => {
 			}
 		}
 
+		// ── Fase 3: Notificaciones de cierre de pronósticos ──
+		// Solo ejecutar si NO es preview ni raw.
+		// Se ejecuta en try/catch independiente para no romper la respuesta
+		// principal si hay algún error en la lógica de Fase 3.
+		let closureStats: Awaited<ReturnType<typeof notifyUpcomingClosures>> | null = null;
+		if (!preview && !raw) {
+			try {
+				closureStats = await notifyUpcomingClosures(supabase);
+			} catch (err) {
+				console.error("[Phase 3] Error in notifyUpcomingClosures:", err);
+			}
+		}
+
 		if (preview) {
 			return new Response(
 				JSON.stringify({
@@ -730,6 +974,7 @@ serve(async (req) => {
 				processedCount: apiFixtures.length,
 				upsertedCount: upsertedMatches.length,
 				upsertedMatches,
+				phase3: closureStats ?? undefined,
 				debug: {
 					dbCompetitionsCount: dbCompetitions ? dbCompetitions.length : 0,
 					dbCompetitions,

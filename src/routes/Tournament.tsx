@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
@@ -389,6 +389,7 @@ const getGroupTables = (matches: Match[]): GroupTable[] => {
 export function Tournament() {
 	const { user: currentUser } = useAuthStore();
 	const { id } = useParams<{ id: string }>();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
 
 	const { data: tournament, isLoading: isLoadingTournament } = useTournament(
@@ -493,6 +494,55 @@ export function Tournament() {
 			setSelectedRound("");
 		}
 	}, [rounds, selectedRound]);
+
+	// ── Deep-link: /torneo/:id?match=<uuid> ──
+	// Cuando el usuario toca una push notification con este formato de URL,
+	// lo llevamos directo al card del partido con scroll + highlight efímero.
+	// Después limpiamos el query param para no re-disparar en cada navegación.
+	useEffect(() => {
+		const matchId = searchParams.get("match");
+		if (!matchId) return;
+
+		// Esperar a que los matches carguen antes de hacer scroll.
+		if (isLoadingMatches) return;
+
+		// Cambiar a la tab donde se ve el card de pronóstico.
+		setTab("pronosticos");
+
+		// Esperar un tick a que React pinte los cards con `data-match-id`.
+		const timeoutId = setTimeout(() => {
+			const el = document.querySelector(
+				`[data-match-id="${CSS.escape(matchId)}"]`,
+			) as HTMLElement | null;
+
+			if (el) {
+				el.scrollIntoView({ behavior: "smooth", block: "center" });
+				el.classList.add(
+					"ring-2",
+					"ring-primary",
+					"ring-offset-2",
+					"ring-offset-surface",
+					"rounded-2xl",
+				);
+				setTimeout(() => {
+					el.classList.remove(
+						"ring-2",
+						"ring-primary",
+						"ring-offset-2",
+						"ring-offset-surface",
+						"rounded-2xl",
+					);
+				}, 3000);
+			}
+
+			// Limpiar el query param para no re-disparar si el user navega.
+			const next = new URLSearchParams(searchParams);
+			next.delete("match");
+			setSearchParams(next, { replace: true });
+		}, 250);
+
+		return () => clearTimeout(timeoutId);
+	}, [searchParams, isLoadingMatches, setSearchParams]);
 
 	const isLoading =
 		isLoadingTournament ||
@@ -1101,21 +1151,26 @@ export function Tournament() {
 											(p) => p.matchId === match.id,
 										);
 										return (
-											<MatchCard
+											<div
 												key={match.id}
-												match={match}
-												showPrediction={true}
-												prediction={pred}
-												onSave={async (home, away, penaltyWinner) => {
-													await savePrediction({
-														matchId: match.id,
-														tournamentId: tournament.id,
-														predictedHome: home,
-														predictedAway: away,
-														predictedWinner: penaltyWinner,
-													});
-												}}
-											/>
+												data-match-id={match.id}
+												className="transition-all duration-300"
+											>
+												<MatchCard
+													match={match}
+													showPrediction={true}
+													prediction={pred}
+													onSave={async (home, away, penaltyWinner) => {
+														await savePrediction({
+															matchId: match.id,
+															tournamentId: tournament.id,
+															predictedHome: home,
+															predictedAway: away,
+															predictedWinner: penaltyWinner,
+														});
+													}}
+												/>
+											</div>
 										);
 									})}
 								</div>

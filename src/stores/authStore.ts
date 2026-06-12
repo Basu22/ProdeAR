@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { authApi, mapSupabaseUser } from "../lib/api/auth";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import type { User } from "../lib/types";
+import { useNotificationStore } from "./notificationStore";
 
 interface AuthState {
 	user: User | null;
@@ -38,10 +39,24 @@ export const useAuthStore = create<AuthState>((set) => ({
 				const user = session?.user ? mapSupabaseUser(session.user) : null;
 				set({ user, isLoading: false });
 
+				// Si ya hay sesión al cargar, hidratar notificaciones también.
+				if (user) {
+					useNotificationStore.getState().hydrate();
+				}
+
 				// Listen for auth changes
 				supabase.auth.onAuthStateChange((_event, session) => {
 					const user = session?.user ? mapSupabaseUser(session.user) : null;
 					set({ user, isLoading: false });
+
+					// Sincronizar notificationStore con el ciclo de vida de auth:
+					//   - SIGNED_IN  → hidratar (lee suscripción real del navegador)
+					//   - SIGNED_OUT → reset (limpia estado al cerrar sesión)
+					if (user) {
+						useNotificationStore.getState().hydrate();
+					} else {
+						useNotificationStore.getState().reset();
+					}
 				});
 			} catch (err) {
 				console.error("Error al hidratar autenticación con Supabase:", err);
@@ -54,6 +69,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 			// Mock mode
 			const user = authApi.getPersistedUser();
 			set({ user, isLoading: false });
+
+			// En modo simulación también hidratamos (lee localStorage).
+			if (user) {
+				useNotificationStore.getState().hydrate();
+			}
 		}
 	},
 
@@ -64,6 +84,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 			// Only update state if not in Supabase mode (OAuth redirects browser anyway)
 			if (!isSupabaseConfigured) {
 				set({ user, isLoading: false });
+				// En modo mock, hidratar manualmente.
+				useNotificationStore.getState().hydrate();
 			}
 		} catch (err) {
 			set({
@@ -78,6 +100,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 		try {
 			const user = await authApi.loginWithEmail(email, password);
 			set({ user, isLoading: false });
+			// Hidratar notificaciones después de login exitoso.
+			useNotificationStore.getState().hydrate();
 		} catch (err) {
 			set({
 				error: err instanceof Error ? err.message : "Credenciales inválidas",
@@ -91,6 +115,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 		try {
 			const user = await authApi.register(email, password, displayName);
 			set({ user, isLoading: false });
+			// Hidratar notificaciones después de registro exitoso.
+			useNotificationStore.getState().hydrate();
 		} catch (err) {
 			set({
 				error: err instanceof Error ? err.message : "Error al registrarse",
@@ -104,6 +130,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 		try {
 			await authApi.logout();
 			set({ user: null, isLoading: false });
+			// Reset del notificationStore al cerrar sesión.
+			useNotificationStore.getState().reset();
 		} catch (err) {
 			set({
 				error: err instanceof Error ? err.message : "Error al cerrar sesión",

@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveMinute } from "../../hooks/useLiveMinute";
-import type { Match, Prediction } from "../../lib/types";
+import { useNewEvents } from "../../hooks/useNewEvents";
+import type { Match, MatchEvent, Prediction } from "../../lib/types";
+import { EventToast } from "./EventToast";
+import { GoalAnimation } from "./GoalAnimation";
 import { MatchDetailsTabs } from "./MatchDetailsTabs";
+import { RedCardBadge } from "./RedCardBadge";
 
 const TEAM_TRANSLATIONS: Record<string, string> = {
 	Argentina: "Argentina",
@@ -99,6 +103,8 @@ interface MatchCardProps {
 	) => Promise<void>;
 	predictionViewMode?: boolean;
 	tournamentName?: string;
+	predictions?: Prediction[];
+	tournamentNames?: Map<string, string>;
 }
 
 export function MatchCard({
@@ -108,35 +114,121 @@ export function MatchCard({
 	onSave,
 	predictionViewMode,
 	tournamentName,
+	predictions,
+	tournamentNames,
 }: MatchCardProps) {
 	const isLive = match.status === "live";
 	const isFinished = match.status === "finished";
 	const isCancelled = match.status === "cancelled";
 	const isPostponed = match.status === "postponed";
-	const liveMinute = useLiveMinute(match);
+	const {
+		minute: liveMinute,
+		freshness,
+		ageMinutes,
+		isStale,
+	} = useLiveMinute(match);
+
+	const freshnessPrefix =
+		freshness === "stale" ? "⏱️ " : freshness === "warm" ? "~" : "";
+	const freshnessTitle = isStale
+		? `Última actualización hace ${ageMinutes} min`
+		: freshness === "warm"
+			? `Actualizado hace ${ageMinutes} min`
+			: undefined;
 
 	const [isExpanded, setIsExpanded] = useState(false);
-	const [isGoal, setIsGoal] = useState(false);
-	const prevScoreRef = useRef({ home: match.homeScore, away: match.awayScore });
+	const { newEvents, clearEvent } = useNewEvents(match, isLive);
+	const [animationQueue, setAnimationQueue] = useState<MatchEvent[]>([]);
+	const [currentAnimation, setCurrentAnimation] = useState<MatchEvent | null>(
+		null,
+	);
+	const [stadiumGlow, setStadiumGlow] = useState<
+		"goal" | "red" | "yellow" | null
+	>(null);
+	const goalAudioRef = useRef<HTMLAudioElement | null>(null);
 
-	useEffect(() => {
-		if (!isLive) return;
+	// Determinar si el gol fue acertado por el usuario (soporta modo multi-torneo)
+	const isUserGoal = useMemo(() => {
+		if (currentAnimation?.type !== "goal") return false;
+		if (match.homeScore === null || match.awayScore === null) return false;
 
-		const prevHome = prevScoreRef.current.home;
-		const prevAway = prevScoreRef.current.away;
-		const currentHome = match.homeScore;
-		const currentAway = match.awayScore;
-
-		if (
-			(currentHome !== null && currentHome !== prevHome) ||
-			(currentAway !== null && currentAway !== prevAway)
-		) {
-			setIsGoal(true);
-			const timer = setTimeout(() => setIsGoal(false), 3000);
-			prevScoreRef.current = { home: currentHome, away: currentAway };
-			return () => clearTimeout(timer);
+		// Modo multi-torneo: iterar todas las predicciones del array
+		if (predictions && predictions.length > 0) {
+			return predictions.some(
+				(p) =>
+					match.homeScore === p.predictedHome &&
+					match.awayScore === p.predictedAway,
+			);
 		}
-	}, [match.homeScore, match.awayScore, isLive]);
+
+		// Modo legacy: predicción singular
+		if (prediction) {
+			return (
+				match.homeScore === prediction.predictedHome &&
+				match.awayScore === prediction.predictedAway
+			);
+		}
+
+		return false;
+	}, [currentAnimation, match.homeScore, match.awayScore, predictions, prediction]);
+
+	// Pre-load del audio al montar si isLive
+	useEffect(() => {
+		if (isLive && !goalAudioRef.current) {
+			goalAudioRef.current = new Audio("/sounds/goal.mp3");
+			goalAudioRef.current.preload = "auto";
+			goalAudioRef.current.volume = 0.6;
+		}
+	}, [isLive]);
+
+	// Encolar eventos nuevos (goles primero)
+	useEffect(() => {
+		if (newEvents.length === 0) return;
+		const goals = newEvents.filter((e) => e.type === "goal");
+		const others = newEvents.filter((e) => e.type !== "goal");
+		setAnimationQueue((prev) => {
+			const combined = [...goals.reverse(), ...prev, ...others];
+			// Cap a 5 elementos
+			return combined.slice(-5);
+		});
+		newEvents.forEach((e) => clearEvent(e.id));
+	}, [newEvents, clearEvent]);
+
+	// Limpiar cola si no es live
+	useEffect(() => {
+		if (!isLive) {
+			setAnimationQueue([]);
+			setCurrentAnimation(null);
+			setStadiumGlow(null);
+		}
+	}, [isLive]);
+
+	// Procesar la cola
+	useEffect(() => {
+		if (currentAnimation || animationQueue.length === 0) return;
+		const next = animationQueue[0];
+		setCurrentAnimation(next);
+		setAnimationQueue((prev) => prev.slice(1));
+
+		// Stadium Glow
+		if (next.type === "goal") {
+			setStadiumGlow("goal");
+			goalAudioRef.current?.play().catch(() => {});
+		} else if (next.type === "red") {
+			setStadiumGlow("red");
+		} else if (next.type === "yellow") {
+			setStadiumGlow("yellow");
+		}
+
+		// Auto-clear glow
+		const glowDuration = next.type === "goal" ? 14000 : 7000;
+		const t = setTimeout(() => setStadiumGlow(null), glowDuration);
+		return () => clearTimeout(t);
+	}, [animationQueue, currentAnimation]);
+
+	const handleAnimationComplete = useCallback(() => {
+		setCurrentAnimation(null);
+	}, []);
 
 	// Determine competition details dynamically
 	const compName =
@@ -330,65 +422,35 @@ export function MatchCard({
 
 	const pointsEarned = prediction?.pointsEarned;
 
-	// Perform helper points breakdown for rendering finished tags
-	const getScoreResult = () => {
-		if (prediction && match.homeScore !== null && match.awayScore !== null) {
-			const pHome = prediction.predictedHome;
-			const pAway = prediction.predictedAway;
-			const pWinner = prediction.predictedWinner;
-			const aHome = match.homeScore;
-			const aAway = match.awayScore;
-			const aWinner = match.penaltyWinner;
+	// Puntos desglosados (reutiliza la función pura)
+	const scoreResult = useMemo(
+		() => (prediction ? getScoreResultForPrediction(prediction, match) : null),
+		[prediction, match],
+	);
 
-			const exactScore = pHome === aHome && pAway === aAway;
-
-			const actualWinnerType =
-				aHome > aAway ? "home" : aAway > aHome ? "away" : "draw";
-			const predictedWinnerType =
-				pHome > pAway ? "home" : pAway > pHome ? "away" : "draw";
-
-			const correctDraw =
-				actualWinnerType === "draw" && predictedWinnerType === "draw";
-			const correctWinner =
-				actualWinnerType !== "draw" && actualWinnerType === predictedWinnerType;
-
-			const actualDiff = aHome - aAway;
-			const predictedDiff = pHome - pAway;
-			const goalDifference =
-				(correctWinner || correctDraw) &&
-				actualDiff === predictedDiff &&
-				!exactScore;
-
-			const correctWinnerOrDraw = correctWinner || correctDraw;
-
-			const penaltyBonus =
-				aHome === aAway &&
-				pHome === pAway &&
-				aWinner !== null &&
-				pWinner === aWinner;
-
-			return {
-				exactScore,
-				goalDifference,
-				correctWinner: correctWinnerOrDraw && !exactScore && !goalDifference,
-				penaltyBonus,
-			};
-		}
-		return null;
-	};
-
-	const scoreResult = getScoreResult();
+	// Conteo de tarjetas rojas por equipo (para badge en el escudo)
+	const { homeRedCount, awayRedCount } = useMemo(() => {
+		const events = match.events ?? [];
+		return {
+			homeRedCount: events.filter((e) => e.type === "red" && e.team === "home").length,
+			awayRedCount: events.filter((e) => e.type === "red" && e.team === "away").length,
+		};
+	}, [match.events]);
 
 	return (
 		<div
 			className={`glass-card rounded-2xl overflow-hidden relative group transition-[background-color,border-color] duration-500 border-white/10 ${
-				isGoal
-					? "bg-emerald-500/20 border-emerald-500/40 shadow-[0_0_25px_rgba(16,185,129,0.2)] animate-pulse"
-					: isLive
-						? "celestial-glow border-primary/20 bg-primary/5"
-						: isCancelled
-							? "border-red-500/30 bg-red-950/10 shadow-[0_0_15px_rgba(239,68,68,0.08)]"
-							: "hover:bg-white/5"
+				stadiumGlow === "goal"
+					? "stadium-glow-green"
+					: stadiumGlow === "red"
+						? "stadium-glow-red"
+						: stadiumGlow === "yellow"
+							? "stadium-glow-amber"
+							: isLive
+								? "celestial-glow border-primary/20 bg-primary/5"
+								: isCancelled
+									? "border-red-500/30 bg-red-950/10 shadow-[0_0_15px_rgba(239,68,68,0.08)]"
+									: "hover:bg-white/5"
 			}`}
 		>
 			{/* Header: 4 stacked centered rows */}
@@ -408,9 +470,16 @@ export function MatchCard({
 				{/* ROW 1: Horario / Estado (centrado) */}
 				<div className="flex items-center justify-center px-4 pt-3 pb-1">
 					{isLive ? (
-						<span className="flex items-center gap-1 bg-error/10 border border-error/30 text-error px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase animate-pulse">
+						<span
+							className={`flex items-center gap-1 bg-error/10 border border-error/30 px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase animate-pulse ${
+								isStale ? "text-amber-400" : "text-error"
+							}`}
+							title={freshnessTitle}
+						>
 							<span className="w-1 h-1 rounded-full bg-error inline-block animate-ping" />
-							{typeof liveMinute === "number" ? `${liveMinute}'` : "EN VIVO"}
+							{typeof liveMinute === "number"
+								? `${freshnessPrefix}${liveMinute}'`
+								: "EN VIVO"}
 						</span>
 					) : isFinished ? (
 						<span className="bg-white/5 border border-white/10 text-on-surface-variant px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase">
@@ -441,27 +510,31 @@ export function MatchCard({
 						<span className="font-headline-md text-xs md:text-sm font-bold text-white uppercase">
 							{translateTeamName(match.homeTeam)}
 						</span>
-						<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
-							{match.homeLogo ? (
-								<img
-									src={match.homeLogo}
-									alt={translateTeamName(match.homeTeam)}
-									className="w-full h-full object-contain"
-									onError={(e) => {
-										(e.target as HTMLImageElement).style.display = "none";
-										const sibling = (e.target as HTMLImageElement)
-											.nextElementSibling;
-										if (sibling)
-											(sibling as HTMLElement).style.display = "block";
-									}}
-								/>
-							) : null}
-							<span
-								className="material-symbols-outlined text-primary text-base"
-								style={{ display: match.homeLogo ? "none" : "block" }}
-							>
-								shield
-							</span>
+						{/* Escudo Home con badge de rojas */}
+						<div className="relative flex-shrink-0">
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 overflow-hidden">
+								{match.homeLogo ? (
+									<img
+										src={match.homeLogo}
+										alt={translateTeamName(match.homeTeam)}
+										className="w-full h-full object-contain"
+										onError={(e) => {
+											(e.target as HTMLImageElement).style.display = "none";
+											const sibling = (e.target as HTMLImageElement)
+												.nextElementSibling;
+											if (sibling)
+												(sibling as HTMLElement).style.display = "block";
+										}}
+									/>
+								) : null}
+								<span
+									className="material-symbols-outlined text-primary text-base"
+									style={{ display: match.homeLogo ? "none" : "block" }}
+								>
+									shield
+								</span>
+							</div>
+							<RedCardBadge count={homeRedCount} />
 						</div>
 					</div>
 
@@ -490,27 +563,31 @@ export function MatchCard({
 
 					{/* Away Team block */}
 					<div className="flex items-center justify-start gap-2 md:gap-3 flex-1 min-w-0">
-						<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 relative overflow-hidden flex-shrink-0">
-							{match.awayLogo ? (
-								<img
-									src={match.awayLogo}
-									alt={translateTeamName(match.awayTeam)}
-									className="w-full h-full object-contain"
-									onError={(e) => {
-										(e.target as HTMLImageElement).style.display = "none";
-										const sibling = (e.target as HTMLImageElement)
-											.nextElementSibling;
-										if (sibling)
-											(sibling as HTMLElement).style.display = "block";
-									}}
-								/>
-							) : null}
-							<span
-								className="material-symbols-outlined text-primary text-base"
-								style={{ display: match.awayLogo ? "none" : "block" }}
-							>
-								shield
-							</span>
+						{/* Escudo Away con badge de rojas */}
+						<div className="relative flex-shrink-0">
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 overflow-hidden">
+								{match.awayLogo ? (
+									<img
+										src={match.awayLogo}
+										alt={translateTeamName(match.awayTeam)}
+										className="w-full h-full object-contain"
+										onError={(e) => {
+											(e.target as HTMLImageElement).style.display = "none";
+											const sibling = (e.target as HTMLImageElement)
+												.nextElementSibling;
+											if (sibling)
+												(sibling as HTMLElement).style.display = "block";
+										}}
+									/>
+								) : null}
+								<span
+									className="material-symbols-outlined text-primary text-base"
+									style={{ display: match.awayLogo ? "none" : "block" }}
+								>
+									shield
+								</span>
+							</div>
+							<RedCardBadge count={awayRedCount} />
 						</div>
 						<span className="font-headline-md text-xs md:text-sm font-bold text-white uppercase">
 							{translateTeamName(match.awayTeam)}
@@ -551,6 +628,21 @@ export function MatchCard({
 				</div>
 			</div>
 
+			{/* Live event animations (Idea 2) */}
+			{currentAnimation?.type === "goal" && (
+				<GoalAnimation
+					event={currentAnimation}
+					onComplete={handleAnimationComplete}
+					isUserGoal={isUserGoal}
+				/>
+			)}
+			{currentAnimation && currentAnimation.type !== "goal" && (
+				<EventToast
+					event={currentAnimation}
+					onComplete={handleAnimationComplete}
+				/>
+			)}
+
 			{/* Accordion Expanded Section: Predictions / Stadium / Action */}
 			{isExpanded && (
 				<div className="p-4 border-t border-white/5 bg-surface-container-low/20 animate-fade-in space-y-4">
@@ -580,6 +672,8 @@ export function MatchCard({
 							match={match}
 							prediction={prediction}
 							tournamentName={tournamentName}
+							predictions={predictions}
+							tournamentNames={tournamentNames}
 							scoreResult={scoreResult}
 							pointsEarned={pointsEarned}
 							isFinished={isFinished}
@@ -905,25 +999,119 @@ type ScoreResult = {
 };
 
 /**
+ * Calcula el desglose de puntos de una predicción vs. el resultado real.
+ * Función pura reutilizable (multi-torneo o legacy).
+ */
+function getScoreResultForPrediction(
+	prediction: Prediction,
+	match: Match,
+): ScoreResult | null {
+	if (match.homeScore === null || match.awayScore === null) return null;
+
+	const pHome = prediction.predictedHome;
+	const pAway = prediction.predictedAway;
+	const pWinner = prediction.predictedWinner;
+	const aHome = match.homeScore;
+	const aAway = match.awayScore;
+	const aWinner = match.penaltyWinner;
+
+	const exactScore = pHome === aHome && pAway === aAway;
+	const actualWinnerType =
+		aHome > aAway ? "home" : aAway > aHome ? "away" : "draw";
+	const predictedWinnerType =
+		pHome > pAway ? "home" : pAway > pHome ? "away" : "draw";
+
+	const correctDraw =
+		actualWinnerType === "draw" && predictedWinnerType === "draw";
+	const correctWinner =
+		actualWinnerType !== "draw" && actualWinnerType === predictedWinnerType;
+
+	const actualDiff = aHome - aAway;
+	const predictedDiff = pHome - pAway;
+	const goalDifference =
+		(correctWinner || correctDraw) &&
+		actualDiff === predictedDiff &&
+		!exactScore;
+
+	const correctWinnerOrDraw = correctWinner || correctDraw;
+	const penaltyBonus =
+		aHome === aAway &&
+		pHome === pAway &&
+		aWinner !== null &&
+		pWinner === aWinner;
+
+	return {
+		exactScore,
+		goalDifference,
+		correctWinner: correctWinnerOrDraw && !exactScore && !goalDifference,
+		penaltyBonus,
+	};
+}
+
+/**
  * Panel de visualización (modo lectura) para el Dashboard.
- * Muestra el pronóstico del usuario de manera estática (no editable)
- * con el nombre del torneo al que pertenece.
+ * Soporta modo multi-torneo (array de predicciones) y modo legacy (1 predicción).
  */
 function PredictionViewPanel({
 	match,
 	prediction,
 	tournamentName,
+	predictions,
+	tournamentNames,
 	scoreResult,
 	pointsEarned,
 	isFinished,
 }: {
 	match: Match;
-	prediction: Prediction | undefined;
-	tournamentName: string | undefined;
+	prediction?: Prediction;
+	tournamentName?: string;
+	predictions?: Prediction[];
+	tournamentNames?: Map<string, string>;
 	scoreResult: ScoreResult | null;
 	pointsEarned: number | null | undefined;
 	isFinished: boolean;
 }) {
+	// MODO MULTI-TORNEO: si se pasa el array con predicciones
+	if (predictions && tournamentNames && predictions.length > 0) {
+		return (
+			<MultiPredictionRows
+				predictions={predictions}
+				match={match}
+				tournamentNames={tournamentNames}
+				isFinished={isFinished}
+			/>
+		);
+	}
+
+	// MODO MULTI-TORNEO sin predicciones: usuario sin pronósticos en este partido
+	if (predictions && predictions.length === 0) {
+		return (
+			<div className="bg-surface-container-low/60 rounded-2xl p-4 border border-white/5 relative overflow-hidden">
+				<div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+				<div className="flex items-center gap-1.5 mb-3 pb-2 border-b border-white/5">
+					<span className="material-symbols-outlined text-sm text-tertiary">
+						emoji_events
+					</span>
+					<p className="font-label-caps text-[10px] text-tertiary tracking-widest uppercase font-bold">
+						PRONÓSTICOS
+					</p>
+				</div>
+				<div className="text-center py-4 flex flex-col items-center gap-2">
+					<span className="material-symbols-outlined text-3xl text-on-surface-variant/30">
+						edit_note
+					</span>
+					<p className="font-label-caps text-xs text-on-surface-variant/80 uppercase tracking-widest font-bold">
+						No pronosticaste este partido en ningún torneo
+					</p>
+					<p className="text-xs text-on-surface-variant/60 leading-relaxed max-w-xs">
+						Andá a la página del torneo para cargar tu pronóstico
+					</p>
+				</div>
+			</div>
+		);
+	}
+
+	// MODO LEGACY: comportamiento anterior (un solo torneo)
 	// Caso 1: No hay torneo activo
 	if (!tournamentName) {
 		return (
@@ -979,7 +1167,7 @@ function PredictionViewPanel({
 		);
 	}
 
-	// Caso 3: Hay predicción — mostrar el score estático grande
+	// Caso 3: Hay predicción — mostrar el score estático grande (legacy)
 	const predictedHomeScore = prediction.predictedHome;
 	const predictedAwayScore = prediction.predictedAway;
 
@@ -1138,5 +1326,235 @@ function PredictionViewPanel({
 				</div>
 			)}
 		</div>
+	);
+}
+
+/**
+ * Lista compacta de predicciones (modo multi-torneo del Dashboard).
+ * Una fila por cada torneo en el que el usuario pronosticó este partido.
+ */
+function MultiPredictionRows({
+	predictions,
+	match,
+	tournamentNames,
+	isFinished,
+}: {
+	predictions: Prediction[];
+	match: Match;
+	tournamentNames: Map<string, string>;
+	isFinished: boolean;
+}) {
+	const [isExpanded, setIsExpanded] = useState(false);
+
+	// Orden: finalizados con puntos >0 (desc), finalizados con 0pts, pendientes
+	const sortedPredictions = useMemo(() => {
+		return [...predictions].sort((a, b) => {
+			const aFinished = isFinished && a.pointsEarned !== null;
+			const bFinished = isFinished && b.pointsEarned !== null;
+			const aHasPoints = aFinished && (a.pointsEarned ?? 0) > 0;
+			const bHasPoints = bFinished && (b.pointsEarned ?? 0) > 0;
+			const aZeroPts = aFinished && (a.pointsEarned ?? 0) === 0;
+			const bZeroPts = bFinished && (b.pointsEarned ?? 0) === 0;
+
+			if (aHasPoints && bHasPoints)
+				return (b.pointsEarned ?? 0) - (a.pointsEarned ?? 0);
+			if (aHasPoints) return -1;
+			if (bHasPoints) return 1;
+			if (aZeroPts && bZeroPts) return 0;
+			if (aZeroPts) return -1;
+			if (bZeroPts) return 1;
+			return 0;
+		});
+	}, [predictions, isFinished]);
+
+	const totalPoints = useMemo(
+		() =>
+			predictions.reduce(
+				(sum, p) => sum + (p.pointsEarned && p.pointsEarned > 0 ? p.pointsEarned : 0),
+				0,
+			),
+		[predictions],
+	);
+
+	const COLLAPSE_THRESHOLD = 4;
+	const shouldCollapse = sortedPredictions.length >= COLLAPSE_THRESHOLD;
+	const visiblePredictions =
+		shouldCollapse && !isExpanded
+			? sortedPredictions.slice(0, 3)
+			: sortedPredictions;
+	const hiddenCount = sortedPredictions.length - 3;
+
+	return (
+		<div className="bg-surface-container-low/60 rounded-2xl p-4 border border-white/5 relative overflow-hidden">
+			<div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+
+			{/* HEADER */}
+			<div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+				<div className="flex items-center gap-1.5 min-w-0">
+					<span className="material-symbols-outlined text-sm text-tertiary flex-shrink-0">
+						emoji_events
+					</span>
+					<p className="font-label-caps text-[10px] text-tertiary tracking-widest uppercase font-bold truncate">
+						PRONÓSTICOS — {predictions.length}{" "}
+						{predictions.length === 1 ? "TORNEO" : "TORNEOS"}
+					</p>
+				</div>
+				{isFinished ? (
+					<span
+						className={`font-stat-value text-xs font-black tabular-nums flex-shrink-0 ${totalPoints > 0 ? "text-emerald-400" : "text-on-surface-variant/50"}`}
+					>
+						Σ {totalPoints} pts
+					</span>
+				) : (
+					<span className="text-[10px] text-on-surface-variant/60 italic flex-shrink-0">
+						Pendiente
+					</span>
+				)}
+			</div>
+
+			{/* FILAS */}
+			<div className="space-y-2">
+				{visiblePredictions.map((pred) => (
+					<PredictionRow
+						key={pred.id}
+						prediction={pred}
+						match={match}
+						tournamentName={
+							tournamentNames.get(pred.tournamentId) ||
+							`Torneo #${pred.tournamentId.slice(0, 4)}`
+						}
+						tournamentId={pred.tournamentId}
+						scoreResult={getScoreResultForPrediction(pred, match)}
+						isFinished={isFinished}
+					/>
+				))}
+			</div>
+
+			{/* BOTÓN DE COLAPSO */}
+			{shouldCollapse && !isExpanded && (
+				<button
+					type="button"
+					onClick={() => setIsExpanded(true)}
+					className="w-full mt-2 text-center py-1.5 text-on-surface-variant hover:text-primary font-label-caps text-[10px] uppercase tracking-wider cursor-pointer transition-colors"
+				>
+					Ver {hiddenCount} más
+					<span className="material-symbols-outlined text-xs ml-1 align-middle">
+						expand_more
+					</span>
+				</button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Fila individual de predicción en el panel multi-torneo.
+ * Cada fila es un <Link> al torneo correspondiente.
+ */
+function PredictionRow({
+	prediction,
+	match,
+	tournamentName,
+	tournamentId,
+	scoreResult,
+	isFinished,
+}: {
+	prediction: Prediction;
+	match: Match;
+	tournamentName: string;
+	tournamentId: string;
+	scoreResult: ScoreResult | null;
+	isFinished: boolean;
+}) {
+	return (
+		<Link to={`/torneo/${tournamentId}`} className="block group">
+			<div className="py-2 px-3 rounded-lg bg-surface-container/40 border border-white/5 hover:bg-surface-container/60 transition-colors group-hover:border-white/10">
+				<div className="flex items-center gap-2">
+					{/* Col 1: Torneo */}
+					<div className="flex items-center gap-1.5 min-w-0 flex-1">
+						<span className="material-symbols-outlined text-tertiary text-sm flex-shrink-0">
+							emoji_events
+						</span>
+						<span className="font-label-caps text-xs uppercase truncate font-semibold text-on-surface-variant group-hover:text-white transition-colors">
+							{tournamentName}
+						</span>
+					</div>
+
+					{/* Col 2: Score */}
+					<div className="flex items-center gap-1 flex-none">
+						<span className="font-stat-value text-base font-black tabular-nums text-white">
+							{prediction.predictedHome}
+						</span>
+						<span className="text-on-surface-variant/40 text-xs">-</span>
+						<span className="font-stat-value text-base font-black tabular-nums text-white">
+							{prediction.predictedAway}
+						</span>
+					</div>
+
+					{/* Col 3: Puntos */}
+					<div className="flex-none">
+						{isFinished && prediction.pointsEarned !== null ? (
+							prediction.pointsEarned > 0 ? (
+								<span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+									+{prediction.pointsEarned} pts
+								</span>
+							) : (
+								<span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-500/10 border border-red-500/20 text-red-400/80">
+									0 pts
+								</span>
+							)
+						) : (
+							<span className="flex items-center gap-0.5 text-on-surface-variant/60 italic text-[10px]">
+								<span className="material-symbols-outlined text-[12px]">
+									schedule
+								</span>
+								Pendiente
+							</span>
+						)}
+					</div>
+
+					{/* Col 4: Tag resultado (sm+) */}
+					{isFinished && scoreResult && (
+						<div className="flex-none hidden sm:flex items-center gap-1">
+							{scoreResult.exactScore && (
+								<span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+									EXACTO
+								</span>
+							)}
+							{scoreResult.goalDifference && (
+								<span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+									DIF
+								</span>
+							)}
+							{scoreResult.correctWinner && (
+								<span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
+									BÁSICO
+								</span>
+							)}
+							{scoreResult.penaltyBonus && (
+								<span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
+									PEN
+								</span>
+							)}
+						</div>
+					)}
+				</div>
+
+				{/* Sub-fila: Penales */}
+				{prediction.predictedWinner && (
+					<div className="flex items-center gap-1 mt-1 pl-6">
+						<span className="material-symbols-outlined text-[10px] text-amber-400">
+							military_tech
+						</span>
+						<span className="text-[9px] text-amber-400/80 font-bold uppercase tracking-wider">
+							Penales:{" "}
+							{prediction.predictedWinner === "home"
+								? match.homeTeam
+								: match.awayTeam}
+						</span>
+					</div>
+				)}
+			</div>
+		</Link>
 	);
 }

@@ -8,6 +8,13 @@ export function usePredictions(tournamentId: string) {
 	});
 }
 
+export function useAllPredictions() {
+	return useQuery({
+		queryKey: ["all-predictions"],
+		queryFn: () => tournamentsApi.getAllMyPredictions(),
+	});
+}
+
 export function useSavePrediction() {
 	const queryClient = useQueryClient();
 
@@ -35,6 +42,9 @@ export function useSavePrediction() {
 		onSuccess: (_data, variables) => {
 			queryClient.invalidateQueries({
 				queryKey: ["predictions", variables.tournamentId],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["all-predictions"],
 			});
 		},
 	});

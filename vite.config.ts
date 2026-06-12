@@ -8,44 +8,27 @@ export default defineConfig({
 		react(),
 		tailwindcss(),
 		VitePWA({
+			strategies: "injectManifest",
+			srcDir: "src",
+			filename: "service-worker.ts",
 			selfDestroying: false,
 			registerType: "autoUpdate",
 			includeAssets: ["favicon.ico", "robots.txt", "gol_sound.mp3"],
-			workbox: {
-				// No fallback a HTML cacheado: la app es 100% online.
-				// Preferimos error de red antes que contenido stale.
-				navigateFallback: undefined,
-				runtimeCaching: [
-					{
-						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-						handler: "CacheFirst",
-						options: {
-							cacheName: "google-fonts-cache",
-							expiration: {
-								maxEntries: 10,
-								maxAgeSeconds: 60 * 60 * 24 * 365,
-							},
-							cacheableResponse: {
-								statuses: [0, 200],
-							},
-						},
-					},
-					{
-						urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-						handler: "CacheFirst",
-						options: {
-							cacheName: "gstatic-fonts-cache",
-							expiration: {
-								maxEntries: 10,
-								maxAgeSeconds: 60 * 60 * 24 * 365,
-							},
-							cacheableResponse: {
-								statuses: [0, 200],
-							},
-						},
-					},
-				],
+			devOptions: {
+				// Habilitar el Service Worker en dev. Por default vite-plugin-pwa
+				// lo desactiva, lo cual rompe la feature de push. Con estas
+				// opciones el SW funciona en localhost igual que en producción.
+				enabled: true,
+				type: "module",
 			},
+			injectManifest: {
+				globPatterns: ["**/*.{js,css,html,ico,png,svg,mp3}"],
+			},
+			// Sin `workbox: { ... }` — la lógica de precaching + runtime caching
+			// vive dentro de src/service-worker.ts para poder agregar handlers
+			// custom de `push` y `notificationclick`.
+			// No fallback a HTML cacheado: la app es 100% online.
+			// Preferimos error de red antes que contenido stale.
 			manifest: {
 				name: "ProdeAR",
 				short_name: "ProdeAR",

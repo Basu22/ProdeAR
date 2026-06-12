@@ -14,6 +14,7 @@ import { Rankings } from "./routes/Rankings";
 import { Tournament } from "./routes/Tournament";
 import { TournamentsRedirect } from "./routes/TournamentsRedirect";
 import { useAuthStore } from "./stores/authStore";
+import { useNotificationStore } from "./stores/notificationStore";
 import { type BeforeInstallPromptEvent, useUIStore } from "./stores/uiStore";
 
 const queryClient = new QueryClient({
@@ -28,6 +29,7 @@ const queryClient = new QueryClient({
 function AppContent() {
 	const hydrate = useAuthStore((s) => s.hydrate);
 	const setInstallPrompt = useUIStore((s) => s.setInstallPrompt);
+	const user = useAuthStore((s) => s.user);
 
 	useEffect(() => {
 		hydrate();
@@ -48,6 +50,29 @@ function AppContent() {
 			);
 		};
 	}, [setInstallPrompt]);
+
+	// ── Persistencia entre sesiones: re-hidratar cuando el usuario
+	// vuelve a la app (cambia de tab, vuelve del background, desbloquea el cel).
+	// Esto cubre el caso de "abrí la app, la dejé en background un rato, y al
+	// volver quiero ver el toggle en el estado REAL" (no el que tenía al irme).
+	useEffect(() => {
+		if (!user) return;
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				useNotificationStore.getState().hydrate();
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener(
+				"visibilitychange",
+				handleVisibilityChange,
+			);
+		};
+	}, [user]);
 
 	return (
 		<>

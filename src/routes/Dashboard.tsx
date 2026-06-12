@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { MatchCard } from "../components/match/MatchCard";
+import { AlertToggle } from "../components/notifications/AlertToggle";
+import { BlockedNotificationsModal } from "../components/notifications/BlockedNotificationsModal";
 import { GlassCard } from "../components/ui/GlassCard";
 import { MatchCardSkeleton } from "../components/ui/Skeletons";
+import { useAlertToggleState } from "../hooks/useAlertToggleState";
 import { useGlobalRankings } from "../hooks/useGlobalRankings";
 import { useMatches } from "../hooks/useMatches";
-import { usePredictions } from "../hooks/usePredictions";
+import { useAllPredictions } from "../hooks/usePredictions";
 import { useTournaments } from "../hooks/useTournament";
 import { useUserStats } from "../hooks/useUserStats";
-import { pushApi } from "../lib/api/push";
+import { useNotificationStore } from "../stores/notificationStore";
 import {
 	getDayFullName,
 	getDayLabel,
@@ -17,15 +20,32 @@ import {
 } from "../lib/dateHelpers";
 import { isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../stores/authStore";
+import type { Prediction } from "../lib/types";
 
 export function Dashboard() {
 	const { user: currentUser } = useAuthStore();
 	const { data: matches, isLoading: matchesLoading } = useMatches();
 
-	// Load user tournaments to find active one for predictions on Dashboard
+	// Load user tournaments + all predictions across tournaments
 	const { data: tournaments } = useTournaments();
-	const activeTournament = tournaments?.[0];
-	const { data: predictions } = usePredictions(activeTournament?.id || "");
+	const { data: allPredictions } = useAllPredictions();
+
+	// Map tournamentId → tournament name for displaying prediction rows
+	const tournamentNameMap = useMemo(() => {
+		const map = new Map<string, string>();
+		tournaments?.forEach((t) => map.set(t.id, t.name));
+		return map;
+	}, [tournaments]);
+
+	// Group predictions by matchId for the Dashboard multi-torneo view
+	const predictionsByMatch = useMemo(() => {
+		const map = new Map<string, Prediction[]>();
+		allPredictions?.forEach((p) => {
+			if (!map.has(p.matchId)) map.set(p.matchId, []);
+			map.get(p.matchId)!.push(p);
+		});
+		return map;
+	}, [allPredictions]);
 
 	// Generate today's date key in YYYY-MM-DD format (local time)
 	// TODO: Re-evaluar todayKey en cruce de medianoche (no es reactivo).
@@ -101,30 +121,29 @@ export function Dashboard() {
 		.slice(0, 3)
 		.some((r) => r.userId === currentUser?.id);
 
-	const [pushEnabled, setPushEnabled] = useState(false);
-	const [isPushLoading, setIsPushLoading] = useState(false);
+	const [showBlockedHelp, setShowBlockedHelp] = useState(false);
 
-	useEffect(() => {
-		const checkPushState = async () => {
-			if (pushApi.isSupported()) {
-				const state = await pushApi.getSubscriptionState();
-				setPushEnabled(state);
-			}
-		};
-		checkPushState();
-	}, []);
+	// Estado y acciones vienen del notificationStore (Zustand global).
+	// El hook `useAlertToggleState` deriva el AlertToggleState desde los facts crudos.
+	const pushState = useAlertToggleState();
+	const isPushSupported = useNotificationStore((s) => s.isSupported);
+	const pushEnabled = useNotificationStore((s) => s.pushEnabled);
+	const subscribe = useNotificationStore((s) => s.subscribe);
+	const unsubscribe = useNotificationStore((s) => s.unsubscribe);
 
 	const togglePush = async () => {
 		if (!currentUser) return;
-		setIsPushLoading(true);
 		try {
 			if (pushEnabled) {
-				await pushApi.unsubscribeUser();
-				setPushEnabled(false);
+				const result = await unsubscribe();
+				if (!result.success) {
+					console.error("Error al desactivar push:", result.error);
+				}
 			} else {
-				const success = await pushApi.subscribeUser(currentUser.id);
-				if (success) {
-					setPushEnabled(true);
+				const result = await subscribe(currentUser.id);
+				if (!result.success) {
+					const prefix = result.blocked ? "🔕" : "❌";
+					alert(`${prefix} ${result.error}`);
 				}
 			}
 		} catch (err) {
@@ -134,8 +153,6 @@ export function Dashboard() {
 					? err.message
 					: "Error al configurar notificaciones",
 			);
-		} finally {
-			setIsPushLoading(false);
 		}
 	};
 
@@ -224,36 +241,13 @@ export function Dashboard() {
 				</div>
 
 				{/* Notificaciones Push Toggle */}
-				{pushApi.isSupported() && (
-					<div className="flex items-center justify-between pt-3.5 border-t border-white/5 mt-3.5 select-none">
-						<div className="flex items-center gap-2">
-							<span
-								className={`material-symbols-outlined text-[18px] transition-colors ${pushEnabled ? "text-primary" : "text-on-surface-variant"}`}
-							>
-								{pushEnabled ? "notifications_active" : "notifications_off"}
-							</span>
-							<span className="font-label-caps text-[9px] text-on-surface-variant font-bold uppercase tracking-wider">
-								Alertas en vivo (Push)
-							</span>
-						</div>
-						<button
-							type="button"
-							onClick={togglePush}
-							disabled={isPushLoading}
-							className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-white/10 transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-								pushEnabled
-									? "bg-primary/20 border-primary/40"
-									: "bg-surface-container-highest"
-							}`}
-						>
-							<span
-								className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${
-									pushEnabled
-										? "translate-x-4 bg-primary shadow-[0_0_8px_rgba(0,229,255,0.8)]"
-										: "translate-x-0"
-								}`}
-							/>
-						</button>
+				{isPushSupported && (
+					<div className="pt-3.5 border-t border-white/5 mt-3.5">
+						<AlertToggle
+							state={pushState}
+							onToggle={togglePush}
+							onBlockedClick={() => setShowBlockedHelp(true)}
+						/>
 					</div>
 				)}
 			</div>
@@ -419,23 +413,20 @@ export function Dashboard() {
 					) : groupedMatches[selectedDay] &&
 						groupedMatches[selectedDay].length > 0 ? (
 						<div className="grid gap-4">
-							{groupedMatches[selectedDay].map((match, idx) => {
-								const pred = predictions?.find((p) => p.matchId === match.id);
-								return (
-									<div
-										key={match.id}
-										className="animate-enter"
-										style={{ animationDelay: `${idx * 60}ms` }}
-									>
-										<MatchCard
-											match={match}
-											predictionViewMode={true}
-											tournamentName={activeTournament?.name}
-											prediction={pred}
-										/>
-									</div>
-								);
-							})}
+							{groupedMatches[selectedDay].map((match, idx) => (
+								<div
+									key={match.id}
+									className="animate-enter"
+									style={{ animationDelay: `${idx * 60}ms` }}
+								>
+									<MatchCard
+										match={match}
+										predictionViewMode={true}
+										predictions={predictionsByMatch.get(match.id) || []}
+										tournamentNames={tournamentNameMap}
+									/>
+								</div>
+							))}
 						</div>
 					) : (
 						<div className="bg-surface-container/30 border border-white/5 rounded-2xl p-6 text-center py-10">
@@ -545,6 +536,11 @@ export function Dashboard() {
 					</div>
 				</GlassCard>
 			</div>
+
+			<BlockedNotificationsModal
+				isOpen={showBlockedHelp}
+				onClose={() => setShowBlockedHelp(false)}
+			/>
 		</div>
 	);
 }
