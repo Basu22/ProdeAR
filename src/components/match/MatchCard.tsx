@@ -56,6 +56,38 @@ const TEAM_TRANSLATIONS: Record<string, string> = {
 	"Cote d'Ivoire": "Costa de Marfil",
 	Australia: "Australia",
 	"New Zealand": "Nueva Zelanda",
+	"South Africa": "Sudáfrica",
+	Mali: "Malí",
+	"DR Congo": "RD Congo",
+	"Cape Verde": "Cabo Verde",
+	Iran: "Irán",
+	Iraq: "Irak",
+	Qatar: "Catar",
+	Uzbekistan: "Uzbekistán",
+	"United Arab Emirates": "Emiratos Árabes Unidos",
+	Jordan: "Jordania",
+	Thailand: "Tailandia",
+	Scotland: "Escocia",
+	Wales: "Gales",
+	"Northern Ireland": "Irlanda del Norte",
+	"Republic of Ireland": "República de Irlanda",
+	"Czech Republic": "República Checa",
+	"Bosnia and Herzegovina": "Bosnia y Herzegovina",
+	Hungary: "Hungría",
+	Romania: "Rumania",
+	Finland: "Finlandia",
+	Iceland: "Islandia",
+	Slovakia: "Eslovaquia",
+	Slovenia: "Eslovenia",
+	"North Macedonia": "Macedonia del Norte",
+	Luxembourg: "Luxemburgo",
+	Belarus: "Bielorrusia",
+	Haiti: "Haití",
+	Panama: "Panamá",
+	Curacao: "Curaçao",
+	"Trinidad and Tobago": "Trinidad y Tobago",
+	"Dominican Republic": "República Dominicana",
+	Suriname: "Surinam",
 };
 
 function translateTeamName(name: string): string {
@@ -512,12 +544,12 @@ export function MatchCard({
 						</span>
 						{/* Escudo Home con badge de rojas */}
 						<div className="relative flex-shrink-0">
-							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 overflow-hidden">
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden flex items-center justify-center">
 								{match.homeLogo ? (
 									<img
 										src={match.homeLogo}
 										alt={translateTeamName(match.homeTeam)}
-										className="w-full h-full object-contain"
+										className="w-full h-full object-cover"
 										onError={(e) => {
 											(e.target as HTMLImageElement).style.display = "none";
 											const sibling = (e.target as HTMLImageElement)
@@ -528,7 +560,7 @@ export function MatchCard({
 									/>
 								) : null}
 								<span
-									className="material-symbols-outlined text-primary text-base"
+									className="material-symbols-outlined text-primary text-base bg-surface-container w-full h-full flex items-center justify-center"
 									style={{ display: match.homeLogo ? "none" : "block" }}
 								>
 									shield
@@ -565,12 +597,12 @@ export function MatchCard({
 					<div className="flex items-center justify-start gap-2 md:gap-3 flex-1 min-w-0">
 						{/* Escudo Away con badge de rojas */}
 						<div className="relative flex-shrink-0">
-							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0 overflow-hidden">
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden flex items-center justify-center">
 								{match.awayLogo ? (
 									<img
 										src={match.awayLogo}
 										alt={translateTeamName(match.awayTeam)}
-										className="w-full h-full object-contain"
+										className="w-full h-full object-cover"
 										onError={(e) => {
 											(e.target as HTMLImageElement).style.display = "none";
 											const sibling = (e.target as HTMLImageElement)
@@ -581,7 +613,7 @@ export function MatchCard({
 									/>
 								) : null}
 								<span
-									className="material-symbols-outlined text-primary text-base"
+									className="material-symbols-outlined text-primary text-base bg-surface-container w-full h-full flex items-center justify-center"
 									style={{ display: match.awayLogo ? "none" : "block" }}
 								>
 									shield
@@ -707,12 +739,12 @@ export function MatchCard({
 									<div className="flex items-center justify-between gap-6 max-w-sm mx-auto py-2">
 										{/* Home Team Column */}
 										<div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-											<div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0.5 relative overflow-hidden flex-shrink-0">
+											<div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 												{match.homeLogo ? (
 													<img
 														src={match.homeLogo}
 														alt={translateTeamName(match.homeTeam)}
-														className="w-full h-full object-contain"
+														className="w-full h-full object-cover"
 														onError={(e) => {
 															(e.target as HTMLImageElement).style.display =
 																"none";
@@ -725,7 +757,7 @@ export function MatchCard({
 													/>
 												) : null}
 												<span
-													className="material-symbols-outlined text-primary text-lg"
+													className="material-symbols-outlined text-primary text-lg bg-surface-container w-full h-full flex items-center justify-center"
 													style={{ display: match.homeLogo ? "none" : "block" }}
 												>
 													shield
@@ -822,12 +854,12 @@ export function MatchCard({
 
 										{/* Away Team Column */}
 										<div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-											<div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0.5 relative overflow-hidden flex-shrink-0">
+											<div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 												{match.awayLogo ? (
 													<img
 														src={match.awayLogo}
 														alt={translateTeamName(match.awayTeam)}
-														className="w-full h-full object-contain"
+														className="w-full h-full object-cover"
 														onError={(e) => {
 															(e.target as HTMLImageElement).style.display =
 																"none";
@@ -840,7 +872,7 @@ export function MatchCard({
 													/>
 												) : null}
 												<span
-													className="material-symbols-outlined text-primary text-lg"
+													className="material-symbols-outlined text-primary text-lg bg-surface-container w-full h-full flex items-center justify-center"
 													style={{ display: match.awayLogo ? "none" : "block" }}
 												>
 													shield
@@ -1202,12 +1234,12 @@ function PredictionViewPanel({
 			<div className="flex items-center justify-between gap-6 max-w-sm mx-auto py-3">
 				{/* Home Team */}
 				<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-					<div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0.5 relative overflow-hidden flex-shrink-0">
+					<div className="w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 						{match.homeLogo ? (
 							<img
 								src={match.homeLogo}
 								alt={translateTeamName(match.homeTeam)}
-								className="w-full h-full object-contain"
+								className="w-full h-full object-cover"
 								onError={(e) => {
 									(e.target as HTMLImageElement).style.display = "none";
 									const sibling = (e.target as HTMLImageElement)
@@ -1218,7 +1250,7 @@ function PredictionViewPanel({
 							/>
 						) : null}
 						<span
-							className="material-symbols-outlined text-primary text-2xl"
+							className="material-symbols-outlined text-primary text-2xl bg-surface-container w-full h-full flex items-center justify-center"
 							style={{ display: match.homeLogo ? "none" : "block" }}
 						>
 							shield
@@ -1244,12 +1276,12 @@ function PredictionViewPanel({
 
 				{/* Away Team */}
 				<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-					<div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-surface-container border border-white/10 flex items-center justify-center p-0.5 relative overflow-hidden flex-shrink-0">
+					<div className="w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 						{match.awayLogo ? (
 							<img
 								src={match.awayLogo}
 								alt={translateTeamName(match.awayTeam)}
-								className="w-full h-full object-contain"
+								className="w-full h-full object-cover"
 								onError={(e) => {
 									(e.target as HTMLImageElement).style.display = "none";
 									const sibling = (e.target as HTMLImageElement)
@@ -1260,7 +1292,7 @@ function PredictionViewPanel({
 							/>
 						) : null}
 						<span
-							className="material-symbols-outlined text-primary text-2xl"
+							className="material-symbols-outlined text-primary text-2xl bg-surface-container w-full h-full flex items-center justify-center"
 							style={{ display: match.awayLogo ? "none" : "block" }}
 						>
 							shield

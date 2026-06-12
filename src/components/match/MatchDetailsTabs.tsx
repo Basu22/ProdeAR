@@ -711,11 +711,11 @@ function EventRow({
 							{getEventEmoji(event.type)}
 						</span>
 						{homeLogo && (
-							<div className="w-5 h-5 rounded-full bg-surface-container border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+							<div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 								<img
 									src={homeLogo}
 									alt=""
-									className="w-full h-full object-contain"
+									className="w-full h-full object-cover"
 								/>
 							</div>
 						)}
@@ -740,11 +740,11 @@ function EventRow({
 				{!isHome && (
 					<>
 						{awayLogo && (
-							<div className="w-5 h-5 rounded-full bg-surface-container border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+							<div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
 								<img
 									src={awayLogo}
 									alt=""
-									className="w-full h-full object-contain"
+									className="w-full h-full object-cover"
 								/>
 							</div>
 						)}
