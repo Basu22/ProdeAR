@@ -299,6 +299,47 @@ PostgreSQL en Supabase permite aplicar seguridad a nivel de fila (Row Level Secu
    * Bonos por madrugar (Early Picks) y por completar a tiempo la fecha.
    * Predicción a largo plazo de Goleador de Torneo.
 
+### Patrones de implementación establecidos *(2026-06-12)*
+
+9. **Bottom Sheet genérico para overlays mobile-first** (`src/components/ui/BottomSheet.tsx`): Componente reutilizable con portal a `document.body`, focus trap, Escape handler, swipe-down gesture, body scroll lock, safe-area iOS. Animación CSS pura (sin librerías como framer-motion). Responsive: en `md+` se transforma en modal centrado. Usado por `StatsSheet` (Captain Stats) y `MatchSheet` (detalle de partido).
+
+10. **Funciones puras + hooks reactivos wrappers**: Toda lógica de derivación de estado (ej. `deriveMatchCardState`, `deriveEmptyStateVariant`, `getPendingMatches`, `getNextCloseTime`) vive en funciones puras en `src/lib/`, testeable sin React. Los hooks (`usePendingPredictions`, `useCountdown`) son wrappers delgados con `useMemo`/`useState`. Esto permite 100% de cobertura de tests sin RTL.
+
+11. **Multi-torneo como first-class citizen**: Cada partido puede tener N predicciones (una por torneo). El componente `MatchCard` acepta `predictions: Prediction[]` y `tournamentNames: Map<string, string>`. El `MatchSheet` tiene un carrusel 1-torneo-por-slide con `PredictionSlide` editable. El "isFullyPredicted" se calcula en el Dashboard como `matchPreds.length >= tournaments.length && tournaments.length > 0`.
+
+12. **Service Worker deshabilitado en dev** (`vite.config.ts`): `devOptions.enabled: false`. El SW está habilitado en producción para offline + push notifications, pero en dev causa cache agresivo que rompe el HMR y oculta bugs. Para testear push en dev: cambiar a `true` temporalmente.
+
+13. **`hydrate()` idempotente con flag `hasHydrated`** (`src/stores/authStore.ts`): En `React.StrictMode`, los `useEffect` se ejecutan 2 veces en dev. Para evitar race conditions con el `<ProtectedRoute>` mostrando spinner en el segundo render, `hydrate()` tiene un guard con flag `hasHydrated: boolean`. Reset en `logout()`.
+
+14. **Convención para evitar infinite loops en hooks** *(aprendizaje crítico 2026-06-12)*:
+
+    **Lección A — Date objects en deps de useEffect**:
+    - **Problema**: Si un hook recibe `Date` (o cualquier objeto mutable) en props/deps, y el padre lo recrea con `new Date(...)` en cada render, las deps cambian de referencia en cada render → useEffect se re-ejecuta → `setState(...)` con objeto NUEVO → React ve "state changed" → re-render → **infinite loop**.
+    - **Solución estándar**: Extraer el valor primitivo en cada render y usar eso en deps:
+      ```ts
+      // ❌ NUNCA
+      useEffect(() => { setState(calculate(targetDate)); }, [targetDate]);
+
+      // ✅ SIEMPRE
+      const targetTime = targetDate?.getTime() ?? null;
+      useEffect(() => { setState(calculate(targetTime)); }, [targetTime]);
+      ```
+    - **Aplicado en**: `src/hooks/useCountdown.ts` (JSDoc explica el "por qué").
+
+    **Lección B — Callback props en deps de useEffect**:
+    - **Problema**: Si un componente recibe un callback como prop (típico: `onClick={() => ...}`, `onDirtyChange={...}`) y ese callback se recrea en cada render del padre, las deps del useEffect cambian cada render → useEffect se ejecuta → llama al callback → setState en el padre → re-render → nuevo callback → **infinite loop**.
+    - **Solución estándar**: Usar `useRef` para el callback y dejar las deps solo con valores estables:
+      ```ts
+      // ❌ NUNCA
+      useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+
+      // ✅ SIEMPRE
+      const onDirtyChangeRef = useRef(onDirtyChange);
+      useEffect(() => { onDirtyChangeRef.current = onDirtyChange; });  // sin deps, solo sync
+      useEffect(() => { onDirtyChangeRef.current?.(isDirty); }, [isDirty]);
+      ```
+    - **Aplicado en**: `src/components/match/PredictionSlide.tsx` (JSDoc explica el "por qué").
+
 ---
 
 ## 8. Estrategia de Cache Busting
@@ -432,3 +473,357 @@ Para forzar deploy de Edge Functions:
 ```bash
 ./deploy.sh --force-functions
 ```
+
+---
+
+## 10. Sprint 3 — Optimización de API-Football
+
+Este sprint se enfocó en reducir drásticamente el consumo de cuota de la API-Football y agregar cache local de imágenes. Comprende 5 features: batch fetch consolidado, CDN helpers, rate limit logging, coverage check por liga/season, y local image cache con Cache API.
+
+### 10.1. Endpoint clave: `/fixtures?ids=X-Y-Z`
+
+Desde la versión **v3.9.2 de API-Football**, el endpoint `/fixtures` acepta el parámetro `ids` (hasta 20 IDs separados por guion) y devuelve, en una sola respuesta, todos los sub-recursos del fixture:
+
+```json
+{
+  "get": "fixtures",
+  "parameters": { "ids": "123-456-789" },
+  "response": [
+    {
+      "fixture": { "id": 123, "status": { "short": "1H" }, ... },
+      "statistics": [ { "team": { "id": 1 }, "statistics": [...] } ],
+      "lineups": [ { "team": { "id": 1 }, "formation": "4-3-3", ... } ],
+      "events": [ { "time": { "elapsed": 23 }, "type": "Goal", ... } ],
+      "players": [ { "team": { "id": 1 }, "players": [ { "player": { "id": 100, "photo": "https://..." } } ] } ]
+    }
+  ]
+}
+```
+
+**Límite documentado**: máximo **20 IDs por request** (verificado contra el header `x-ratelimit-requests-remaining` y código HTTP 429 al exceder). Para más de 20 partidos, se chunkea en bloques de 20 y se hacen N/20 requests.
+
+### 10.2. Refactor del `poll-scores`: 4 fases (A → B → C → D)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Phase A: DECISION PASS (DB query, no network)                       │
+│                                                                     │
+│   SELECT * FROM matches                                             │
+│   WHERE status IN ('live', 'ht', 'finished')                        │
+│     AND (kickoff_at BETWEEN ... AND ...)                            │
+│   ──► decisions[] = [                                               │
+│         { fixtureId, leagueId, season,                              │
+│           needsStats, needsLineups, needsEvents,                    │
+│           needsPlayerPhotos }, ...                                  │
+│       ]                                                             │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Phase B: BATCH FETCH (N/20 calls a API-Football)                    │
+│                                                                     │
+│   chunks = chunk(decisions.map(d => d.fixtureId), 20)               │
+│   batchMap = new Map<id, data>()                                    │
+│                                                                     │
+│   for chunk of chunks:                                              │
+│     ids = chunk.join('-')                                           │
+│     response = await fetch(                                         │
+│       `https://v3.football.api-sports.io/fixtures?ids=${ids}`,      │
+│       { headers: { 'x-apisports-key': API_FOOTBALL_KEY } }          │
+│     )                                                               │
+│     log(`[poll-scores] ids chunk ${n}/${total}                       │
+│          status=${response.status}                                  │
+│          daily-remaining=${headers['x-ratelimit-requests-remaining']}│
+│          min-remaining=${headers['X-RateLimit-Remaining']}`)         │
+│     for fixture of response.response:                               │
+│       batchMap.set(fixture.fixture.id, fixture)                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Phase C: PROCESS BATCH DATA (función pura, no network)              │
+│                                                                     │
+│   function processBatchDataForFixture(                              │
+│     decision: Decision,                                             │
+│     batchMap: Map<id, FixtureBatchData>                              │
+│   ) {                                                               │
+│     // 1. Check coverage                                            │
+│     if (!isFeatureAvailable(                                        │
+│         coverageMap, decision.leagueId,                             │
+│         decision.season, 'players'                                  │
+│     )) return null;                                                 │
+│                                                                     │
+│     // 2. Extract from batch                                        │
+│     const data = batchMap.get(decision.fixtureId);                  │
+│     if (!data) return null;                                         │
+│                                                                     │
+│     // 3. Build matchPayload (4 tipos)                               │
+│     return {                                                         │
+│       statistics: data.statistics,                                  │
+│       lineups: data.lineups,                                        │
+│       events: data.events,                                          │
+│       player_photos: data.players?.[0]?.players                     │
+│         .map(p => ({                                                │
+│           player_id: p.player.id,                                   │
+│           photo: p.player.photo                                     │
+│         })) ?? []                                                   │
+│     };                                                              │
+│   }                                                                 │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Phase D: UPSERT (DB writes, no network a API-Football)              │
+│                                                                     │
+│   for decision of decisions:                                        │
+│     payload = processBatchDataForFixture(decision, batchMap)        │
+│     if (!payload) continue;                                         │
+│     await supabase.from('matches').upsert({                         │
+│       api_match_id: decision.fixtureId,                             │
+│       ...payload,                                                   │
+│       updated_at: new Date().toISOString()                          │
+│     });                                                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Beneficio clave**: Phase B es la única que hace I/O de red. Para 8 partidos en vivo: 1 sola request. Antes: 32 requests. **Reducción del 75% en calls/día**.
+
+### 10.3. Tabla `league_coverage` (nueva)
+
+Mapea `(league_id, season)` a los flags de soporte que expone API-Football en el campo `coverage` de `/leagues`. Permite evitar fetches inútiles a features no soportadas por una liga.
+
+```sql
+CREATE TABLE IF NOT EXISTS league_coverage (
+  league_id INTEGER NOT NULL,
+  league_name TEXT,
+  season INTEGER NOT NULL,
+  fixtures_events BOOLEAN DEFAULT false,
+  fixtures_lineups BOOLEAN DEFAULT false,
+  fixtures_statistics_fixtures BOOLEAN DEFAULT false,
+  fixtures_statistics_players BOOLEAN DEFAULT false,
+  standings BOOLEAN DEFAULT false,
+  players BOOLEAN DEFAULT false,
+  predictions BOOLEAN DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (league_id, season)
+);
+
+COMMENT ON TABLE league_coverage IS
+  'Cache del campo coverage de /leagues. Permite evitar fetches a features no soportadas por una liga. Sincronizado por poll-scores cada 24h (COVERAGE_FRESH_MS).';
+```
+
+**3 funciones helper en `poll-scores`:**
+
+- `syncLeagueCoverage(key, supabase)`: 1 call a `/leagues` por liga stales, upsert con el campo `coverage` (objeto con flags booleanos).
+- `loadCoverageCache(supabase)`: carga toda la tabla en un `Map<`${leagueId}-${season}`, coverage>` para lookup O(1) en memoria.
+- `isFeatureAvailable(map, leagueId, season, feature)`: retorna `true` si no hay info (fail-open) o si el flag está `true`. Retorna `false` solo si la liga está en la tabla Y el flag es `false`.
+
+**Constantes:**
+- `COVERAGE_FRESH_MS = 24 * 60 * 60 * 1000` (24h TTL)
+- `isFeatureAvailable()` se llama 4 veces por fixture (events, lineups, statistics, players).
+
+**Log de sincronización**: `[poll-scores] Synced coverage for N league/seasons` después de la carga inicial.
+
+### 10.4. `src/lib/cdnHelpers.ts` (nuevo, 44 líneas)
+
+Módulo de funciones puras que construyen URLs predecibles del CDN de API-Sports sin necesidad de hacer una llamada extra a la API. Patrones basados en `docs/API_FOOTBALL_REFERENCE.md` §10.
+
+```typescript
+// Constante
+export const CDN_BASE = "https://media.api-sports.io/football";
+
+// 6 helpers
+export function leagueLogoUrl(leagueId: number): string;
+export function teamLogoUrl(teamId: number): string;
+export function playerPhotoUrl(playerId: number): string;
+export function coachPhotoUrl(coachId: number): string;  // ⚠️ typo oficial: "coachs"
+export function venueImageUrl(venueId: number): string;
+export function countryFlagUrl(countryCode: string): string;  // SVG, no PNG
+```
+
+**Patrones documentados:**
+
+| Recurso | Patrón de URL | Notas |
+|---|---|---|
+| `leagueLogoUrl(39)` | `{CDN_BASE}/leagues/39.png` | ID es el de API-Football |
+| `teamLogoUrl(541)` | `{CDN_BASE}/teams/541.png` | — |
+| `playerPhotoUrl(100)` | `{CDN_BASE}/players/100.png` | Verificado en Sprint 2 §13.1 |
+| `coachPhotoUrl(5)` | `{CDN_BASE}/coachs/5.png` | **typo oficial**, no corregir |
+| `venueImageUrl(123)` | `{CDN_BASE}/venues/123.png` | — |
+| `countryFlagUrl('AR')` | `{CDN_BASE}/countries/AR.svg` | **SVG** (no PNG), lowercase code |
+
+Todas las funciones retornan `string` (URL completa), no promesas. Son 100% síncronas y determinísticas.
+
+### 10.5. `src/lib/imageCache.ts` (nuevo, 220 líneas)
+
+Cache local de imágenes usando la **Cache API nativa del browser** (no Service Worker, no IndexedDB, no librerías externas). Diseñado para URLs del CDN de API-Football pero genérico para cualquier URL.
+
+**Constantes:**
+- `CACHE_NAME = "prodear-image-cache"` (namespace dedicado)
+- `TTL_MS = 7 * 24 * 60 * 60 * 1000` (7 días)
+- `MAX_ENTRIES = 500` (con eviction FIFO al 80% = 400 entradas)
+
+**API expuesta:**
+
+```typescript
+// Función pura (síncrona o async según impl)
+export async function getCachedImage(
+  url: string,
+  options?: { forceRefresh?: boolean }
+): Promise<string>;
+
+// Util para debug
+export async function clearImageCache(): Promise<void>;
+
+// Hook React
+export function useCachedImage(
+  url: string | null | undefined,
+  options?: { forceRefresh?: boolean }
+): { src: string | undefined; loading: boolean; error: Error | null };
+```
+
+**Diagrama de decisión:**
+
+```
+        ┌──────────────────┐
+        │  useCachedImage  │
+        │     (url)        │
+        └────────┬─────────┘
+                 │
+                 ▼
+        ┌──────────────────┐
+        │ url es null/vacía?│──Sí──► Retorna { src: undefined }
+        └────────┬─────────┘
+                 │No
+                 ▼
+        ┌──────────────────┐
+        │ ¿Está en cache?  │──Sí──► Retorna blob URL (instantáneo)
+        └────────┬─────────┘
+                 │No
+                 ▼
+        ┌──────────────────┐
+        │ fetch(url)       │
+        │ → blob + Response│
+        └────────┬─────────┘
+                 │
+                 ▼
+        ┌──────────────────┐
+        │ cache.put(url,   │
+        │   response.clone │──► Clona antes de retornar
+        │   con header      │     (response.body es single-use)
+        │   x-cache-ts)    │
+        └────────┬─────────┘
+                 │
+                 ▼
+        ┌──────────────────┐
+        │ ¿MAX_ENTRIES     │
+        │   alcanzado?     │──Sí──► Eviction FIFO al 80%
+        └────────┬─────────┘
+                 │No
+                 ▼
+        ┌──────────────────┐
+        │ Retorna blob URL │
+        └──────────────────┘
+```
+
+**Decisión de diseño: por qué Cache API y no Service Worker**
+
+| Aspecto | Service Worker | Cache API directa |
+|---|---|---|
+| Intercepción automática | Sí (todas las imágenes) | No (solo lo explícito) |
+| Complejidad de deploy | Alta (registro, versionado) | Baja (sin SW adicional) |
+| Interferencia con HMR en dev | Sí (agresivo) | No |
+| Overhead por imagen | Intercepta y decide | Solo cuando se pide |
+| Adecuado para nuestro caso | Overkill (ya hay SW para push) | **✓ Ideal** |
+
+El componente que necesita la imagen (`TacticalPlayerPin`) llama a `useCachedImage(url)`. El hook verifica el cache, si miss descarga, guarda y retorna blob URL. La segunda vez que se renderiza el mismo jugador, la imagen sale instantánea.
+
+### 10.6. Diagrama end-to-end del flujo optimizado
+
+```
+┌─────────────────┐
+│  Supabase Cron  │
+│  (cada 10 min)  │
+└────────┬────────┘
+         │ Invoca
+         ▼
+┌─────────────────────────────────────────┐
+│  poll-scores (Edge Function)            │
+│                                         │
+│  1. Sync league_coverage (si stale)     │
+│     ──► 1 call a /leagues por liga      │
+│                                         │
+│  2. Phase A: SELECT matches             │
+│     ──► decisions[] con flags           │
+│                                         │
+│  3. Phase B: chunks de 20 IDs           │
+│     ──► 1 call a /fixtures?ids=...      │
+│     ──► Log: rate limits restantes      │
+│                                         │
+│  4. Phase C: processBatchDataForFixture│
+│     ──► Check isFeatureAvailable()      │
+│     ──► Extract stats/lineups/events/   │
+│          player_photos del batch         │
+│                                         │
+│  5. Phase D: upsert a matches           │
+│     ──► Por cada decision con payload   │
+└────────┬────────────────────────────────┘
+         │ Realtime broadcast
+         ▼
+┌─────────────────────────────────────────┐
+│  Supabase PostgreSQL                    │
+│  matches (con player_photos, events,    │
+│           lineups, statistics)          │
+│  league_coverage (sync diaria)          │
+└────────┬────────────────────────────────┘
+         │ Realtime WS
+         ▼
+┌─────────────────────────────────────────┐
+│  Frontend (React)                       │
+│                                         │
+│  useCachedImage(player.photo)           │
+│   ──► Cache API check                   │
+│   ──► Miss → fetch + cache.put          │
+│   ──► Hit → blob URL instantáneo       │
+│                                         │
+│  TacticalPlayerPin renderiza con foto   │
+└─────────────────────────────────────────┘
+```
+
+### 10.7. Endpoints en uso (post-Sprint 3)
+
+| Endpoint | Frecuencia típica | Calls/día estimadas | Notas |
+|---|---|---|---|
+| `GET /fixtures?ids=...` (batch) | 1 cada 20 partidos live | ~150 | **Nuevo Sprint 3**, antes 4 fetches separados |
+| `GET /leagues` (coverage sync) | 1 por liga/día | ~10 | **Nuevo Sprint 3**, 24h TTL |
+| `GET /fixtures?live=all` | Cada 10 min | ~144 | Filtro inicial de partidos |
+| `GET /leagues` (seeding) | 1 vez | 1 | Solo en deploy inicial |
+| `GET /teams?league=X&season=Y` | 1 vez por liga | ~30 | Solo en deploy inicial |
+| `GET /standings?league=X&season=Y` | 1 vez por liga/día | ~30 | Refresh diario |
+
+**Total estimado**: ~300 calls/día (4% de cuota Pro 7.500/día). Antes del Sprint 3: ~1.200 calls/día (16% de cuota).
+
+### 10.8. Costo actual vs cuota diaria (post-Sprint 3)
+
+**Cuota Plan Pro API-Football**: 7.500 requests/día.
+
+| Escenario | Calls/día | % cuota | Status |
+|---|---|---|---|
+| Jornada normal (8 partidos live, 30 ligas) | ~300 | 4% | ✅ Holgado |
+| Mundial 2026 día 1 (8 partidos, 64 equipos) | ~300 | 4% | ✅ Idem |
+| Mundial 2026 fase grupos completa (48 partidos) | ~1.500 | 20% | ✅ Aún cómodo |
+| Mundial 2026 octavos+cuartos+semis (15 partidos) | ~500 | 7% | ✅ OK |
+| Mundial 2026 final (1 partido + cobertura global) | ~350 | 5% | ✅ OK |
+
+**Conclusión**: con el refactor del Sprint 3, **incluso un Mundial completo no superaría el 25% de la cuota Pro**. Margen de sobra para futuras features (ej. lesiones con `/injuries`, predicciones con `/predictions`, alineaciones previas con `/fixtures/lineups` pre-partido).
+
+### 10.9. Decisiones de arquitectura del Sprint 3
+
+1. **Pipeline de 4 fases (A→B→C→D) en `poll-scores`**: separación de I/O de red (Phase B) y lógica pura (Phase A, C, D). Facilita testing con mocks de `fetch` y debugging con logs granulares.
+2. **Chunks de exactamente 20 IDs**: respeta el límite máximo de la API, minimiza el número total de requests.
+3. **Coverage fail-open**: si la liga no tiene fila en `league_coverage`, se asume que la feature SÍ está disponible. Trade-off explícito: preferimos 1 call al pedo antes que perder datos.
+4. **Coverage sync dentro del poll (no en cron separado)**: simplicidad operativa. El sync solo corre si la última vez fue hace >24h. En días sin partidos, no se ejecuta (ahorro).
+5. **Cache API vs Service Worker**: elegido Cache API por simplicidad y porque el SW ya está usado para push notifications. Cache API es ideal para casos puntuales como el nuestro.
+6. **Eviction FIFO al 80% de 500**: la Cache API no expone metadata de last-access sin extender la interfaz. FIFO es la opción pragmática que evita crecimiento infinito sin agregar complejidad.
+7. **Typo `coachs` preservado en `coachPhotoUrl`**: API-Football tiene el typo oficial en `/coachs`. Mantenerlo en el código para consistencia con la API (un comment en JSDoc lo explica).
+8. **`useCachedImage` como hook React separado**: separación de concerns. `TacticalPlayerPin` no sabe de la Cache API, solo consume una URL. Reutilizable para logos de equipos, escudos de ligas, avatares.
