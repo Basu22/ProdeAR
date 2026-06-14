@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveMinute } from "../../hooks/useLiveMinute";
 import { useNewEvents } from "../../hooks/useNewEvents";
@@ -8,7 +8,38 @@ import { EventToast } from "./EventToast";
 import { GoalAnimation } from "./GoalAnimation";
 import { MatchStatusBar } from "./MatchStatusBar";
 import { RedCardBadge } from "./RedCardBadge";
-import { EventosTab, FormacionesTab, StatsTab } from "./tabs";
+
+// Sprint 3 hygiene: code-splitting de los 3 tabs (Eventos/Stats/Formaciones).
+// Solo se cargan cuando el usuario hace click en el tab correspondiente.
+// Antes: ~24KB minified de los 3 tabs se incluían en el bundle inicial
+// de MatchCard, que se importa eagerly en Tournament.tsx, Dashboard.tsx, etc.
+// Ahora: el bundle inicial solo carga el MatchCard "core", y los tabs
+// se fetchan on-demand vía dynamic import.
+const EventosTab = lazy(() =>
+	import("./tabs/EventosTab").then((m) => ({ default: m.EventosTab })),
+);
+const StatsTab = lazy(() =>
+	import("./tabs/StatsTab").then((m) => ({ default: m.StatsTab })),
+);
+const FormacionesTab = lazy(() =>
+	import("./tabs/FormacionesTab").then((m) => ({ default: m.FormacionesTab })),
+);
+
+// Fallback minimalista mientras se fetcha el chunk del tab.
+// Es un flash muy corto (~50ms en 4G), así que un texto simple es suficiente.
+// No usamos skeleton para no agregar más bytes al bundle principal.
+function TabLoadingFallback() {
+	return (
+		<div className="flex items-center justify-center py-12">
+			<div className="flex items-center gap-2 text-on-surface-variant text-xs font-label-caps uppercase tracking-widest">
+				<span className="material-symbols-outlined text-base animate-spin">
+					progress_activity
+				</span>
+				Cargando…
+			</div>
+		</div>
+	);
+}
 
 const TEAM_TRANSLATIONS: Record<string, string> = {
 	Argentina: "Argentina",
@@ -1103,10 +1134,12 @@ function CardDetailsTabs({
 				))}
 			</div>
 
-			{/* Contenido del tab activo */}
-			{activeTab === "eventos" && <EventosTab match={match} />}
-			{activeTab === "stats" && <StatsTab match={match} />}
-			{activeTab === "formaciones" && <FormacionesTab match={match} />}
+			{/* Contenido del tab activo — Suspense wrapper para los lazy tabs */}
+			<Suspense fallback={<TabLoadingFallback />}>
+				{activeTab === "eventos" && <EventosTab match={match} />}
+				{activeTab === "stats" && <StatsTab match={match} />}
+				{activeTab === "formaciones" && <FormacionesTab match={match} />}
+			</Suspense>
 		</div>
 	);
 }
