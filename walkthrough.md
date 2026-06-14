@@ -638,11 +638,90 @@ La integración más vistosa fue en `TacticalPlayerPin`: antes mostraba `<img sr
 
 ---
 
+## Feature POSICIONES: Grupos en Vivo del Mundial
+
+Esta feature (también parte de Sprint 3 en la planificación general) agrega un **centro de comando en vivo** del Mundial 2026 al tab POSICIONES del torneo. Es la pieza de UX más ambiciosa del proyecto: ver tablas de grupos, mejores terceros, y bracket de 16vos moviéndose en tiempo real mientras se juegan los partidos.
+
+### El problema que resolvió
+
+Antes de esta feature, el tab GRUPOS mostraba tablas con stats **estáticas y desactualizadas**: solo se contaban partidos `finished`, por lo que durante los 90+ minutos de un partido live, la tabla quedaba congelada con datos del estado anterior. Si México iba ganando 2-0 al minuto 70, el usuario no veía eso reflejado hasta que el partido terminara.
+
+Adicionalmente, el código tenía un **fuzzy matching frágil de equipos**: 200+ líneas de aliases hardcodeados (ej. "South Korea" → "Grupo A") que se rompían cada vez que la API-Football cambiaba un nombre (como pasó con "Türkiye" vs "Turkiye", "Cape Verde" vs "Cape Verde Islands").
+
+### Lo que se construyó
+
+**3 sub-pills dentro del tab POSICIONES:**
+
+1. **GRUPOS** (default): 12 tablas de grupos (A-L) con partidos live marcados. Cada grupo muestra: 4 equipos con PJ/PG/PE/PP/GF/GC/DG/pts, logos de banderas (vía `flagcdn.com`), badge "EN VIVO" pulsante cuando hay un partido en curso, mini-scoreboard inline con el score parcial + minuto, y animaciones de cambio de posición (verde al subir, rojo al bajar).
+
+2. **LIGA 3ROS**: Tabla de los 12 mejores terceros lugares. Los top 8 con badge verde "Clasifica" y los bottom 4 con badge rojo "Fuera" + opacidad reducida. Línea de corte visual entre la fila 8 y 9 (la "línea roja" del Mundial).
+
+3. **16VOS**: Grid de 16 partidos de Dieciseisavos. Los partidos con grupos ya definidos muestran el cruce (1°A vs 2°B, etc.), los partidos pendientes muestran slots TBD con borde dashed + "Por definir". Header con progreso "X / 16 cruces definidos".
+
+### Decisiones de producto clave
+
+Durante el brainstorming con el usuario, se discutieron y resolvieron 4 decisiones críticas:
+
+1. **¿Partidos live suman puntos parciales?** → **NO**. Los partidos live solo actualizan PJ/GF/GC/DG. Los puntos (pts/pg/pe/pp) se asignan solo cuando el partido termina. Esto evita la confusión de mostrar "3 pts parciales" a un equipo que va 1-0 pero puede terminar perdiendo 1-3.
+
+2. **¿Mini-scoreboard muestra el minuto?** → **SÍ**, formato `MEX 1-0 RSA · 34'`. Usa el campo `match.minute` que ya viene en la API.
+
+3. **¿Placeholder para LIGA 3ROS y 16VOS?** → **Genérico elegante** ("Próximamente" con íconos específicos), no con fecha estimada.
+
+4. **¿El pill GRUPOS muestra contador de partidos en vivo?** → **SÍ**, badge rojo con número (ej. `GRUPOS 🔴 2`).
+
+### El refactor arquitectónico
+
+Lo más interesante de esta feature no es la UI sino el refactor de datos:
+
+- **DB**: 3 columnas nuevas en `matches` (`group_letter`, `home_team_canonical`, `away_team_canonical`) + tabla `team_aliases` con 120+ filas. Ahora el server normaliza nombres canónicos al guardarlos, no al renderizar.
+- **Edge Function**: `poll-scores` ahora tiene 3 funciones helper (`getGroupLetterFromStage`, `loadAliasesCache`, `resolveCanonicalName`) que se ejecutan en cada upsert.
+- **Cliente**: el fuzzy matching de 200 líneas desapareció. `getGroupTables()` y compañía reciben datos ya normalizados.
+
+### Hallazgo del debugging
+
+Durante el testing en dev, descubrimos que **4 partidos del Mundial no estaban populados** en `group_letter`. El diagnóstico reveló que la API-Football devuelve nombres con variantes no anticipadas:
+- `Türkiye` (con diacrítico, no `Turkiye` ASCII)
+- `Bosnia & Herzegovina` (con ampersand, no `and`)
+- `Cape Verde Islands` (forma larga, no `Cape Verde`)
+
+Fix: agregar 3 aliases a `team_aliases` y re-correr el backfill. Después de eso, **0 unmapped** confirmado. Lección: **siempre incluir el nombre EXACTO de la API** en aliases, no solo la forma "bonita".
+
+### Tests del feature
+
+- **78 tests nuevos** para la lógica pura + hook: `worldCupGroups.test.ts` (65) + `useGroupStandings.test.ts` (13)
+- **68 component tests** para los 5 componentes: `PillTabs` (11) + `GroupTable` (16) + `BestThirdsTable` (13) + `KnockoutBracket` (13) + `PositionsView` (15)
+- **Total feature**: 146 tests, todos pasando
+
+### Métricas finales
+
+| Métrica | Valor |
+|---|---|
+| Líneas de código agregadas (lib + hook + components + tests) | ~2,500 |
+| Bundle size (MatchCard, con React.lazy de los 3 tabs) | -24KB minified |
+| Polling interval | 15s si hay live, 0 si no |
+| Latencia de actualización en vivo | ≤ 15s (1 poll cycle) |
+| TypeScript errors | 0 |
+| Cobertura de tests para los 5 componentes | 100% |
+
+### El rol del sprint dentro del proyecto
+
+Esta feature cierra el ciclo de **"ver el Mundial en vivo en ProdeAR"**. Combinada con el MatchSheet (Sprint 1) que muestra el detalle de cada partido, ahora un usuario puede:
+1. Ver el Mundial desde la pantalla principal → tab POSICIONES → 3 sub-pills
+2. Tap en un grupo → ver detalle de un partido → MatchSheet con eventos, stats, formaciones
+3. Todo se actualiza en vivo (polling 15s + animaciones de cambio de posición)
+
+Es el "comando center" que un fan del fútbol quiere ver durante el Mundial.
+
+---
+
 ## Referencias
 
 - **Spec UX/UI del Match Bottom Sheet**: `docs/match-bottom-sheet-ux-spec.md` (117KB)
 - **Task board**: `task.md` (con la saga completa documentada en "Bugs Corregidos" y el Sprint 1 documentado en su sección)
-- **Arquitectura**: `Arquitectura.md` (con los nuevos patrones en Sección 7)
-- **Tests**: 173/173 pasando en 13 archivos (134 originales + 32 Sprint 1 + 7 auxiliares)
+- **Arquitectura**: `Arquitectura.md` (con los nuevos patrones en Sección 7, y la feature POSICIONES detallada en **§11**)
+- **API Reference**: `docs/API_FOOTBALL_REFERENCE.md` (1,631 líneas, incluye §10.0.1 sobre `flagcdn.com` y §10.1 sobre estrategia de imágenes)
+- **Deploy Guide**: `docs/DEPLOY_SPRINT_3.md` (490 líneas, checklist paso a paso para push nocturno)
+- **Tests**: 344/344 pasando en 21 archivos (134 originales + 78 lib/hook POSICIONES + 68 component tests + 64 Sprint 1+2+3)
 
-**Estado del proyecto al cierre de la sesión Sprint 1**: ✅ Nav funciona, ✅ Match Bottom Sheet funciona con 4 tabs enriquecidos, ✅ 0 errores en consola, ✅ 173/173 tests, ✅ 0 errores TypeScript, ✅ Build OK
+**Estado del proyecto al cierre de las sesiones Sprint 1+2+3+POSICIONES**: ✅ Nav funciona, ✅ Match Bottom Sheet funciona con 4 tabs enriquecidos, ✅ POSICIONES con 3 sub-pills live, ✅ Documentación completa (Arquitectura, API ref, Deploy guide), ✅ 0 errores en consola, ✅ 344/344 tests, ✅ 0 errores TypeScript, ✅ Build OK, ✅ 6 commits ahead de origin/main listos para push

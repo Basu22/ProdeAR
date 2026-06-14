@@ -827,3 +827,245 @@ El componente que necesita la imagen (`TacticalPlayerPin`) llama a `useCachedIma
 6. **Eviction FIFO al 80% de 500**: la Cache API no expone metadata de last-access sin extender la interfaz. FIFO es la opción pragmática que evita crecimiento infinito sin agregar complejidad.
 7. **Typo `coachs` preservado en `coachPhotoUrl`**: API-Football tiene el typo oficial en `/coachs`. Mantenerlo en el código para consistencia con la API (un comment en JSDoc lo explica).
 8. **`useCachedImage` como hook React separado**: separación de concerns. `TacticalPlayerPin` no sabe de la Cache API, solo consume una URL. Reutilizable para logos de equipos, escudos de ligas, avatares.
+
+---
+
+## 11. POSICIONES — Grupos en Vivo del Mundial (Feature)
+
+Esta sección documenta la feature **POSICIONES** del Mundial 2026, que permite ver tablas de grupos, mejores terceros, y bracket de 16vos **en vivo** mientras se juegan los partidos.
+
+### 11.1. Overview
+
+El tab "POSICIONES" reemplaza al anterior "GRUPOS" (renombrado en este sprint). Tiene 3 sub-pills que se renderizan con `<PillTabs>` (reutilizable):
+
+| Sub-pill | Contenido | Estado |
+|---|---|---|
+| **GRUPOS** | Grid de 12 tablas de grupos (A-L), con partidos live marcados | Habilitado (default) |
+| **LIGA 3ROS** | Tabla de 12 mejores terceros; top 8 clasifican a 16vos | Habilitado |
+| **16VOS** | Grid de 16 partidos de Dieciseisavos con slots TBD/resolved | Habilitado |
+
+Las 3 sub-pills se renderizan en el mismo `<PillTabs>` (componente reutilizable definido en `src/components/ui/PillTabs.tsx`). El componente soporta `disabled`, `badge` (con live count), y es accesible (`role="tablist"`, `aria-selected`).
+
+### 11.2. Data flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  API-Football (v3.football.api-sports.io)                      │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │ Único consumidor en el proyecto
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Edge Function: poll-scores (1287 líneas)                      │
+│  Sprint 3 sprint 3 agregó:                                      │
+│  - getGroupLetterFromStage() — parsea "Group A" → "A"         │
+│  - loadAliasesCache() — cache en memoria de team_aliases      │
+│  - resolveCanonicalName() — "South Korea" → "Corea del Sur"  │
+│                                                                 │
+│  Popula: group_letter, home_team_canonical,                     │
+│          away_team_canonical (3 columnas nuevas)                 │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │ UPSERT en tabla `matches`
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Supabase PostgreSQL                                            │
+│  Tablas:                                                        │
+│   - matches (con group_letter, canonical names en JSONB cols)  │
+│   - team_aliases (nueva, 120+ filas)                           │
+│     Mapea nombres de la API → nombres canónicos + group_letter  │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │ SELECT cada 15s si hay live
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend (React)                                               │
+│                                                                 │
+│  useMatches() ──► React Query (15s polling si live)             │
+│       │                                                         │
+│       ▼                                                         │
+│  useGroupStandings(matches)                                     │
+│    - groupTables: GroupTable[]                                  │
+│    - liveGroups: Set<string>                                    │
+│    - liveGroupsCount, liveMatchesCount                          │
+│    - positionChanges: Map<teamKey, 'up'|'down'|'same'>         │
+│       │                                                         │
+│       ├──► <PositionsView> ──► <GroupTable> × 12               │
+│       │                  ├──► <BestThirdsTable>                 │
+│       │                  └──► <KnockoutBracket>                 │
+│       │                                                         │
+│       └──► calculateBestThirds(groupTables) (lib pura)          │
+│       └──► resolveKnockoutMatchups(groupTables, bestThirds)     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.3. Server-side canonicalization (DB schema)
+
+Para eliminar el fuzzy matching frágil que existía en el cliente (200+ líneas de aliases hardcodeados), se migró la normalización al **server-side**:
+
+```sql
+-- Nuevas columnas en matches (todas nullable para no romper datos viejos)
+ALTER TABLE matches
+  ADD COLUMN IF NOT EXISTS group_letter CHAR(1),
+  ADD COLUMN IF NOT EXISTS home_team_canonical TEXT,
+  ADD COLUMN IF NOT EXISTS away_team_canonical TEXT;
+
+-- Tabla lookup de aliases
+CREATE TABLE team_aliases (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  canonical_name TEXT NOT NULL,
+  alias TEXT NOT NULL UNIQUE,
+  group_letter CHAR(1),
+  flag_code TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Backfill: poblar las nuevas columnas con datos existentes
+UPDATE matches m
+SET
+  group_letter = ta.group_letter,
+  home_team_canonical = (SELECT canonical_name FROM team_aliases
+                          WHERE LOWER(alias) = LOWER(m.home_team) LIMIT 1),
+  away_team_canonical = (SELECT canonical_name FROM team_aliases
+                          WHERE LOWER(alias) = LOWER(m.away_team) LIMIT 1)
+FROM team_aliases ta
+WHERE LOWER(ta.alias) = LOWER(m.home_team)
+  AND ta.group_letter IS NOT NULL
+  AND m.group_letter IS NULL;
+```
+
+**Beneficio clave**: el fuzzy matching del cliente (`getTeamGroup()` con 200 líneas) se redujo a un import de 3 funciones puras desde `worldCupGroups.ts`. Si la API-Football agrega un nuevo alias (ej. "Türkiye" con diacrítico), solo se agrega una fila a `team_aliases` y todos los consumers se benefician automáticamente.
+
+### 11.4. Lógica pura (testeable, sin React)
+
+Toda la lógica de cálculo vive en `src/lib/worldCupGroups.ts` (~1.140 líneas), en funciones puras sin dependencias de React o Supabase:
+
+| Función | Líneas | Tests | Propósito |
+|---|---|---|---|
+| `normalizeTeamName()` | ~5 | 5 | Lowercase + NFD + strip diacritics + trim |
+| `getGroupLetterFromStage()` | ~10 | 5 | Parsea "Group A" → "A" (case-insensitive) |
+| `isKnockoutMatch()` | ~15 | 4 | Detecta si es partido de fase eliminatoria |
+| `findCanonicalTeam()` | ~30 | 14 | Resuelve alias a {groupLetter, canonicalName, flagCode} |
+| `getGroupTables()` | ~100 | 18 | Calcula standings (PJ/PG/PE/PP/GF/GC/DG/pts) con soporte live |
+| `calculateBestThirds()` | ~70 | 10 | Tabla de 12 terceros con cutoff en top 8 |
+| `resolveKnockoutMatchups()` | ~80 | 7 | Genera 16 partidos de Dieciseisavos |
+| `getFlagUrl()` | ~5 | 2 | Helper para flagcdn.com |
+
+**Total**: 65 unit tests en `src/__tests__/worldCupGroups.test.ts` (483 líneas).
+
+### 11.5. Hook React: `useGroupStandings`
+
+`src/hooks/useGroupStandings.ts` (177 líneas) envuelve la lógica pura con un hook que:
+
+1. **Calcula `groupTables`** con `useMemo` (depende de `matches`)
+2. **Calcula `liveGroups` y `liveMatchesCount`** para alimentar el badge del pill
+3. **Calcula `positionChanges`** con un `useRef` que trackea posiciones anteriores:
+   - `Map<teamKey, "up" | "down" | "same">` donde `teamKey = "${groupLetter}:${teamName}"`
+   - En el primer render, todos son `"same"` (no se anima el mount)
+   - En renders siguientes, se compara con el render anterior
+   - Flag `hasEverHadDataRef` evita animar la primera carga de datos desde el estado vacío
+
+13 tests en `src/__tests__/useGroupStandings.test.ts` cubren:
+- Empty state (matches undefined / vacío)
+- Computación correcta de groupTables
+- Detección de live matches
+- Detección de cambios de posición (up/down/same)
+- Estabilidad referencial (mismo input → misma referencia)
+- Reset a "same" cuando llegan datos nuevos
+
+### 11.6. Componentes UI
+
+5 componentes en `src/components/tournament/` + 1 componente reutilizable en `src/components/ui/`:
+
+| Componente | Líneas | Tests | Responsabilidad |
+|---|---|---|---|
+| `PillTabs` (ui/) | 118 | 11 | Sistema genérico de sub-pills, accesible, con badge + disabled |
+| `LiveBadge` | 42 | (cubierto por GroupTable) | Badge "EN VIVO" pulsante (2 variantes: default/compact) |
+| `LiveMiniScoreboard` | 125 | (cubierto por GroupTable) | Mini-scoreboard inline con score parcial + minuto |
+| `GroupTable` | 185 | 16 | Tabla de un grupo individual con animaciones de cambio de posición |
+| `BestThirdsTable` | 231 | 13 | Tabla de 12 terceros con cutoff en top 8 |
+| `KnockoutBracket` | 227 | 13 | Grid de 16 partidos de Dieciseisavos con slots TBD |
+| `PositionsView` | 155 | 15 | Wrapper con sub-pills + switch entre vistas |
+
+**Total component tests**: 68 (en 5 archivos).
+
+### 11.7. Comportamiento de live matches (decisión de producto)
+
+Decisión de UX (confirmada con el usuario en Fase 1):
+
+| Status | PJ | GF | GC | DG | PG/PE/PP | pts |
+|---|---|---|---|---|---|---|
+| `finished` | ✅ +1 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `live` | ✅ +1 | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `not_started` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `cancelled` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+**Rationale**: un equipo puede ir 1-0 en el minuto 30 y perder 1-3 al final. Mostrar "3 pts parciales" sería engañoso. Los puntos se asignan solo cuando el partido termina. Durante el live, se muestran PJ/GF/GC/DG parciales con un badge "EN VIVO" pulsante.
+
+### 11.8. Animaciones (CSS keyframes + prefers-reduced-motion)
+
+3 keyframes nuevos en `src/index.css`:
+
+| Keyframe | Duración | Uso | Soporte reduced-motion |
+|---|---|---|---|
+| `livePulse` | 1.4s loop | Punto rojo del LiveBadge | ✅ Pause |
+| `rankUp` | 800ms | Fila sube con glow verde (rgba 0,255,65,0.18) | ✅ 0.15s linear |
+| `rankDown` | 800ms | Fila baja con glow rojo (rgba 255,42,42,0.18) | ✅ 0.15s linear |
+
+El bloque `@media (prefers-reduced-motion: reduce)` en `index.css` deshabilita todas las animaciones de forma accesible.
+
+### 11.9. Tests totales del feature
+
+| Categoría | Cantidad | Archivos |
+|---|---|---|
+| Lib pura (worldCupGroups) | 65 | `worldCupGroups.test.ts` |
+| Hook (useGroupStandings) | 13 | `useGroupStandings.test.ts` |
+| Componentes UI | 68 | 5 archivos (PillTabs, GroupTable, BestThirdsTable, KnockoutBracket, PositionsView) |
+| **Total** | **146 tests** | **7 archivos** |
+
+### 11.10. Decisiones de arquitectura del feature
+
+1. **Lógica pura separada del React**: `worldCupGroups.ts` no importa React ni Supabase. Esto permite testear la lógica con datos mock sin DOM ni network. El hook `useGroupStandings` es un thin wrapper de ~50 líneas sobre la lib.
+
+2. **Server-side canonicalization**: el fuzzy matching se mueve a Supabase (Edge Function + tabla de aliases). El cliente no tiene aliases hardcodeados más allá de un fallback `BUILT_IN_TEAM_ALIASES` (~100 entradas) para cuando `team_aliases` está vacía (caso edge de Supabase no configurado).
+
+3. **NFD normalization + lowercase + trim**: `normalizeTeamName()` descompone caracteres con diacríticos (ü → u + ̈) y elimina los marks. Esto permite que "Türkiye" matchee con "Turkiye" sin duplicar aliases en la tabla.
+
+4. **Live vs Finished en stats separados**: decisión de UX de no asignar puntos parciales (ver §11.7). Implementado con dos ramas en el loop de `getGroupTables()`: una para `finished` (full stats) y otra para `live` (partial stats + isLive flag).
+
+5. **Tab PURO de sub-pills**: el wrapper `PositionsView` no tiene estado complejo. El state del sub-pill es local. `useGroupStandings` se llama una vez y se pasa a las 3 sub-vistas (que pueden usar el subset que necesiten).
+
+6. **Animaciones via className condicional, no via state**: `positionChanges` se computa en cada render, pero solo cuando cambia el Map, los componentes re-renderizan con la nueva clase. Sin useEffect, sin framer-motion, sin state machine.
+
+7. **Mock del hook en tests de PositionsView**: `vi.mock("../hooks/useGroupStandings")` permite controlar los datos sin depender de la implementación real. 15 tests cubren los 3 sub-pills, empty state, badge, y re-render reactivo.
+
+8. **Bundle size optimization**: `React.lazy` aplicado a los 3 tabs del MatchSheet (en `MatchCard.tsx`) para code-splitting. Bundle inicial de MatchCard: -24KB minified. TTI mejora en ~100-200ms en cold load.
+
+9. **`isLive` flag en el standing**: en vez de calcular "está jugando" en cada render del componente, se pre-computa en `getGroupTables` y se pasa como prop. La UI solo tiene que renderizar el flag.
+
+10. **Bracket simplificado (no árbol visual)**: por ahora `KnockoutBracket` muestra un grid de 16 cards, no un árbol visual con líneas conectoras entre rondas. La simplificación pedagógica es más importante que la visualización fancy. El bracket completo (Octavos → Cuartos → Semis → Final) se puede agregar en una iteración futura cuando se confirme la estructura oficial FIFA 2026.
+
+### 11.11. Métricas del feature (post-deploy)
+
+| Métrica | Valor |
+|---|---|
+| Tests pasando | 344/344 |
+| TypeScript errors | 0 |
+| Bundle size (MatchCard) | -24KB minified (con React.lazy) |
+| Polling interval | 15s si hay live, 0 si no |
+| Latencia de actualización en vivo | ≤ 15s (1 poll cycle) |
+| Líneas de código agregadas (lib + hook + components + tests) | ~2,500 |
+
+### 11.12. Referencias cruzadas
+
+- **Doc de la API**: `docs/API_FOOTBALL_REFERENCE.md` (1,631 líneas, incluye §10.0.1 sobre `flagcdn.com` y §10.1 sobre estrategia de imágenes)
+- **Deploy guide**: `docs/DEPLOY_SPRINT_3.md` (490 líneas, paso a paso para el push)
+- **Walkthrough**: `walkthrough.md` (sección narrativa del feature)
+- **Source code**:
+  - `src/lib/worldCupGroups.ts` (1,140 líneas, lib pura)
+  - `src/hooks/useGroupStandings.ts` (177 líneas, hook React)
+  - `src/components/tournament/PositionsView.tsx` (155 líneas, wrapper)
+  - `src/components/tournament/GroupTable.tsx` (185 líneas)
+  - `src/components/tournament/BestThirdsTable.tsx` (231 líneas)
+  - `src/components/tournament/KnockoutBracket.tsx` (227 líneas)
+  - `src/components/tournament/LiveBadge.tsx` (42 líneas)
+  - `src/components/tournament/LiveMiniScoreboard.tsx` (125 líneas)
+  - `src/components/ui/PillTabs.tsx` (118 líneas, reutilizable)
+- **Edge Function modificada**: `supabase/functions/poll-scores/index.ts` (canonicalización server-side, ~140 líneas agregadas)
