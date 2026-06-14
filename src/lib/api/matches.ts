@@ -3,6 +3,7 @@ import { isSupabaseConfigured, supabase } from "../supabase";
 import type {
 	Match,
 	MatchStatus,
+	PlayerPhoto,
 	Prediction,
 	Tournament,
 	TournamentMember,
@@ -73,6 +74,15 @@ function mapDbMatchToFrontend(m: any): Match {
 				? JSON.parse(m.lineups)
 				: m.lineups
 			: undefined,
+		playerPhotos: m.player_photos
+			? typeof m.player_photos === "string"
+				? JSON.parse(m.player_photos)
+				: m.player_photos
+			: undefined,
+		// Sprint 3: Canonicalización server-side (poblados por poll-scores desde team_aliases)
+		groupLetter: m.group_letter || null,
+		homeTeamCanonical: m.home_team_canonical || null,
+		awayTeamCanonical: m.away_team_canonical || null,
 	};
 }
 

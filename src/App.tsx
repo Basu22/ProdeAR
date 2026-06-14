@@ -20,7 +20,14 @@ import { type BeforeInstallPromptEvent, useUIStore } from "./stores/uiStore";
 const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
-			staleTime: 30_000,
+			// Sprint 3 hygiene: subido de 30s → 5min. El polling activo de
+			// useMatches (15s si hay live) cubre la freshness necesaria;
+			// un staleTime de 5min evita refetches innecesarios al cambiar
+			// de tab o volver del background.
+			staleTime: 1000 * 60 * 5,
+			// No refetchear cada vez que el user vuelve a la tab: el polling
+			// en background ya mantiene la data fresca.
+			refetchOnWindowFocus: false,
 			retry: 1,
 		},
 	},

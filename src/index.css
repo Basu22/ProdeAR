@@ -56,6 +56,45 @@
 
 	--color-pitch-green: #00ff41; /* Verde Césped LED */
 
+	/* === Sprint 1: Positional Pin Colors (F6) === */
+	--color-pos-g: #ffd600; /* G = Arquero (gold) */
+	--color-pos-d: #00e5ff; /* D = Defensor (cyan) */
+	--color-pos-m: #00ff41; /* M = Mediocampista (verde cancha) */
+	--color-pos-f: #ff2a2a; /* F = Delantero (rojo) */
+	--color-on-pos-g: #000000;
+	--color-on-pos-d: #000000;
+	--color-on-pos-m: #000000;
+	--color-on-pos-f: #ffffff;
+	--color-pos-glow-g: rgba(255, 214, 0, 0.5);
+	--color-pos-glow-d: rgba(0, 229, 255, 0.5);
+	--color-pos-glow-m: rgba(0, 255, 65, 0.5);
+	--color-pos-glow-f: rgba(255, 42, 42, 0.5);
+
+	/* === Sprint 1: Event Semantic Colors (F1, F11) === */
+	--color-event-goal: #00ff41;
+	--color-event-yellow: #fbbf24;
+	--color-event-red: #ff2a2a;
+	--color-event-subst: #38bdf8;
+	--color-event-var: #c084fc;
+	--color-event-info: #94a3b8;
+
+	/* === Sprint 1: Period Separator Colors (F2) === */
+	--color-period-line: rgba(255, 255, 255, 0.05);
+	--color-period-chip-bg: #002b4a;
+	--color-period-chip-border: rgba(255, 255, 255, 0.1);
+
+	/* === Sprint 1: Easings === */
+	--ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
+	--ease-out-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+	--ease-out-default: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+	/* === Sprint 1: Durations === */
+	--duration-tab: 150ms;
+	--duration-pill-pulse: 600ms;
+	--duration-period-sep: 250ms;
+	--duration-sub-pair: 350ms;
+	--duration-pin-hover: 200ms;
+
 	--font-headline-md: "Teko", sans-serif;
 	--font-display-lg: "Teko", sans-serif;
 	--font-display-lg-mobile: "Teko", sans-serif;
@@ -212,6 +251,98 @@
 		animation: fadeInSlideUp 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 	}
 
+	/* === Bottom Sheet === */
+	@keyframes sheetSlideUp {
+		from {
+			transform: translateY(100%);
+		}
+		to {
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes backdropFadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	.bottom-sheet-enter {
+		animation: sheetSlideUp 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	}
+
+	/* Desktop: center-modal fade-in + scale (sin transform de posición porque flexbox centra) */
+	@media (min-width: 768px) {
+		.bottom-sheet-enter {
+			animation: sheetFadeScale 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+		}
+	}
+
+	@keyframes sheetFadeScale {
+		from {
+			opacity: 0;
+			transform: scale(0.96);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* === Slide Saved Burst (verde pulse para feedback de guardado) === */
+	@keyframes slideSavedBurst {
+		0% {
+			box-shadow:
+				0 0 0 0 rgba(0, 255, 65, 0),
+				0 0 0 0 rgba(0, 255, 65, 0);
+		}
+		20% {
+			box-shadow:
+				0 0 0 4px rgba(0, 255, 65, 0.35),
+				0 0 20px 0 rgba(0, 255, 65, 0.25);
+		}
+		100% {
+			box-shadow:
+				0 0 0 0 rgba(0, 255, 65, 0),
+				0 0 0 0 rgba(0, 255, 65, 0);
+		}
+	}
+
+	.slide-saved-burst {
+		animation: slideSavedBurst 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+		border-color: var(--color-pitch-green, #00ff41) !important;
+	}
+
+	@keyframes checkmarkDraw {
+		from {
+			stroke-dashoffset: 24;
+			opacity: 0;
+			transform: scale(0.5);
+		}
+		60% {
+			opacity: 1;
+			transform: scale(1.15);
+		}
+		to {
+			stroke-dashoffset: 0;
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	.checkmark-saved {
+		stroke-dasharray: 24;
+		stroke-dashoffset: 0;
+		animation: checkmarkDraw 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	}
+
+	.bottom-sheet-backdrop-enter {
+		animation: backdropFadeIn 250ms ease-out both;
+	}
+
 	/* Text & Utility */
 	.hide-scrollbar::-webkit-scrollbar {
 		display: none;
@@ -223,6 +354,21 @@
 
 	.text-glowing {
 		text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+	}
+
+	/* Double text-shadow para texto superpuesto sobre banderas */
+	.text-shadow-flag {
+		text-shadow:
+			0 2px 8px rgba(0, 0, 0, 0.85),
+			0 0 2px rgba(0, 0, 0, 0.95);
+	}
+
+	/* Variantes de brightness para flag cards según estado del partido */
+	.flag-card-finished {
+		filter: saturate(0.7);
+	}
+	.flag-card-cancelled {
+		filter: saturate(0) brightness(0.6);
 	}
 
 	.text-glowing-gold {
@@ -430,6 +576,133 @@
 		border-color: #f59e0b !important;
 	}
 
+	/* === Sprint 1: Tab Content Enter (F10) — cross-fade between tabs === */
+	@keyframes tabContentEnter {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.animate-tab-enter {
+		animation: tabContentEnter 150ms cubic-bezier(0.2, 0, 0, 1) both;
+	}
+
+	/* === Sprint 1: Pill Count Pulse (F1) — counter increments on new event === */
+	@keyframes pillCountPulse {
+		0% {
+			transform: scale(1);
+		}
+		35% {
+			transform: scale(1.15);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+	.animate-pill-pulse {
+		animation: pillCountPulse 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	}
+
+	/* === Sprint 1: Period Separator Enter (F2) === */
+	@keyframes periodSepEnter {
+		from {
+			opacity: 0;
+			transform: scaleX(0.8);
+		}
+		to {
+			opacity: 1;
+			transform: scaleX(1);
+		}
+	}
+	.animate-period-sep {
+		animation: periodSepEnter 250ms cubic-bezier(0.2, 0, 0, 1) both;
+		transform-origin: center;
+	}
+
+	/* === Sprint 1: Substitution Pair Enter (F11) === */
+	@keyframes subPairEnter {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.animate-sub-pair-enter {
+		animation: subPairEnter 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	}
+
+	/* === Sprint 1: Pin Hover (F6) === */
+	.pin-pos {
+		transition:
+			transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+	.pin-pos:hover {
+		transform: scale(1.15);
+		z-index: 5;
+	}
+
+	/* === Sprint 3: Live Pulse (F1) — punto rojo pulsante para badges EN VIVO === */
+	@keyframes livePulse {
+		0%,
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.5;
+			transform: scale(0.85);
+		}
+	}
+	.animate-live-pulse {
+		animation: livePulse 1.4s ease-in-out infinite;
+	}
+
+	/* === Sprint 3: Rank Up (F1) — fila sube en la tabla con glow verde === */
+	@keyframes rankUp {
+		0% {
+			background-color: transparent;
+			transform: translateY(0);
+		}
+		15% {
+			background-color: rgba(0, 255, 65, 0.18);
+			transform: translateY(-6px);
+		}
+		100% {
+			background-color: transparent;
+			transform: translateY(0);
+		}
+	}
+	.animate-rank-up {
+		animation: rankUp 800ms cubic-bezier(0.2, 0, 0, 1) both;
+	}
+
+	/* === Sprint 3: Rank Down (F1) — fila baja en la tabla con glow rojo === */
+	@keyframes rankDown {
+		0% {
+			background-color: transparent;
+			transform: translateY(0);
+		}
+		15% {
+			background-color: rgba(255, 42, 42, 0.18);
+			transform: translateY(6px);
+		}
+		100% {
+			background-color: transparent;
+			transform: translateY(0);
+		}
+	}
+	.animate-rank-down {
+		animation: rankDown 800ms cubic-bezier(0.2, 0, 0, 1) both;
+	}
+
 	/* === Reduced motion === */
 	@media (prefers-reduced-motion: reduce) {
 		.animate-ball-cross-ltr,
@@ -440,9 +713,30 @@
 		}
 		.animate-goal-impact,
 		.animate-toast-enter,
-		.animate-detail-enter {
+		.animate-detail-enter,
+		.animate-enter,
+		.bottom-sheet-enter,
+		.bottom-sheet-backdrop-enter,
+		.slide-saved-burst,
+		.checkmark-saved,
+		.animate-tab-enter,
+		.animate-pill-pulse,
+		.animate-period-sep,
+		.animate-sub-pair-enter,
+		.animate-rank-up,
+		.animate-rank-down {
 			animation-duration: 0.15s !important;
 			animation-timing-function: linear !important;
+		}
+		.animate-live-pulse {
+			animation: none !important;
+			opacity: 1 !important;
+		}
+		.pin-pos {
+			transition: none !important;
+		}
+		.pin-pos:hover {
+			transform: none !important;
 		}
 		.stadium-glow-green,
 		.stadium-glow-red,

@@ -8,6 +8,7 @@ interface AuthState {
 	user: User | null;
 	isLoading: boolean;
 	error: string | null;
+	hasHydrated: boolean;
 	loginWithGoogle: () => Promise<void>;
 	loginWithEmail: (email: string, password: string) => Promise<void>;
 	register: (
@@ -20,14 +21,19 @@ interface AuthState {
 	clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
 	user: null,
 	isLoading: true,
 	error: null,
+	hasHydrated: false,
 	clearError: () => set({ error: null }),
 
 	hydrate: async () => {
-		set({ isLoading: true, error: null });
+		// Idempotente: en dev con StrictMode, useEffect se ejecuta 2 veces.
+		// Sin este guard, el segundo set({isLoading: true}) bloquearía la primera
+		// navegación (ProtectedRoute muestra spinner y no monta el <Outlet />).
+		if (get().hasHydrated) return;
+		set({ isLoading: true, error: null, hasHydrated: true });
 		if (isSupabaseConfigured) {
 			try {
 				const {
@@ -129,7 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 		set({ isLoading: true, error: null });
 		try {
 			await authApi.logout();
-			set({ user: null, isLoading: false });
+			set({ user: null, isLoading: false, hasHydrated: false });
 			// Reset del notificationStore al cerrar sesión.
 			useNotificationStore.getState().reset();
 		} catch (err) {

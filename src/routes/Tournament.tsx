@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
+import { PositionsView } from "../components/tournament/PositionsView";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
 import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";
 import { GlassCard } from "../components/ui/GlassCard";
@@ -18,373 +19,8 @@ import {
 	useUpdateTournament,
 } from "../hooks/useTournament";
 import type { Match } from "../lib/types";
+import { isKnockoutMatch } from "../lib/worldCupGroups";
 import { useAuthStore } from "../stores/authStore";
-
-const isKnockoutMatch = (match: Match): boolean => {
-	if (match.stageMultiplier > 1) return true;
-	const stage = match.stageName.toLowerCase();
-	return (
-		stage.includes("round of") ||
-		stage.includes("dieciseisavos") ||
-		stage.includes("quarter") ||
-		stage.includes("semi") ||
-		stage.includes("final") ||
-		stage.includes("llave") ||
-		stage.includes("eliminatoria") ||
-		stage.includes("octavos") ||
-		stage.includes("cuartos") ||
-		stage.includes("16vos") ||
-		stage.includes("8vos") ||
-		stage.includes("4tos")
-	);
-};
-
-interface GroupTeamStanding {
-	teamName: string;
-	logo: string | null;
-	pj: number;
-	pg: number;
-	pe: number;
-	pp: number;
-	gf: number;
-	gc: number;
-	dg: number;
-	pts: number;
-}
-
-interface GroupTable {
-	groupName: string;
-	standings: GroupTeamStanding[];
-}
-
-const WORLD_CUP_GROUPS_DEF: Record<string, string[]> = {
-	"Grupo A": ["México", "Corea del Sur", "Sudáfrica", "República Checa"],
-	"Grupo B": ["Canadá", "Suiza", "Catar", "Bosnia y Herzegovina"],
-	"Grupo C": ["Brasil", "Marruecos", "Escocia", "Haití"],
-	"Grupo D": ["Estados Unidos", "Paraguay", "Australia", "Turquía"],
-	"Grupo E": ["Alemania", "Ecuador", "Costa de Marfil", "Curaçao"],
-	"Grupo F": ["Países Bajos", "Japón", "Túnez", "Suecia"],
-	"Grupo G": ["Bélgica", "Egipto", "Irán", "Nueva Zelanda"],
-	"Grupo H": ["España", "Uruguay", "Arabia Saudita", "Cabo Verde"],
-	"Grupo I": ["Francia", "Senegal", "Irak", "Noruega"],
-	"Grupo J": ["Argentina", "Argelia", "Austria", "Jordania"],
-	"Grupo K": ["Portugal", "Colombia", "Uzbekistán", "RD Congo"],
-	"Grupo L": ["Inglaterra", "Croacia", "Ghana", "Panamá"],
-};
-
-const getTeamGroup = (teamName: string): string | null => {
-	const lower = teamName
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "");
-
-	const mapping: Record<string, string> = {
-		// Grupo A
-		mexico: "Grupo A",
-		"south korea": "Grupo A",
-		"corea del sur": "Grupo A",
-		"south africa": "Grupo A",
-		sudafrica: "Grupo A",
-		czechia: "Grupo A",
-		"republica checa": "Grupo A",
-		"czech republic": "Grupo A",
-
-		// Grupo B
-		canada: "Grupo B",
-		switzerland: "Grupo B",
-		suiza: "Grupo B",
-		qatar: "Grupo B",
-		catar: "Grupo B",
-		"bosnia and herzegovina": "Grupo B",
-		bosnia: "Grupo B",
-		"bosnia y herzegovina": "Grupo B",
-
-		// Grupo C
-		brazil: "Grupo C",
-		brasil: "Grupo C",
-		morocco: "Grupo C",
-		marruecos: "Grupo C",
-		scotland: "Grupo C",
-		escocia: "Grupo C",
-		haiti: "Grupo C",
-
-		// Grupo D
-		usa: "Grupo D",
-		"united states": "Grupo D",
-		"estados unidos": "Grupo D",
-		paraguay: "Grupo D",
-		australia: "Grupo D",
-		turkey: "Grupo D",
-		turquia: "Grupo D",
-		turkiye: "Grupo D",
-
-		// Grupo E
-		germany: "Grupo E",
-		alemania: "Grupo E",
-		ecuador: "Grupo E",
-		"ivory coast": "Grupo E",
-		"costa de marfil": "Grupo E",
-		"cote d'ivoire": "Grupo E",
-		curacao: "Grupo E",
-
-		// Grupo F
-		netherlands: "Grupo F",
-		"paises bajos": "Grupo F",
-		holanda: "Grupo F",
-		japan: "Grupo F",
-		japon: "Grupo F",
-		tunisia: "Grupo F",
-		tunez: "Grupo F",
-		sweden: "Grupo F",
-		suecia: "Grupo F",
-
-		// Grupo G
-		belgium: "Grupo G",
-		belgica: "Grupo G",
-		egypt: "Grupo G",
-		egipto: "Grupo G",
-		iran: "Grupo G",
-		"new zealand": "Grupo G",
-		"nueva zelanda": "Grupo G",
-
-		// Grupo H
-		spain: "Grupo H",
-		espana: "Grupo H",
-		uruguay: "Grupo H",
-		"saudi arabia": "Grupo H",
-		"arabia saudita": "Grupo H",
-		"cape verde": "Grupo H",
-		"cabo verde": "Grupo H",
-
-		// Grupo I
-		france: "Grupo I",
-		francia: "Grupo I",
-		senegal: "Grupo I",
-		iraq: "Grupo I",
-		irak: "Grupo I",
-		norway: "Grupo I",
-		noruega: "Grupo I",
-
-		// Grupo J
-		argentina: "Grupo J",
-		algeria: "Grupo J",
-		argelia: "Grupo J",
-		austria: "Grupo J",
-		jordan: "Grupo J",
-		jordania: "Grupo J",
-
-		// Grupo K
-		portugal: "Grupo K",
-		colombia: "Grupo K",
-		uzbekistan: "Grupo K",
-		"congo dr": "Grupo K",
-		"rd congo": "Grupo K",
-		"democratic republic of the congo": "Grupo K",
-
-		// Grupo L
-		england: "Grupo L",
-		inglaterra: "Grupo L",
-		croatia: "Grupo L",
-		croacia: "Grupo L",
-		ghana: "Grupo L",
-		panama: "Grupo L",
-	};
-
-	return mapping[lower] || null;
-};
-
-const COUNTRY_FLAGS: Record<string, string> = {
-	México: "mx",
-	"Corea del Sur": "kr",
-	Sudáfrica: "za",
-	"República Checa": "cz",
-	Canadá: "ca",
-	Suiza: "ch",
-	Catar: "qa",
-	"Bosnia y Herzegovina": "ba",
-	Brasil: "br",
-	Marruecos: "ma",
-	Escocia: "gb-sct",
-	Haití: "ht",
-	"Estados Unidos": "us",
-	Paraguay: "py",
-	Australia: "au",
-	Turquía: "tr",
-	Alemania: "de",
-	Ecuador: "ec",
-	"Costa de Marfil": "ci",
-	Curaçao: "cw",
-	"Países Bajos": "nl",
-	Japón: "jp",
-	Túnez: "tn",
-	Suecia: "se",
-	Bélgica: "be",
-	Egipto: "eg",
-	Irán: "ir",
-	"Nueva Zelanda": "nz",
-	España: "es",
-	Uruguay: "uy",
-	"Arabia Saudita": "sa",
-	"Cabo Verde": "cv",
-	Francia: "fr",
-	Senegal: "sn",
-	Irak: "iq",
-	Noruega: "no",
-	Argentina: "ar",
-	Argelia: "dz",
-	Austria: "at",
-	Jordania: "jo",
-	Portugal: "pt",
-	Colombia: "co",
-	Uzbekistán: "uz",
-	"RD Congo": "cd",
-	Inglaterra: "gb-eng",
-	Croacia: "hr",
-	Ghana: "gh",
-	Panamá: "pa",
-};
-
-const getGroupTables = (matches: Match[]): GroupTable[] => {
-	const groupsMap: Record<string, Record<string, GroupTeamStanding>> = {};
-
-	// Inicializar los 12 grupos con sus 4 países correspondientes
-	for (const [groupName, teams] of Object.entries(WORLD_CUP_GROUPS_DEF)) {
-		groupsMap[groupName] = {};
-		for (const team of teams) {
-			const flagCode = COUNTRY_FLAGS[team];
-			const logoUrl = flagCode
-				? `https://flagcdn.com/w40/${flagCode}.png`
-				: null;
-			groupsMap[groupName][team] = {
-				teamName: team,
-				logo: logoUrl,
-				pj: 0,
-				pg: 0,
-				pe: 0,
-				pp: 0,
-				gf: 0,
-				gc: 0,
-				dg: 0,
-				pts: 0,
-			};
-		}
-	}
-
-	const findGroupTeam = (
-		teamName: string,
-	): { groupName: string; canonicalName: string } | null => {
-		const groupName = getTeamGroup(teamName);
-		if (!groupName) return null;
-
-		const canonicalList = WORLD_CUP_GROUPS_DEF[groupName];
-		const normalizedInput = teamName
-			.toLowerCase()
-			.normalize("NFD")
-			.replace(/[\u0300-\u036f]/g, "");
-
-		for (const canonical of canonicalList) {
-			const normalizedCanonical = canonical
-				.toLowerCase()
-				.normalize("NFD")
-				.replace(/[\u0300-\u036f]/g, "");
-			if (
-				normalizedCanonical === normalizedInput ||
-				normalizedCanonical.includes(normalizedInput) ||
-				normalizedInput.includes(normalizedCanonical) ||
-				(canonical === "República Checa" &&
-					(teamName.includes("Czech") || teamName.includes("Chequia"))) ||
-				(canonical === "RD Congo" &&
-					(teamName.includes("Congo") || teamName.includes("RDC"))) ||
-				(canonical === "Estados Unidos" &&
-					(teamName.includes("USA") || teamName.includes("States"))) ||
-				(canonical === "Costa de Marfil" &&
-					(teamName.includes("Coast") || teamName.includes("Ivoire")))
-			) {
-				return { groupName, canonicalName: canonical };
-			}
-		}
-
-		return { groupName, canonicalName: canonicalList[0] };
-	};
-
-	for (const match of matches) {
-		if (isKnockoutMatch(match)) continue;
-
-		const stage = match.stageName || "";
-		const stageLower = stage.toLowerCase();
-		if (!stageLower.includes("grupo") && !stageLower.includes("group"))
-			continue;
-
-		const homeResolved = findGroupTeam(match.homeTeam);
-		const awayResolved = findGroupTeam(match.awayTeam);
-
-		if (!homeResolved || !awayResolved) continue;
-
-		const homeGroup = groupsMap[homeResolved.groupName];
-		const awayGroup = groupsMap[awayResolved.groupName];
-
-		const homeTeamStanding = homeGroup[homeResolved.canonicalName];
-		const awayTeamStanding = awayGroup[awayResolved.canonicalName];
-
-		if (match.homeLogo && !homeTeamStanding.logo) {
-			homeTeamStanding.logo = match.homeLogo;
-		}
-		if (match.awayLogo && !awayTeamStanding.logo) {
-			awayTeamStanding.logo = match.awayLogo;
-		}
-
-		if (
-			match.status === "finished" &&
-			match.homeScore !== null &&
-			match.awayScore !== null
-		) {
-			const hs = match.homeScore;
-			const as = match.awayScore;
-
-			homeTeamStanding.pj += 1;
-			awayTeamStanding.pj += 1;
-
-			homeTeamStanding.gf += hs;
-			homeTeamStanding.gc += as;
-			awayTeamStanding.gf += as;
-			awayTeamStanding.gc += hs;
-
-			if (hs > as) {
-				homeTeamStanding.pg += 1;
-				homeTeamStanding.pts += 3;
-				awayTeamStanding.pp += 1;
-			} else if (hs < as) {
-				awayTeamStanding.pg += 1;
-				awayTeamStanding.pts += 3;
-				homeTeamStanding.pp += 1;
-			} else {
-				homeTeamStanding.pe += 1;
-				awayTeamStanding.pe += 1;
-				homeTeamStanding.pts += 1;
-				awayTeamStanding.pts += 1;
-			}
-
-			homeTeamStanding.dg = homeTeamStanding.gf - homeTeamStanding.gc;
-			awayTeamStanding.dg = awayTeamStanding.gf - awayTeamStanding.gc;
-		}
-	}
-
-	const groupTables: GroupTable[] = Object.keys(groupsMap).map((groupName) => {
-		const standings = Object.values(groupsMap[groupName]).sort((a, b) => {
-			if (b.pts !== a.pts) return b.pts - a.pts;
-			if (b.dg !== a.dg) return b.dg - a.dg;
-			if (b.gf !== a.gf) return b.gf - a.gf;
-			return a.teamName.localeCompare(b.teamName);
-		});
-
-		return {
-			groupName,
-			standings,
-		};
-	});
-
-	return groupTables.sort((a, b) => a.groupName.localeCompare(b.groupName));
-};
 
 export function Tournament() {
 	const { user: currentUser } = useAuthStore();
@@ -423,7 +59,8 @@ export function Tournament() {
 		displayName: string;
 	} | null>(null);
 	const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-	const [subTab, setSubTab] = useState("grupos");
+	// Renombrado para evitar colisión con el subTab interno de PositionsView
+	const [pronosticosSubTab, setPronosticosSubTab] = useState("grupos");
 	const [selectedRound, setSelectedRound] = useState("");
 	const [isRoundDropdownOpen, setIsRoundDropdownOpen] = useState(false);
 	const [isRulesOpen, setIsRulesOpen] = useState(false);
@@ -449,7 +86,7 @@ export function Tournament() {
 	const tabs = useMemo(() => {
 		const items = [{ id: "ranking", label: "RANKING TORNEO" }];
 		if (isWorldCup) {
-			items.push({ id: "grupos", label: "GRUPOS" });
+			items.push({ id: "posiciones", label: "POSICIONES" });
 		}
 		items.push(
 			{ id: "pronosticos", label: "PRONOSTICOS" },
@@ -458,14 +95,10 @@ export function Tournament() {
 		return items;
 	}, [isWorldCup]);
 
-	const groupTables = useMemo(() => {
-		return getGroupTables(matches ?? []);
-	}, [matches]);
-
 	const rounds = useMemo((): string[] => {
 		const filteredMatches = matches ?? [];
 		if (isWorldCup) {
-			if (subTab === "llaves") {
+			if (pronosticosSubTab === "llaves") {
 				const stages = filteredMatches
 					.filter(isKnockoutMatch)
 					.map((m) => m.stageName);
@@ -482,7 +115,7 @@ export function Tournament() {
 			const numB = Number.parseInt(b.replace(/^\D+/g, ""), 10);
 			return numA - numB;
 		});
-	}, [matches, subTab, isWorldCup]);
+	}, [matches, pronosticosSubTab, isWorldCup]);
 
 	// Sync selected round when rounds change
 	useEffect(() => {
@@ -826,146 +459,8 @@ export function Tournament() {
 				</GlassCard>
 			)}
 
-			{/* GRUPOS */}
-			{tab === "grupos" && (
-				<div className="max-w-4xl mx-auto space-y-8 animate-enter">
-					{groupTables.length === 0 ? (
-						<div className="text-center py-16 glass-card rounded-2xl border-white/5 bg-surface-container-low/50">
-							<span className="material-symbols-outlined text-primary text-5xl mb-3 stadium-glow-celeste">
-								sports_soccer
-							</span>
-							<p className="font-headline-md text-base text-white uppercase tracking-tight">
-								NO HAY GRUPOS DISPONIBLES
-							</p>
-							<p className="font-body-md text-sm text-on-surface-variant max-w-xs mx-auto mt-2">
-								No se encontraron partidos de fase de grupos para este torneo.
-							</p>
-						</div>
-					) : (
-						<>
-							<div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
-								{groupTables.map((group) => (
-									<GlassCard
-										key={group.groupName}
-										glow
-										className="overflow-hidden border-white/10"
-									>
-										<div className="bg-surface-container-high/60 px-4 py-3 border-b border-white/10">
-											<h3 className="font-headline-md text-sm font-bold text-white uppercase tracking-wider">
-												{group.groupName}
-											</h3>
-										</div>
-										<div className="overflow-x-auto">
-											<table className="w-full text-left border-collapse text-xs">
-												<thead>
-													<tr className="border-b border-white/5 bg-white/[0.02] text-on-surface-variant font-bold font-label-caps tracking-wider">
-														<th className="py-2.5 px-3 text-center w-8">#</th>
-														<th className="py-2.5 px-2">EQUIPO</th>
-														<th className="py-2.5 px-2 text-center font-black text-white w-10">
-															PTS
-														</th>
-														<th className="py-2.5 px-2 text-center w-8">PJ</th>
-														<th className="py-2.5 px-2 text-center w-8">PG</th>
-														<th className="py-2.5 px-2 text-center w-8">PE</th>
-														<th className="py-2.5 px-2 text-center w-8">PP</th>
-														<th className="py-2.5 px-2 text-center w-10">DG</th>
-														<th className="py-2.5 px-2 text-center w-8">GF</th>
-														<th className="py-2.5 px-2 text-center w-8">GC</th>
-													</tr>
-												</thead>
-												<tbody className="divide-y divide-white/5 font-body-md">
-													{group.standings.map((standing, index) => {
-														const rank = index + 1;
-														let rankBadgeClass = "bg-white/10 text-white/70";
-														if (rank <= 2) {
-															rankBadgeClass = "bg-emerald-500 text-black";
-														} else if (rank === 3) {
-															rankBadgeClass = "bg-amber-500 text-black";
-														}
-
-														return (
-															<tr
-																key={standing.teamName}
-																className="hover:bg-white/[0.02] transition-colors"
-															>
-																<td className="py-3 px-3 text-center">
-																	<div
-																		className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black mx-auto ${rankBadgeClass}`}
-																	>
-																		{rank}
-																	</div>
-																</td>
-																<td className="py-3 px-2 font-bold text-white">
-																	<div className="flex items-center gap-2">
-																		{standing.logo ? (
-																			<img
-																				src={standing.logo}
-																				alt=""
-																				className="w-4 h-4 object-contain"
-																			/>
-																		) : (
-																			<span className="material-symbols-outlined text-[14px] text-on-surface-variant">
-																				flag
-																			</span>
-																		)}
-																		<span className="truncate max-w-[120px]">
-																			{standing.teamName}
-																		</span>
-																	</div>
-																</td>
-																<td className="py-3 px-2 text-center font-black text-primary bg-primary/5 tabular-nums">
-																	{standing.pts}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
-																	{standing.pj}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
-																	{standing.pg}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
-																	{standing.pe}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
-																	{standing.pp}
-																</td>
-																<td
-																	className={`py-3 px-2 text-center font-bold tabular-nums ${standing.dg > 0 ? "text-emerald-400" : standing.dg < 0 ? "text-red-400" : "text-on-surface-variant"}`}
-																>
-																	{standing.dg > 0
-																		? `+${standing.dg}`
-																		: standing.dg}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant/80 tabular-nums">
-																	{standing.gf}
-																</td>
-																<td className="py-3 px-2 text-center text-on-surface-variant/80 tabular-nums">
-																	{standing.gc}
-																</td>
-															</tr>
-														);
-													})}
-												</tbody>
-											</table>
-										</div>
-									</GlassCard>
-								))}
-							</div>
-
-							{/* Legend */}
-							<div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 pt-4 pb-6 text-xs text-on-surface-variant font-bold font-label-caps select-none border-t border-white/5">
-								<div className="flex items-center gap-2">
-									<div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-									<span>Clasifica a Dieciseisavos de final</span>
-								</div>
-								<div className="flex items-center gap-2">
-									<div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-									<span>Posible clasificado a Dieciseisavos de final</span>
-								</div>
-							</div>
-						</>
-					)}
-				</div>
-			)}
+			{/* POSICIONES (Grupos en vivo + Liga 3ros + 16vos) */}
+			{tab === "posiciones" && <PositionsView matches={matches ?? []} />}
 
 			{/* PRONÓSTICOS */}
 			{tab === "pronosticos" && (
@@ -976,9 +471,9 @@ export function Tournament() {
 								<button
 									type="button"
 									key={s}
-									onClick={() => setSubTab(s)}
+									onClick={() => setPronosticosSubTab(s)}
 									className={`px-4 py-1.5 rounded-full font-label-caps text-xs tracking-wider font-extrabold transition-all duration-200 active:scale-[0.96] cursor-pointer ${
-										subTab === s
+										pronosticosSubTab === s
 											? "bg-primary text-black shadow-[0_0_15px_rgba(0,229,255,0.3)] font-black"
 											: "bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-white"
 									}`}
@@ -1078,7 +573,7 @@ export function Tournament() {
 						// 1. Filtrar por ronda/fase seleccionada
 						const matchesInRound = filteredMatches.filter((m) => {
 							if (isWorldCup) {
-								if (subTab === "llaves") {
+								if (pronosticosSubTab === "llaves") {
 									return isKnockoutMatch(m) && m.stageName === selectedRound;
 								}
 								return (
@@ -1132,7 +627,7 @@ export function Tournament() {
 										NO HAY PARTIDOS DISPONIBLES
 									</p>
 									<p className="font-body-md text-sm text-on-surface-variant max-w-xs mx-auto mt-2">
-										{isWorldCup && subTab === "llaves"
+										{isWorldCup && pronosticosSubTab === "llaves"
 											? "Aún no se han definido los partidos de la fase eliminatoria (Llaves) para esta ronda."
 											: "Este torneo no tiene partidos programados para esta fecha."}
 									</p>

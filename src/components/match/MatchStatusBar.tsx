@@ -1,0 +1,152 @@
+import { useCountdown } from "../../hooks/useCountdown";
+import type { MatchCardState } from "../../lib/matchCardState";
+
+export interface MatchStatusBarProps {
+	state: MatchCardState;
+	/** ISO string del kickoff del partido (para mostrar horario 24h + counter al arranque) */
+	kickOff: string;
+	/** Si el usuario ya pronosticó este partido en todos los torneos asignados */
+	isFullyPredicted?: boolean;
+	/** Minuto del partido (solo para live) */
+	minute?: number;
+	/** Cantidad de predicciones del usuario (multi-torneo) */
+	predictionCount?: number;
+}
+
+const KICKOFF_COUNTDOWN_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24h
+
+/**
+ * Status bar de MatchCard (Fase 3).
+ *
+ * Muestra siempre el horario en formato 24h.
+ * - Si el partido aún no arranca y faltan <24h, agrega counter al kickoff.
+ * - Si el usuario pronosticó en TODOS sus torneos, oculta el counter.
+ * - Estados terminales: live (con minuto) / finished (FIN).
+ */
+export function MatchStatusBar({
+	state,
+	kickOff,
+	isFullyPredicted = false,
+	minute,
+	predictionCount = 0,
+}: MatchStatusBarProps) {
+	// Hooks SIEMPRE al principio (Rules of Hooks: orden estable entre renders)
+	const kickoffDate = new Date(kickOff);
+	const kickoffCountdown = useCountdown(kickoffDate, 30_000);
+	const kickoffTime = kickoffDate.toLocaleTimeString("es-AR", {
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	});
+
+	// live: rojo pulse con minuto
+	if (state === "live") {
+		return (
+			<div className="flex items-center gap-1.5" role="status" aria-live="polite">
+				<span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
+				<span className="font-stat-value text-base font-bold text-error tabular-nums">
+					{formatMinute(minute)}
+				</span>
+				<span className="font-label-caps text-[10px] font-bold text-error uppercase tracking-widest">
+					EN VIVO
+				</span>
+			</div>
+		);
+	}
+
+	// finished
+	if (state === "finished") {
+		return (
+			<div className="flex items-center gap-1.5 text-on-surface-variant/60" role="status">
+				<span className="font-label-caps text-[10px] font-bold tracking-widest uppercase">
+					FIN
+				</span>
+			</div>
+		);
+	}
+
+	// locked (sin predicción, ventana de predicción cerrada)
+	if (state === "locked") {
+		return (
+			<div
+				className="flex items-center gap-1.5 text-on-surface-variant/40"
+				role="status"
+			>
+				<span className="material-symbols-outlined text-[14px]">lock</span>
+				<span className="font-label-caps text-[10px] font-bold tracking-widest uppercase">
+					Cerrado
+				</span>
+			</div>
+		);
+	}
+
+	// predicted_locked (con predicción, ventana cerrada): solo horario
+	if (state === "predicted_locked") {
+		return (
+			<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+				<span className="font-stat-value text-base font-bold tabular-nums">
+					{kickoffTime}
+				</span>
+				{predictionCount > 1 && (
+					<span className="text-[9px] opacity-60">({predictionCount})</span>
+				)}
+			</div>
+		);
+	}
+
+	// pending_action / predicted_editable: ventana abierta
+	// Sub-estado 1: isFullyPredicted → solo horario
+	if (isFullyPredicted) {
+		return (
+			<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+				<span className="font-stat-value text-base font-bold tabular-nums">
+					{kickoffTime}
+				</span>
+			</div>
+		);
+	}
+
+	// Sub-estado 2: NO isFullyPredicted + faltan <24h → "⏰ HH:mm · Xh Ymin"
+	const showKickoffCounter =
+		!kickoffCountdown.isExpired &&
+		kickoffCountdown.msRemaining < KICKOFF_COUNTDOWN_THRESHOLD_MS;
+
+	if (showKickoffCounter) {
+		const isImminent = kickoffCountdown.msRemaining < 60 * 60 * 1000; // <1h
+		return (
+			<div
+				className={`flex items-center gap-1.5 ${isImminent ? "text-tertiary" : "text-on-surface-variant"}`}
+				role="status"
+				aria-live="polite"
+			>
+				{isImminent && (
+					<span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+				)}
+				<span className="font-stat-value text-base font-bold tabular-nums">
+					{kickoffTime}
+				</span>
+				<span className="font-label-caps text-[10px] font-bold tracking-widest uppercase">
+					· {kickoffCountdown.formatted}
+				</span>
+			</div>
+		);
+	}
+
+	// Sub-estado 3: NO isFullyPredicted + faltan >=24h → "⏰ HH:mm · PENDIENTE"
+	return (
+		<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+			<span className="font-stat-value text-base font-bold tabular-nums">
+				{kickoffTime}
+			</span>
+			<span className="font-label-caps text-[10px] font-bold tracking-widest uppercase opacity-60">
+				· Pendiente
+			</span>
+		</div>
+	);
+}
+
+/** Formatea el minuto del partido (ej: 67 → "67'") */
+function formatMinute(minute?: number): string {
+	if (minute === undefined || minute === null) return "0'";
+	return `${minute}'`;
+}

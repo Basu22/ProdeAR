@@ -10,7 +10,7 @@ export function RedCardBadge({ count }: { count: number }) {
 	const overflow = count - visible;
 	return (
 		<div
-			className="absolute -top-2 -right-1 z-10 flex items-start gap-[2px]"
+			className="absolute top-1.5 right-1.5 z-20 flex items-start gap-[2px]"
 			aria-label={`${count} tarjeta${count > 1 ? "s" : ""} roja${count > 1 ? "s" : ""}`}
 		>
 			{Array.from({ length: visible }).map((_, i) => (

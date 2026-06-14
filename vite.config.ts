@@ -15,10 +15,13 @@ export default defineConfig({
 			registerType: "autoUpdate",
 			includeAssets: ["favicon.ico", "robots.txt", "gol_sound.mp3"],
 			devOptions: {
-				// Habilitar el Service Worker en dev. Por default vite-plugin-pwa
-				// lo desactiva, lo cual rompe la feature de push. Con estas
-				// opciones el SW funciona en localhost igual que en producción.
-				enabled: true,
+				// Service Worker DESHABILITADO en dev. Por default vite-plugin-pwa
+				// lo desactiva; lo activamos antes para que push notifications
+				// funcionen en localhost. PERO el SW cachea agresivamente el bundle,
+				// lo cual rompía la navegación del nav en dev (el primer click
+				// navegaba al cache viejo sin el fix de hasHydrated).
+				// Para testear push en dev: cambiar a `enabled: true` temporalmente.
+				enabled: false,
 				type: "module",
 			},
 			injectManifest: {

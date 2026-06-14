@@ -64,7 +64,19 @@ export interface TacticalPlayerInfo {
 		number: number;
 		pos: string;
 		grid: string | null;
+		photo?: string | null;
 	};
+}
+
+/**
+ * Foto de un jugador en un partido específico.
+ * Sprint 2: agregada para enriquecer el FormacionesTab con las caras de los
+ * jugadores. Se guarda como JSONB en `matches.player_photos` y se hidrata
+ * desde el endpoint `/fixtures/players?fixture=X` de API-Football.
+ */
+export interface PlayerPhoto {
+	player_id: number;
+	photo: string;
 }
 
 export interface TeamLineup {
@@ -106,6 +118,21 @@ export interface Match {
 	events?: MatchEvent[];
 	stats?: TeamStats[];
 	lineups?: TeamLineup[];
+	playerPhotos?: PlayerPhoto[];
+	/**
+	 * Sprint 3: Canonicalización server-side para el Mundial.
+	 * Populados por `poll-scores` desde la tabla `team_aliases`.
+	 * - `groupLetter`: "A"-"L" para partidos de fase de grupos (null en eliminatorias)
+	 * - `homeTeamCanonical` / `awayTeamCanonical`: nombre canónico en español
+	 *   (ej. "México", "Corea del Sur"), independiente del nombre crudo de la API
+	 *   (ej. "Mexico", "South Korea").
+	 *
+	 * Si están presentes, `getGroupTables` los prefiere sobre el fuzzy match
+	 * built-in, lo que elimina la necesidad de mantener aliases en el cliente.
+	 */
+	groupLetter?: string | null;
+	homeTeamCanonical?: string | null;
+	awayTeamCanonical?: string | null;
 }
 
 export type MatchStatus =
@@ -141,4 +168,13 @@ export interface ChatMessage {
 	userId: string;
 	content: string;
 	createdAt: string;
+}
+
+/* === Sprint 1: Match Bottom Sheet Tabs (F10) === */
+export type SheetTabId = "predictions" | "events" | "stats" | "lineups";
+
+export interface SheetTabDef {
+	id: SheetTabId;
+	label: string;
+	icon: string; // Material Symbol name
 }

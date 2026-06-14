@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveMinute } from "../../hooks/useLiveMinute";
 import { useNewEvents } from "../../hooks/useNewEvents";
+import type { MatchCardState } from "../../lib/matchCardState";
 import type { Match, MatchEvent, Prediction } from "../../lib/types";
 import { EventToast } from "./EventToast";
 import { GoalAnimation } from "./GoalAnimation";
-import { MatchDetailsTabs } from "./MatchDetailsTabs";
+import { MatchStatusBar } from "./MatchStatusBar";
 import { RedCardBadge } from "./RedCardBadge";
+import { EventosTab, FormacionesTab, StatsTab } from "./tabs";
 
 const TEAM_TRANSLATIONS: Record<string, string> = {
 	Argentina: "Argentina",
@@ -137,6 +139,14 @@ interface MatchCardProps {
 	tournamentName?: string;
 	predictions?: Prediction[];
 	tournamentNames?: Map<string, string>;
+	/** Fase 2: estado visual derivado. Si se provee, reemplaza la ROW 1 con <MatchStatusBar>. */
+	cardState?: MatchCardState;
+	/** Fase 3: true si el usuario ya pronosticó este partido en todos los torneos asignados. */
+	isFullyPredicted?: boolean;
+	/** Fase 2: cantidad de predicciones del usuario (multi-torneo). */
+	predictionCount?: number;
+	/** Si se provee, reemplaza el toggle del acordeón por este callback (abre MatchSheet). */
+	onSelect?: (matchId: string) => void;
 }
 
 export function MatchCard({
@@ -148,6 +158,10 @@ export function MatchCard({
 	tournamentName,
 	predictions,
 	tournamentNames,
+	cardState,
+	isFullyPredicted,
+	predictionCount,
+	onSelect,
 }: MatchCardProps) {
 	const isLive = match.status === "live";
 	const isFinished = match.status === "finished";
@@ -179,6 +193,11 @@ export function MatchCard({
 	>(null);
 	const goalAudioRef = useRef<HTMLAudioElement | null>(null);
 
+	// Tab activo del detalle expandido (eventos / stats / formaciones)
+	const [detailTab, setDetailTab] = useState<"eventos" | "stats" | "formaciones">(
+		"eventos",
+	);
+
 	// Determinar si el gol fue acertado por el usuario (soporta modo multi-torneo)
 	const isUserGoal = useMemo(() => {
 		if (currentAnimation?.type !== "goal") return false;
@@ -202,7 +221,13 @@ export function MatchCard({
 		}
 
 		return false;
-	}, [currentAnimation, match.homeScore, match.awayScore, predictions, prediction]);
+	}, [
+		currentAnimation,
+		match.homeScore,
+		match.awayScore,
+		predictions,
+		prediction,
+	]);
 
 	// Pre-load del audio al montar si isLive
 	useEffect(() => {
@@ -464,8 +489,10 @@ export function MatchCard({
 	const { homeRedCount, awayRedCount } = useMemo(() => {
 		const events = match.events ?? [];
 		return {
-			homeRedCount: events.filter((e) => e.type === "red" && e.team === "home").length,
-			awayRedCount: events.filter((e) => e.type === "red" && e.team === "away").length,
+			homeRedCount: events.filter((e) => e.type === "red" && e.team === "home")
+				.length,
+			awayRedCount: events.filter((e) => e.type === "red" && e.team === "away")
+				.length,
 		};
 	}, [match.events]);
 
@@ -488,11 +515,21 @@ export function MatchCard({
 			{/* Header: 4 stacked centered rows */}
 			{/* biome-ignore lint/a11y/useSemanticElements: El div actúa como un botón de acordeón para expandir la tarjeta. */}
 			<div
-				onClick={() => setIsExpanded(!isExpanded)}
+				onClick={() => {
+					if (onSelect) {
+						onSelect(match.id);
+					} else {
+						setIsExpanded(!isExpanded);
+					}
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
-						setIsExpanded(!isExpanded);
+						if (onSelect) {
+							onSelect(match.id);
+						} else {
+							setIsExpanded(!isExpanded);
+						}
 					}
 				}}
 				role="button"
@@ -501,7 +538,15 @@ export function MatchCard({
 			>
 				{/* ROW 1: Horario / Estado (centrado) */}
 				<div className="flex items-center justify-center px-4 pt-3 pb-1">
-					{isLive ? (
+					{cardState ? (
+						<MatchStatusBar
+							state={cardState}
+							kickOff={match.kickOff}
+							isFullyPredicted={isFullyPredicted}
+							minute={typeof liveMinute === "number" ? liveMinute : undefined}
+							predictionCount={predictionCount}
+						/>
+					) : isLive ? (
 						<span
 							className={`flex items-center gap-1 bg-error/10 border border-error/30 px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase animate-pulse ${
 								isStale ? "text-amber-400" : "text-error"
@@ -1011,10 +1056,57 @@ export function MatchCard({
 						</div>
 					)}
 
-					{/* Tactical Details Tabs (Events, Stats, Lineups) */}
-					<MatchDetailsTabs match={match} />
+					{/* Tactical Details Tabs (Events, Stats, Lineups) — Sprint 1 F10 */}
+					<CardDetailsTabs match={match} activeTab={detailTab} onTabChange={setDetailTab} />
 				</div>
 			)}
+		</div>
+	);
+}
+
+/**
+ * Selector de tabs local para el detalle expandido de MatchCard.
+ * Sprint 1 (F10): usa los nuevos componentes de `tabs/`.
+ * 3 tabs: Eventos / Estadísticas / Formaciones.
+ */
+function CardDetailsTabs({
+	match,
+	activeTab,
+	onTabChange,
+}: {
+	match: Match;
+	activeTab: "eventos" | "stats" | "formaciones";
+	onTabChange: (tab: "eventos" | "stats" | "formaciones") => void;
+}) {
+	return (
+		<div className="pt-2 mt-2 border-t border-white/5 space-y-4">
+			{/* Tab Selector */}
+			<div className="flex border-b border-white/5">
+				{(["eventos", "stats", "formaciones"] as const).map((t) => (
+					<button
+						type="button"
+						key={t}
+						role="tab"
+						aria-selected={activeTab === t}
+						onClick={() => onTabChange(t)}
+						className={`flex-1 py-2 font-label-caps text-[10px] tracking-widest font-extrabold transition-[color,transform] duration-200 active:scale-[0.96] relative cursor-pointer uppercase ${
+							activeTab === t
+								? "text-primary text-glowing"
+								: "text-on-surface-variant hover:text-primary"
+						}`}
+					>
+						{t}
+						{activeTab === t && (
+							<div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
+						)}
+					</button>
+				))}
+			</div>
+
+			{/* Contenido del tab activo */}
+			{activeTab === "eventos" && <EventosTab match={match} />}
+			{activeTab === "stats" && <StatsTab match={match} />}
+			{activeTab === "formaciones" && <FormacionesTab match={match} />}
 		</div>
 	);
 }
@@ -1163,7 +1255,9 @@ function PredictionViewPanel({
 						to="/tournaments"
 						className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
 					>
-						<span className="material-symbols-outlined text-sm">add_circle</span>
+						<span className="material-symbols-outlined text-sm">
+							add_circle
+						</span>
 						Unirme a un torneo
 					</Link>
 				</div>
@@ -1244,8 +1338,7 @@ function PredictionViewPanel({
 									(e.target as HTMLImageElement).style.display = "none";
 									const sibling = (e.target as HTMLImageElement)
 										.nextElementSibling;
-									if (sibling)
-										(sibling as HTMLElement).style.display = "block";
+									if (sibling) (sibling as HTMLElement).style.display = "block";
 								}}
 							/>
 						) : null}
@@ -1286,8 +1379,7 @@ function PredictionViewPanel({
 									(e.target as HTMLImageElement).style.display = "none";
 									const sibling = (e.target as HTMLImageElement)
 										.nextElementSibling;
-									if (sibling)
-										(sibling as HTMLElement).style.display = "block";
+									if (sibling) (sibling as HTMLElement).style.display = "block";
 								}}
 							/>
 						) : null}
@@ -1337,7 +1429,9 @@ function PredictionViewPanel({
 					)}
 					{scoreResult.correctWinner && (
 						<span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/10 border border-sky-500/30 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.15)] flex items-center gap-1">
-							<span className="material-symbols-outlined text-[12px]">done</span>
+							<span className="material-symbols-outlined text-[12px]">
+								done
+							</span>
 							Resultado Básico (+{3 * match.stageMultiplier} pts)
 						</span>
 					)}
@@ -1351,7 +1445,9 @@ function PredictionViewPanel({
 					)}
 					{pointsEarned === 0 && (
 						<span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-500/10 border border-red-500/20 text-red-400/80 flex items-center gap-1">
-							<span className="material-symbols-outlined text-[12px]">close</span>
+							<span className="material-symbols-outlined text-[12px]">
+								close
+							</span>
 							Pronóstico Errado (0 pts)
 						</span>
 					)}
@@ -1402,7 +1498,8 @@ function MultiPredictionRows({
 	const totalPoints = useMemo(
 		() =>
 			predictions.reduce(
-				(sum, p) => sum + (p.pointsEarned && p.pointsEarned > 0 ? p.pointsEarned : 0),
+				(sum, p) =>
+					sum + (p.pointsEarned && p.pointsEarned > 0 ? p.pointsEarned : 0),
 				0,
 			),
 		[predictions],

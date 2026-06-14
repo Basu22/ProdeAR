@@ -86,6 +86,228 @@ function getStageMultiplier(roundStr: string): number {
 	return 1;
 }
 
+/**
+ * Extrae la letra del grupo del stageName de la API.
+ * Acepta "Group A" (API-Football) y "Grupo A" (legado).
+ * Retorna null si no matchea (ej. "Group Stage" sin letra, "Round of 16").
+ */
+function getGroupLetterFromStage(stageName: string | null | undefined): string | null {
+	if (!stageName) return null;
+	const match = stageName.match(/[Gg]r(?:oup|upo)\s+([A-L])(?![a-zA-Z])/i);
+	return match ? match[1].toUpperCase() : null;
+}
+
+/**
+ * Cache en memoria de los aliases de la tabla `team_aliases`.
+ * Se carga una vez por invocación de la Edge Function (Deno puede reciclar
+ * el isolate entre invocaciones, por eso el lazy-load).
+ *
+ * Estructura: Map<lowercase-alias, { canonical: string; group: string | null }>
+ *
+ * Si la tabla `team_aliases` está vacía o la query falla, el Map queda vacío
+ * y `resolveCanonicalName` retorna el nombre crudo de la API (fallback seguro).
+ */
+let aliasesCache: Map<
+	string,
+	{ canonical: string; group: string | null }
+> | null = null;
+
+async function loadAliasesCache(
+	supabase: any,
+): Promise<Map<string, { canonical: string; group: string | null }>> {
+	if (aliasesCache) return aliasesCache;
+
+	const map = new Map<string, { canonical: string; group: string | null }>();
+	try {
+		const { data, error } = await supabase
+			.from("team_aliases")
+			.select("alias, canonical_name, group_letter");
+
+		if (error) {
+			console.warn("Error loading team_aliases cache:", error);
+		} else if (data) {
+			for (const row of data) {
+				map.set(row.alias.toLowerCase().trim(), {
+					canonical: row.canonical_name,
+					group: row.group_letter || null,
+				});
+			}
+		}
+	} catch (e) {
+		console.warn("Exception loading team_aliases cache:", e);
+	}
+
+	aliasesCache = map;
+	return map;
+}
+
+/**
+ * Resuelve un nombre de equipo de la API a su forma canónica del Mundial.
+ *
+ * Retorna:
+ * - `canonical`: nombre canónico en español (ej. "Corea del Sur")
+ * - `groupLetter`: "A"-"L" si es de fase de grupos, null en otro caso
+ *
+ * Si el alias no está en el cache, retorna un objeto con `canonical: name`
+ * (fallback: usa el nombre crudo de la API) y `groupLetter: null`.
+ */
+function resolveCanonicalName(
+	teamName: string,
+	cache: Map<string, { canonical: string; group: string | null }>,
+): { canonical: string; groupLetter: string | null } {
+	const key = teamName.toLowerCase().trim();
+	const entry = cache.get(key);
+
+	if (entry) {
+		return { canonical: entry.canonical, groupLetter: entry.group };
+	}
+
+	// Fallback: nombre crudo + intentar parsear grupo del stage
+	return { canonical: teamName, groupLetter: null };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Sprint 2 Fix (#4): Coverage caching
+   Cachea la disponibilidad de features por liga+season para no
+   gastar cuota en endpoints que devuelven arrays vacíos.
+   ════════════════════════════════════════════════════════════════ */
+
+type LeagueCoverage = {
+	fixtures_events: boolean;
+	fixtures_lineups: boolean;
+	fixtures_statistics_fixtures: boolean;
+};
+
+const COVERAGE_FRESH_MS = 24 * 60 * 60 * 1000; // 24h
+
+/**
+ * Sincroniza la tabla `league_coverage` con /leagues?current=true.
+ * Solo actualiza ligas que no tienen coverage fresco (< 24h).
+ */
+async function syncLeagueCoverage(
+	apiFootballKey: string,
+	supabase: any,
+): Promise<void> {
+	try {
+		// 1. Buscar ligas que necesitan refresh
+		const { data: stale, error: selErr } = await supabase
+			.from("league_coverage")
+			.select("league_id, updated_at")
+			.lt("updated_at", new Date(Date.now() - COVERAGE_FRESH_MS).toISOString())
+			.limit(20);
+		if (selErr) {
+			console.error("[poll-scores] Error reading league_coverage:", selErr);
+			return;
+		}
+		const staleIds = (stale ?? []).map((r: any) => r.league_id);
+
+		// 2. Si no hay ligas stales, no gastar la call
+		if (staleIds.length === 0) return;
+
+		// 3. Pedir el endpoint con los IDs específicos (más eficiente)
+		const idsParam = staleIds.slice(0, 20).join("-");
+		const resp = await fetch(
+			`https://v3.football.api-sports.io/leagues?ids=${idsParam}`,
+			{ headers: { "x-apisports-key": apiFootballKey } },
+		);
+		if (!resp.ok) {
+			console.error(
+				`[poll-scores] /leagues?ids returned ${resp.status}`,
+			);
+			return;
+		}
+		const data = await resp.json();
+
+		// 4. Upsert el coverage de cada liga+season actual
+		const rows: any[] = [];
+		for (const leagueEntry of data.response ?? []) {
+			for (const season of leagueEntry.seasons ?? []) {
+				if (!season.current) continue;
+				rows.push({
+					league_id: leagueEntry.league.id,
+					league_name: leagueEntry.league.name,
+					season: season.year,
+					fixtures_events: season.coverage?.fixtures?.events ?? false,
+					fixtures_lineups: season.coverage?.fixtures?.lineups ?? false,
+					fixtures_statistics_fixtures:
+						season.coverage?.fixtures?.statistics_fixtures ?? false,
+					fixtures_statistics_players:
+						season.coverage?.fixtures?.statistics_players ?? false,
+					standings: season.coverage?.standings ?? false,
+					players: season.coverage?.players ?? false,
+					predictions: season.coverage?.predictions ?? false,
+					updated_at: new Date().toISOString(),
+				});
+			}
+		}
+		if (rows.length > 0) {
+			const { error: upErr } = await supabase
+				.from("league_coverage")
+				.upsert(rows, { onConflict: "league_id,season" });
+			if (upErr) {
+				console.error("[poll-scores] Error upserting league_coverage:", upErr);
+			} else {
+				console.log(`[poll-scores] Synced coverage for ${rows.length} league/seasons`);
+			}
+		}
+	} catch (e) {
+		console.error("[poll-scores] Error in syncLeagueCoverage:", e);
+	}
+}
+
+/**
+ * Carga el cache de coverage en memoria (Map<`${leagueId}-${season}`, coverage>).
+ * Se llama 1 vez por invocación de poll-scores.
+ */
+async function loadCoverageCache(
+	supabase: any,
+): Promise<Map<string, LeagueCoverage>> {
+	const map = new Map<string, LeagueCoverage>();
+	const { data, error } = await supabase
+		.from("league_coverage")
+		.select(
+			"league_id, season, fixtures_events, fixtures_lineups, fixtures_statistics_fixtures, fixtures_statistics_players",
+		);
+	if (error) {
+		console.error("[poll-scores] Error loading coverage cache:", error);
+		return map;
+	}
+	for (const r of data ?? []) {
+		const key = `${r.league_id}-${r.season}`;
+		map.set(key, {
+			fixtures_events: r.fixtures_events,
+			fixtures_lineups: r.fixtures_lineups,
+			fixtures_statistics_fixtures: r.fixtures_statistics_fixtures,
+			fixtures_statistics_players: r.fixtures_statistics_players,
+		});
+	}
+	return map;
+}
+
+/**
+ * Helper para chequear si un feature está disponible para una liga+season.
+ * Si no hay info en cache, retorna `true` (asume que sí, para no bloquear).
+ */
+function isFeatureAvailable(
+	coverageMap: Map<string, LeagueCoverage>,
+	leagueId: number,
+	season: number,
+	feature: "events" | "lineups" | "statistics_fixtures" | "statistics_players",
+): boolean {
+	const cov = coverageMap.get(`${leagueId}-${season}`);
+	if (!cov) return true; // sin info, asumimos disponible
+	switch (feature) {
+		case "events":
+			return cov.fixtures_events;
+		case "lineups":
+			return cov.fixtures_lineups;
+		case "statistics_fixtures":
+			return cov.fixtures_statistics_fixtures;
+		case "statistics_players":
+			return cov.fixtures_statistics_players;
+	}
+}
+
 const isYouthOrWomen = (teamName: string): boolean => {
 	const lower = teamName.toLowerCase();
 	const youthPatterns = [
@@ -409,6 +631,12 @@ serve(async (req) => {
 		}
 
 		const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+		// Sprint 3: Cargar cache de team_aliases para canonicalización server-side.
+		// Se usa para popular home_team_canonical, away_team_canonical y group_letter
+		// en cada match upserted. Si la tabla está vacía, el Map queda vacío y
+		// resolveCanonicalName() hace fallback al nombre crudo de la API.
+		const aliasesCache = await loadAliasesCache(supabase);
 
 		const url = new URL(req.url);
 
@@ -752,6 +980,7 @@ serve(async (req) => {
 			let stats = existingMatch?.stats || [];
 			let lineups = existingMatch?.lineups || [];
 			let events = existingMatch?.events || [];
+			let player_photos = existingMatch?.player_photos || [];
 
 			// Mapear eventos inline de la API como fallback inicial si existen
 			if (f.events && f.events.length > 0) {
@@ -779,99 +1008,341 @@ serve(async (req) => {
 				}));
 			}
 
+// ════════════════════════════════════════════════════════════════
+// Sprint 2 Fix (refactor #1): BATCH FETCH con /fixtures?ids=
+// Desde API-Football v3.9.2, el param `ids` de /fixtures trae TODO
+// (events, lineups, statistics, players) en una sola respuesta.
+// Antes: 4 fetches × N partidos = 4N calls
+// Ahora: 1 fetch × (N/20 chunks) ≈ N/20 calls
+// ════════════════════════════════════════════════════════════════
+
+		// Phase A-0: Sincronizar league_coverage (1 call/día, sin cuota adicional)
+		// Sprint 2 Fix (#4): coverage check para no gastar cuota en ligas sin datos.
+		// El endpoint /leagues?current=true NO tiene cobertura propia (es metadata)
+		// y devuelve el campo `coverage` por league+season que cacheamos.
+		await syncLeagueCoverage(apiFootballKey, supabase);
+
+		// Cargar cache de coverage en memoria para evitar queries repetidos
+		const coverageCache = await loadCoverageCache(supabase);
+
+		// Phase A: Pre-query DB para todos los partidos en 1 sola query
+		// y acumular IDs que necesitan data refresh.
+		type FixtureDecision = {
+			fixture: any;
+			dbCompId: number | null;
+			existingMatch: any;
+			isLive: boolean;
+			isNewlyFinished: boolean;
+			mappedStatus: MatchStatus;
+			needsStats: boolean;
+			needsLineups: boolean;
+			needsEvents: boolean;
+			needsPlayerPhotos: boolean;
+		};
+
+		const decisions: FixtureDecision[] = [];
+
+		for (const f of apiFixtures) {
+			const leagueId = f.league.id;
+			const dbCompId = compMap.get(leagueId) ?? null;
+
+			if (!dbCompId && !preview) continue;
+
+			if (
+				isYouthOrWomen(f.teams.home.name) ||
+				isYouthOrWomen(f.teams.away.name)
+			) {
+				continue;
+			}
+
+			const mappedStatus = mapApiFootballStatus(f.fixture.status.short);
+			const isLive = mappedStatus === "live";
+
+			let existingMatch: any = null;
+			let isNewlyFinished = false;
 			if (!preview) {
-				const isLive = mappedStatus === "live";
+				const { data } = await supabase
+					.from("matches")
+					.select("id, status, stats, lineups, events, player_photos")
+					.eq("api_match_id", f.fixture.id)
+					.maybeSingle();
+				existingMatch = data;
+				isNewlyFinished =
+					mappedStatus === "finished" &&
+					(!existingMatch || existingMatch.status !== "finished");
+			}
 
-				// 1. Obtener estadísticas si está en vivo, recién finalizado o si faltan estadísticas
-				const needsStats = isLive || isNewlyFinished || (mappedStatus === "finished" && (!stats || stats.length === 0));
-				if (needsStats) {
-					try {
-						await new Promise((resolve) => setTimeout(resolve, 100));
-						const statsResp = await fetch(
-							`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`,
-							{
-								headers: {
-									"x-apisports-key": apiFootballKey,
-								},
-							},
-						);
-						if (statsResp.ok) {
-							const statsData = await statsResp.json();
-							stats = statsData.response || [];
+			const exStats = existingMatch?.stats || [];
+			const exLineups = existingMatch?.lineups || [];
+			const exEvents = existingMatch?.events || [];
+			const exPhotos = existingMatch?.player_photos || [];
+
+			const needsStats =
+				isLive ||
+				isNewlyFinished ||
+				(mappedStatus === "finished" && (!exStats || exStats.length === 0));
+			const needsLineups =
+				isLive ||
+				isNewlyFinished ||
+				(mappedStatus === "finished" && (!exLineups || exLineups.length === 0));
+			const needsEvents =
+				isLive ||
+				isNewlyFinished ||
+				(mappedStatus === "finished" && (!exEvents || exEvents.length === 0));
+			const needsPlayerPhotos =
+				isLive || isNewlyFinished || (!exPhotos || exPhotos.length === 0);
+
+			decisions.push({
+				fixture: f,
+				dbCompId,
+				existingMatch,
+				isLive,
+				isNewlyFinished,
+				mappedStatus,
+				needsStats,
+				needsLineups,
+				needsEvents,
+				needsPlayerPhotos,
+			});
+		}
+
+		// Phase B: Batch fetch todos los IDs que necesitan CUALQUIER dato
+		const idsNeedingData = preview
+			? []
+			: decisions
+					.filter(
+							(d) =>
+								d.needsStats ||
+								d.needsLineups ||
+								d.needsEvents ||
+								d.needsPlayerPhotos,
+						)
+					.map((d) => d.fixture.fixture.id);
+
+		const batchData = new Map<number, any>();
+		if (idsNeedingData.length > 0) {
+			for (let i = 0; i < idsNeedingData.length; i += 20) {
+				const chunk = idsNeedingData.slice(i, i + 20).join("-");
+				try {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+					const resp = await fetch(
+						`https://v3.football.api-sports.io/fixtures?ids=${chunk}`,
+						{ headers: { "x-apisports-key": apiFootballKey } },
+					);
+					// Sprint 2 Fix (#3): rate limit logging
+					console.log(
+						`[poll-scores] ids chunk ${i / 20 + 1}/${
+							Math.ceil(idsNeedingData.length / 20)
+						} status=${resp.status} daily-remaining=${
+							resp.headers.get("x-ratelimit-requests-remaining") ?? "?"
+						} min-remaining=${resp.headers.get("X-RateLimit-Remaining") ?? "?"}`,
+					);
+					if (resp.ok) {
+						const data = await resp.json();
+						for (const fixture of data.response ?? []) {
+							batchData.set(fixture.fixture.id, fixture);
 						}
-					} catch (e) {
-						console.error(`Error fetching stats for match ${f.fixture.id}:`, e);
 					}
+				} catch (e) {
+					console.error(
+						`[poll-scores] Error batch-fetching fixtures ${chunk}:`,
+						e,
+					);
 				}
+			}
+		}
 
-				// 2. Obtener alineaciones si está en vivo, recién finalizado o si faltan alineaciones
-				const needsLineups = isLive || isNewlyFinished || (mappedStatus === "finished" && (!lineups || lineups.length === 0));
-				if (needsLineups) {
-					try {
-						await new Promise((resolve) => setTimeout(resolve, 100));
-						const lineupsResp = await fetch(
-							`https://v3.football.api-sports.io/fixtures/lineups?fixture=${f.fixture.id}`,
-							{
-								headers: {
-									"x-apisports-key": apiFootballKey,
-								},
-							},
-						);
-						if (lineupsResp.ok) {
-							const lineupsData = await lineupsResp.json();
-							lineups = lineupsData.response || [];
-						}
-					} catch (e) {
-						console.error(`Error fetching lineups for match ${f.fixture.id}:`, e);
-					}
-				}
+		// Phase C: Helper para extraer los 4 tipos de data del response batched
+		function processBatchDataForFixture(
+			fixture: any,
+			originalFixture: any,
+		) {
+			const season =
+				fixture?.league?.season ?? originalFixture?.league?.season ?? null;
 
-				// 3. Obtener eventos detallados si está en vivo, recién finalizado o si faltan eventos
-				const needsEvents = isLive || isNewlyFinished || (mappedStatus === "finished" && (!events || events.length === 0));
-				if (needsEvents) {
-					try {
-						await new Promise((resolve) => setTimeout(resolve, 100));
-						const eventsResp = await fetch(
-							`https://v3.football.api-sports.io/fixtures/events?fixture=${f.fixture.id}`,
-							{
-								headers: {
-									"x-apisports-key": apiFootballKey,
-								},
-							},
-						);
-						if (eventsResp.ok) {
-							const eventsData = await eventsResp.json();
-							const apiEvents = eventsData.response || [];
-							if (apiEvents.length > 0) {
-								events = apiEvents.map((e: any, idx: number) => ({
-									id: `evt-${f.fixture.id}-${idx}`,
-									type:
-										e.type === "Goal"
-											? "goal"
-											: e.detail?.includes("Red")
-												? "red"
-												: e.type === "Card"
-													? "yellow"
-													: e.type === "subst"
-														? "subst"
-														: e.type === "Var"
-															? "var"
-															: "info",
-									minute: e.time?.elapsed ?? 0,
-									extra: e.time?.extra ?? null,
-									team: e.team?.id === f.teams.home.id ? "home" : "away",
-									playerName: e.player?.name || "Desconocido",
-									assistName: e.assist?.name || null,
-									detail: e.detail || null,
-									comments: e.comments || null,
-								}));
-							}
+			// Sprint 2 Fix (#4): Coverage check. Si la API indica que la feature
+			// no está disponible para esta liga+season, NO procesamos la data.
+			// Esto evita meter arrays vacíos en la DB cuando la API devolvería vacío.
+			const hasStats = season
+				? isFeatureAvailable(
+						coverageCache,
+						originalFixture.league.id,
+						season,
+						"statistics_fixtures",
+				  )
+				: true;
+			const hasLineups = season
+				? isFeatureAvailable(
+						coverageCache,
+						originalFixture.league.id,
+						season,
+						"lineups",
+				  )
+				: true;
+			const hasEvents = season
+				? isFeatureAvailable(
+						coverageCache,
+						originalFixture.league.id,
+						season,
+						"events",
+				  )
+				: true;
+
+			const stats = hasStats
+				? fixture?.statistics ?? originalFixture?.stats ?? null
+				: [];
+			const lineups = hasLineups
+				? fixture?.lineups ?? null
+				: [];
+			const apiEvents = hasEvents ? fixture?.events ?? null : [];
+			const apiPlayers = fixture?.players ?? null;
+
+			// Events: transformar al formato interno
+			let events: any[] = [];
+			if (apiEvents && apiEvents.length > 0) {
+				events = apiEvents.map((e: any, idx: number) => ({
+					id: `evt-${fixture.fixture.id}-${idx}`,
+					type:
+						e.type === "Goal"
+							? "goal"
+							: e.detail?.includes("Red")
+								? "red"
+								: e.type === "Card"
+									? "yellow"
+									: e.type === "subst"
+										? "subst"
+										: e.type === "Var"
+											? "var"
+											: "info",
+					minute: e.time?.elapsed ?? 0,
+					extra: e.time?.extra ?? null,
+					team: e.team?.id === originalFixture.teams.home.id ? "home" : "away",
+					playerName: e.player?.name || "Desconocido",
+					assistName: e.assist?.name || null,
+					detail: e.detail || null,
+					comments: e.comments || null,
+				}));
+			} else if (originalFixture.events?.length > 0) {
+				// Fallback: usar events del main fetch si existen (algunos endpoints los incluyen)
+				events = originalFixture.events.map((e: any, idx: number) => ({
+					id: `evt-${originalFixture.fixture.id}-${idx}`,
+					type:
+						e.type === "Goal"
+							? "goal"
+							: e.detail?.includes("Red")
+								? "red"
+								: e.type === "Card"
+									? "yellow"
+									: e.type === "subst"
+										? "subst"
+										: e.type === "Var"
+											? "var"
+											: "info",
+					minute: e.time?.elapsed ?? 0,
+					extra: e.time?.extra ?? null,
+					team:
+						e.team?.id === originalFixture.teams.home.id ? "home" : "away",
+					playerName: e.player?.name || "Desconocido",
+					assistName: e.assist?.name || null,
+					detail: e.detail || null,
+					comments: e.comments || null,
+				}));
+			}
+
+			// Player photos: aplanar a map player_id → photo URL
+			let playerPhotos: Array<{ player_id: number; photo: string }> = [];
+			if (apiPlayers && Array.isArray(apiPlayers)) {
+				for (const teamBlock of apiPlayers) {
+					for (const p of teamBlock.players || []) {
+						if (p.player?.id && p.player?.photo) {
+							playerPhotos.push({
+								player_id: p.player.id,
+								photo: p.player.photo,
+							});
 						}
-					} catch (e) {
-						console.error(`Error fetching events for match ${f.fixture.id}:`, e);
 					}
 				}
 			}
+
+			return {
+				stats,
+				lineups,
+				events,
+				player_photos: playerPhotos,
+			};
+		}
+
+		// Phase D: Iterar las decisiones y procesar/upsert
+		for (const decision of decisions) {
+			const f = decision.fixture;
+			const dbCompId = decision.dbCompId;
+			const existingMatch = decision.existingMatch;
+			const isNewlyFinished = decision.isNewlyFinished;
+			const mappedStatus = decision.mappedStatus;
+
+			// Calcular penalty winner
+			let penaltyWinner: "home" | "away" | null = null;
+			if (
+				f.score?.penalty?.home !== null &&
+				f.score?.penalty?.away !== null &&
+				f.score?.penalty?.home !== undefined &&
+				f.score?.penalty?.away !== undefined
+			) {
+				penaltyWinner =
+					f.score.penalty.home > f.score.penalty.away ? "home" : "away";
+			}
+
+			// Obtener data del batch fetch (o fallback al existingMatch)
+			let stats = existingMatch?.stats || [];
+			let lineups = existingMatch?.lineups || [];
+			let events = existingMatch?.events || [];
+			let player_photos = existingMatch?.player_photos || [];
+
+			if (!preview) {
+				const fetchedData = batchData.get(f.fixture.id);
+				const needsAnyData =
+					decision.needsStats ||
+					decision.needsLineups ||
+					decision.needsEvents ||
+					decision.needsPlayerPhotos;
+
+				if (fetchedData && needsAnyData) {
+					const processed = processBatchDataForFixture(fetchedData, f);
+
+					// Solo sobrescribir si realmente precisamos (para no pisar data existente con null)
+					if (decision.needsStats && processed.stats) {
+						stats = processed.stats;
+					}
+					if (decision.needsLineups && processed.lineups && processed.lineups.length > 0) {
+						lineups = processed.lineups;
+					}
+					if (decision.needsEvents && processed.events && processed.events.length > 0) {
+						events = processed.events;
+					}
+					if (
+						decision.needsPlayerPhotos &&
+						processed.player_photos.length > 0
+					) {
+						player_photos = processed.player_photos;
+					}
+				}
+			}
+
+			// Sprint 3: Canonicalización server-side de equipos y grupo.
+			// Resuelve nombres crudos de la API (ej. "South Korea") a nombres
+			// canónicos en español (ej. "Corea del Sur") usando la tabla team_aliases.
+			// group_letter se popula desde stageName (ej. "Group A" → "A").
+			const homeResolved = resolveCanonicalName(
+				f.teams.home.name,
+				aliasesCache,
+			);
+			const awayResolved = resolveCanonicalName(
+				f.teams.away.name,
+				aliasesCache,
+			);
+			// Priorizar group_letter del alias (más robusto), fallback al stageName
+			const groupLetter =
+				homeResolved.groupLetter ?? getGroupLetterFromStage(f.league.round);
 
 			const matchPayload = {
 				competition_id: dbCompId || null,
@@ -894,6 +1365,11 @@ serve(async (req) => {
 				raw_status: f.fixture.status.short || null,
 				stats: stats,
 				lineups: lineups,
+				player_photos: player_photos,
+				// Canonicalización Sprint 3 (server-side, opcional en DB)
+				group_letter: groupLetter,
+				home_team_canonical: homeResolved.canonical,
+				away_team_canonical: awayResolved.canonical,
 			};
 
 			if (preview) {

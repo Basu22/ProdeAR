@@ -16,6 +16,8 @@ interface UIState {
 	setActiveTab: (tab: string) => void;
 	installPrompt: BeforeInstallPromptEvent | null;
 	setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
+	isStatsSheetOpen: boolean;
+	setStatsSheetOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -24,4 +26,6 @@ export const useUIStore = create<UIState>((set) => ({
 	setActiveTab: (tab) => set({ activeTab: tab }),
 	installPrompt: null,
 	setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
+	isStatsSheetOpen: false,
+	setStatsSheetOpen: (open) => set({ isStatsSheetOpen: open }),
 }));

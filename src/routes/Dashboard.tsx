@@ -1,26 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
+import { StatsSheet } from "../components/dashboard/StatsSheet";
 import { MatchCard } from "../components/match/MatchCard";
-import { AlertToggle } from "../components/notifications/AlertToggle";
-import { BlockedNotificationsModal } from "../components/notifications/BlockedNotificationsModal";
+import { MatchSheet } from "../components/match/MatchSheet";
 import { GlassCard } from "../components/ui/GlassCard";
 import { MatchCardSkeleton } from "../components/ui/Skeletons";
-import { useAlertToggleState } from "../hooks/useAlertToggleState";
 import { useGlobalRankings } from "../hooks/useGlobalRankings";
 import { useMatches } from "../hooks/useMatches";
 import { useAllPredictions } from "../hooks/usePredictions";
 import { useTournaments } from "../hooks/useTournament";
-import { useUserStats } from "../hooks/useUserStats";
-import { useNotificationStore } from "../stores/notificationStore";
 import {
 	getDayFullName,
 	getDayLabel,
 	getTodayKey,
 	groupMatchesByDay,
 } from "../lib/dateHelpers";
+import { getNextCloseTime, isMatchPredictable } from "../lib/predictionHelpers";
+import {
+	deriveEmptyStateVariant,
+	type EmptyStateInput,
+} from "../lib/emptyStateHelpers";
+import { deriveMatchCardState } from "../lib/matchCardState";
 import { isSupabaseConfigured } from "../lib/supabase";
-import { useAuthStore } from "../stores/authStore";
 import type { Prediction } from "../lib/types";
+import { useAuthStore } from "../stores/authStore";
+import { useUIStore } from "../stores/uiStore";
 
 export function Dashboard() {
 	const { user: currentUser } = useAuthStore();
@@ -33,7 +38,9 @@ export function Dashboard() {
 	// Map tournamentId → tournament name for displaying prediction rows
 	const tournamentNameMap = useMemo(() => {
 		const map = new Map<string, string>();
-		tournaments?.forEach((t) => map.set(t.id, t.name));
+		tournaments?.forEach((t) => {
+			map.set(t.id, t.name);
+		});
 		return map;
 	}, [tournaments]);
 
@@ -42,14 +49,32 @@ export function Dashboard() {
 		const map = new Map<string, Prediction[]>();
 		allPredictions?.forEach((p) => {
 			if (!map.has(p.matchId)) map.set(p.matchId, []);
-			map.get(p.matchId)!.push(p);
+			map.get(p.matchId)?.push(p);
 		});
 		return map;
 	}, [allPredictions]);
 
+	// Próximo partido a cerrar — se pasa a la MatchCard correspondiente
+	// para mostrar el countdown en su MatchStatusBar.
+	const nextClose = useMemo(() => getNextCloseTime(matches), [matches]);
+
 	// Generate today's date key in YYYY-MM-DD format (local time)
 	// TODO: Re-evaluar todayKey en cruce de medianoche (no es reactivo).
 	const todayKey = useMemo(() => getTodayKey(), []);
+
+	// MatchSheet: id del partido seleccionado (null = sheet cerrado)
+	const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+	const selectedMatch = useMemo(
+		() => matches?.find((m) => m.id === selectedMatchId) ?? null,
+		[matches, selectedMatchId],
+	);
+	const selectedMatchPredictions = useMemo(
+		() =>
+			selectedMatchId
+				? (predictionsByMatch.get(selectedMatchId) ?? [])
+				: [],
+		[selectedMatchId, predictionsByMatch],
+	);
 
 	// Day filter state - default to today
 	const [selectedDay, setSelectedDay] = useState<string>(todayKey);
@@ -114,145 +139,68 @@ export function Dashboard() {
 	// Global Rankings & User stats queries
 	const { data: rankings = [], isLoading: rankingsLoading } =
 		useGlobalRankings();
-	const { data: stats } = useUserStats(currentUser?.id);
 
 	const myRanking = rankings.find((r) => r.userId === currentUser?.id);
 	const userInTop3 = rankings
 		.slice(0, 3)
 		.some((r) => r.userId === currentUser?.id);
 
-	const [showBlockedHelp, setShowBlockedHelp] = useState(false);
+	// Fase 2: la lógica de push toggle y la card inline de Captain Stats
+	// se eliminaron del Dashboard. Ahora viven en <StatsSheet> (mobile) y
+	// son accesibles desde el trigger del TopAppBar.
 
-	// Estado y acciones vienen del notificationStore (Zustand global).
-	// El hook `useAlertToggleState` deriva el AlertToggleState desde los facts crudos.
-	const pushState = useAlertToggleState();
-	const isPushSupported = useNotificationStore((s) => s.isSupported);
-	const pushEnabled = useNotificationStore((s) => s.pushEnabled);
-	const subscribe = useNotificationStore((s) => s.subscribe);
-	const unsubscribe = useNotificationStore((s) => s.unsubscribe);
+	// Fase 2: la card inline de Captain Stats se eliminó — ahora vive en <StatsSheet>
+	// (mobile) y se mantiene accesible desde el trigger del TopAppBar.
 
-	const togglePush = async () => {
-		if (!currentUser) return;
-		try {
-			if (pushEnabled) {
-				const result = await unsubscribe();
-				if (!result.success) {
-					console.error("Error al desactivar push:", result.error);
-				}
-			} else {
-				const result = await subscribe(currentUser.id);
-				if (!result.success) {
-					const prefix = result.blocked ? "🔕" : "❌";
-					alert(`${prefix} ${result.error}`);
-				}
-			}
-		} catch (err) {
-			console.error(err);
-			alert(
-				err instanceof Error
-					? err.message
-					: "Error al configurar notificaciones",
+	// Estado del StatsSheet (Fase 2) — leído del store global
+	const isStatsSheetOpen = useUIStore((s) => s.isStatsSheetOpen);
+
+	// Empty state enriquecido (Fase 2) — derivado con useMemo
+	const { emptyStateVariant, nextMatchDayKey, nextMatchDayLabel } =
+		useMemo(() => {
+			const dayMatches = groupedMatches[selectedDay];
+			const hasMatchesToday = !!dayMatches && dayMatches.length > 0;
+			const hasMatchesInSeason = days.some(
+				(d) => (groupedMatches[d]?.length ?? 0) > 0,
 			);
-		}
-	};
+			const allTodayPredicted =
+				hasMatchesToday &&
+				dayMatches.every(
+					(m) => (predictionsByMatch.get(m.id)?.length ?? 0) > 0,
+				);
+			const hasPendingCountdown = nextClose !== null;
 
-	const renderCaptainStats = () => (
-		<GlassCard
-			className="p-6 rounded-2xl relative overflow-hidden border-white/10"
-			glow
-		>
-			<div className="absolute top-0 right-0 p-4">
-				<span className="font-label-caps text-[9px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded border border-tertiary/25 font-bold select-none">
-					RANK #{myRanking?.rank ?? "-"}
-				</span>
-			</div>
+			// Buscar próximo día con partidos (después de selectedDay)
+			const currentIdx = days.indexOf(selectedDay);
+			const nextDayEntry =
+				days
+					.slice(currentIdx + 1)
+					.find((d) => (groupedMatches[d]?.length ?? 0) > 0) ?? null;
+			const nextDayLabel = nextDayEntry
+				? getDayFullName(nextDayEntry, todayKey)
+				: undefined;
 
-			<div className="space-y-4">
-				<h3 className="font-label-caps text-xs text-on-surface-variant tracking-wider uppercase font-bold select-none">
-					ESTADÍSTICAS DEL CAPITÁN
-				</h3>
+			const variant = deriveEmptyStateVariant({
+				hasMatchesToday,
+				hasMatchesInSeason,
+				allTodayPredicted,
+				hasPendingCountdown,
+				nextMatchDay: nextDayEntry,
+			} satisfies EmptyStateInput);
 
-				<div className="flex items-center gap-4">
-					<div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xl font-bold select-none">
-						{(currentUser?.displayName || "Vos").slice(0, 2).toUpperCase()}
-					</div>
-					<div>
-						<h4 className="font-headline-md text-base text-white truncate max-w-[150px]">
-							{currentUser?.displayName || "Vos"}
-						</h4>
-						<p className="font-body-md text-xs text-on-surface-variant select-none">
-							Miembro premium desde 2026
-						</p>
-					</div>
-				</div>
-
-				<div className="grid grid-cols-2 gap-3 pt-2">
-					<div className="bg-surface-container rounded-lg p-3 border border-white/5 text-center">
-						<p className="font-label-caps text-[9px] text-on-surface-variant uppercase select-none">
-							ACIERTO EXACTO
-						</p>
-						<p className="font-stat-value text-xl font-bold text-primary tracking-tight tabular-nums">
-							{stats?.exactHits ?? 0}
-						</p>
-					</div>
-					<div className="bg-surface-container rounded-lg p-3 border border-white/5 text-center">
-						<p className="font-label-caps text-[9px] text-on-surface-variant uppercase select-none">
-							ACIERTO PARCIAL
-						</p>
-						<p className="font-stat-value text-xl font-bold text-white tracking-tight tabular-nums">
-							{stats?.partialHits ?? 0}
-						</p>
-					</div>
-				</div>
-
-				<div className="pt-2">
-					<div className="flex justify-between items-center font-label-caps text-[10px] text-on-surface-variant mb-1 select-none">
-						<span>EFECTIVIDAD DE PRONÓSTICO</span>
-						<span className="text-primary font-bold tabular-nums">
-							{stats?.effectiveness ?? 0}%
-						</span>
-					</div>
-					<div className="h-1.5 w-full bg-outline-variant rounded-full overflow-hidden">
-						<div
-							className="h-full bg-primary rounded-full"
-							style={{ width: `${stats?.effectiveness ?? 0}%` }}
-						/>
-					</div>
-				</div>
-
-				{/* Streaks */}
-				<div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5 mt-3 select-none">
-					<div className="bg-surface-container/50 rounded-lg p-2.5 border border-white/5 text-center">
-						<p className="font-label-caps text-[8px] text-on-surface-variant uppercase">
-							RACHA ACTUAL
-						</p>
-						<p className="font-stat-value text-lg font-bold text-tertiary tracking-tight tabular-nums">
-							{stats?.currentStreak ?? 0} 🔥
-						</p>
-					</div>
-					<div className="bg-surface-container/50 rounded-lg p-2.5 border border-white/5 text-center">
-						<p className="font-label-caps text-[8px] text-on-surface-variant uppercase">
-							RÉCORD CONSECUTIVO
-						</p>
-						<p className="font-stat-value text-lg font-bold text-white tracking-tight tabular-nums">
-							{stats?.maxStreak ?? 0} ⭐
-						</p>
-					</div>
-				</div>
-
-				{/* Notificaciones Push Toggle */}
-				{isPushSupported && (
-					<div className="pt-3.5 border-t border-white/5 mt-3.5">
-						<AlertToggle
-							state={pushState}
-							onToggle={togglePush}
-							onBlockedClick={() => setShowBlockedHelp(true)}
-						/>
-					</div>
-				)}
-			</div>
-		</GlassCard>
-	);
+			return {
+				emptyStateVariant: variant,
+				nextMatchDayKey: nextDayEntry,
+				nextMatchDayLabel: nextDayLabel,
+			};
+		}, [
+			groupedMatches,
+			selectedDay,
+			days,
+			predictionsByMatch,
+			nextClose,
+			todayKey,
+		]);
 
 	return (
 		<div className="px-4 py-8 max-w-container-max mx-auto flex flex-col lg:grid lg:grid-cols-12 gap-8 items-start relative z-10 w-full min-w-0">
@@ -295,28 +243,35 @@ export function Dashboard() {
 
 			{/* Main Column */}
 			<div className="lg:col-span-8 space-y-8 w-full min-w-0">
-				{/* Editorial welcome banner */}
+				{/* Editorial welcome banner (Fase 1 refresh: párrafo eliminado) */}
 				<div className="relative w-full overflow-hidden p-6 md:p-8 rounded-2xl glass-card border-white/10 celestial-glow">
 					<div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-2xl" />
 					<div className="absolute -bottom-16 -left-16 w-48 h-48 bg-tertiary/5 rounded-full blur-2xl" />
 
 					<div className="relative z-10 w-full space-y-3">
 						<span className="font-label-caps text-[10px] text-tertiary uppercase tracking-widest text-glowing-gold font-bold">
-							ESTADO DEL TORNEO • JORNADA 10
+							PARTIDOS DEL DÍA
 						</span>
 						<h1 className="font-display-lg text-2xl md:text-4xl font-extrabold text-white tracking-tight uppercase text-balance">
 							BIENVENIDO DE VUELTA, CAPITÁN
 						</h1>
-						<p className="font-body-md text-sm md:text-base text-secondary max-w-2xl leading-relaxed text-pretty">
-							La fecha 10 está en marcha. Hay un partido en vivo ahora mismo y
-							las predicciones para los próximos encuentros cierran
-							estrictamente 15 minutos antes de cada partido.
-						</p>
 					</div>
 				</div>
 
-				{/* ESTADÍSTICAS DEL CAPITÁN (SÓLO MOBILE) */}
-				<div className="block lg:hidden mb-6">{renderCaptainStats()}</div>
+				{/* StatsSheet (Fase 2) — montado pero solo visible cuando isStatsSheetOpen */}
+				<StatsSheet
+					isOpen={isStatsSheetOpen}
+					onClose={() => useUIStore.getState().setStatsSheetOpen(false)}
+				/>
+
+				{/* MatchSheet (Fase 3) — abre al hacer clic en una MatchCard */}
+				<MatchSheet
+					match={selectedMatch}
+					predictions={selectedMatchPredictions}
+					tournaments={tournaments ?? []}
+					isOpen={!!selectedMatchId}
+					onClose={() => setSelectedMatchId(null)}
+				/>
 
 				{/* PRÓXIMOS PARTIDOS */}
 				<section className="space-y-4">
@@ -413,44 +368,51 @@ export function Dashboard() {
 					) : groupedMatches[selectedDay] &&
 						groupedMatches[selectedDay].length > 0 ? (
 						<div className="grid gap-4">
-							{groupedMatches[selectedDay].map((match, idx) => (
-								<div
-									key={match.id}
-									className="animate-enter"
-									style={{ animationDelay: `${idx * 60}ms` }}
-								>
-									<MatchCard
-										match={match}
-										predictionViewMode={true}
-										predictions={predictionsByMatch.get(match.id) || []}
-										tournamentNames={tournamentNameMap}
-									/>
-								</div>
-							))}
+							{groupedMatches[selectedDay].map((match, idx) => {
+								const matchPreds = predictionsByMatch.get(match.id) || [];
+								const cardState = deriveMatchCardState(
+									match,
+									matchPreds.length > 0,
+									isMatchPredictable(match),
+								);
+								// Fully predicted: el usuario pronosticó en TODOS los torneos asignados
+								// en los que este partido está disponible.
+								const isFullyPredicted =
+									matchPreds.length >= (tournaments?.length ?? 0) &&
+									(tournaments?.length ?? 0) > 0;
+								return (
+									<div
+										key={match.id}
+										data-match-id={match.id}
+										className="animate-enter"
+										style={{ animationDelay: `${idx * 60}ms` }}
+									>
+										<MatchCard
+											match={match}
+											predictionViewMode={true}
+											predictions={matchPreds}
+											tournamentNames={tournamentNameMap}
+											cardState={cardState}
+											isFullyPredicted={isFullyPredicted}
+											predictionCount={matchPreds.length}
+											onSelect={setSelectedMatchId}
+										/>
+									</div>
+								);
+							})}
 						</div>
 					) : (
-						<div className="bg-surface-container/30 border border-white/5 rounded-2xl p-6 text-center py-10">
-							<span className="material-symbols-outlined text-amber-500 text-3xl mb-2 stadium-glow-gold">
-								calendar_today
-							</span>
-							<p className="font-headline-md text-sm text-white uppercase tracking-wider">
-								{selectedDay === todayKey
-									? "No hay partidos programados para HOY"
-									: "No hay partidos programados"}
-							</p>
-							<p className="font-body-md text-xs text-on-surface-variant max-w-xs mx-auto mt-1 leading-relaxed">
-								{selectedDay === todayKey
-									? "Navegá entre las fechas usando las flechas para ver los partidos de los próximos días."
-									: "Probá seleccionando otro día."}
-							</p>
-						</div>
+						<DashboardEmptyState
+							variant={emptyStateVariant}
+							nextMatchDayKey={nextMatchDayKey ?? undefined}
+							nextMatchDayLabel={nextMatchDayLabel}
+							nextCloseTime={nextClose?.closesAt ?? null}
+							onNavigateToNextDay={(dayKey) => setSelectedDay(dayKey)}
+						/>
 					)}
 				</section>
 			</div>
 			<div className="lg:col-span-4 space-y-6 w-full min-w-0">
-				{/* ESTADÍSTICAS DEL CAPITÁN (SÓLO ESCRITORIO) */}
-				<div className="hidden lg:block">{renderCaptainStats()}</div>
-
 				{/* WIDGET RANKING GLOBAL */}
 				<GlassCard
 					className="p-6 rounded-2xl relative overflow-hidden border-white/10"
@@ -536,11 +498,6 @@ export function Dashboard() {
 					</div>
 				</GlassCard>
 			</div>
-
-			<BlockedNotificationsModal
-				isOpen={showBlockedHelp}
-				onClose={() => setShowBlockedHelp(false)}
-			/>
 		</div>
 	);
 }
