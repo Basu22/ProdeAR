@@ -263,7 +263,9 @@ function processFinishedMatches(oldMatches: Match[], newMatches: Match[]) {
 
 export const matchesApi = {
 	async getMatches(competitionId?: string): Promise<Match[]> {
-		await new Promise((r) => setTimeout(r, 200));
+		// Sprint 3 hygiene: removido el setTimeout(200) artificial que era
+		// un debounce de UX contra skeletons (ya no necesario: el polling
+		// adaptativo de 15s + React Query manejan el loading state).
 
 		const isYouthSelection = (teamName: string): boolean => {
 			const lower = teamName.toLowerCase();
@@ -336,60 +338,6 @@ export const matchesApi = {
 			(a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime(),
 		);
 	},
-
-	async getMatchById(id: string): Promise<Match | undefined> {
-		await new Promise((r) => setTimeout(r, 100));
-
-		if (isSupabaseConfigured) {
-			const { data, error } = await supabase
-				.from("matches")
-				.select("*, competitions(name)")
-				.eq("id", id)
-				.maybeSingle();
-			if (error) throw error;
-			if (!data) return undefined;
-			return mapDbMatchToFrontend(data);
-		}
-
-		return getLocalMatches().find((m) => m.id === id);
-	},
-
-	async getLiveMatches(): Promise<Match[]> {
-		await new Promise((r) => setTimeout(r, 150));
-
-		if (isSupabaseConfigured) {
-			const { data, error } = await supabase
-				.from("matches")
-				.select("*, competitions(name)")
-				.eq("status", "live");
-			if (error) throw error;
-			return data.map(mapDbMatchToFrontend);
-		}
-
-		const oldMatches = getLocalMatches();
-		simulator.setMatches(oldMatches);
-		simulator.tick();
-		const newMatches = simulator.getMatches();
-
-		processFinishedMatches(oldMatches, newMatches);
-
-		localStorage.setItem("prodear_matches", JSON.stringify(newMatches));
-
-		return newMatches.filter((m) => m.status === "live");
-	},
-
-	async getUpcomingMatches(): Promise<Match[]> {
-		await new Promise((r) => setTimeout(r, 150));
-
-		if (isSupabaseConfigured) {
-			const { data, error } = await supabase
-				.from("matches")
-				.select("*, competitions(name)")
-				.eq("status", "scheduled");
-			if (error) throw error;
-			return data.map(mapDbMatchToFrontend);
-		}
-
-		return getLocalMatches().filter((m) => m.status === "not_started");
-	},
+	// getMatchById, getLiveMatches, getUpcomingMatches eliminados (Sprint 3 hygiene)
+	// — código muerto, no se usaban en ningún lado (verificado).
 };
