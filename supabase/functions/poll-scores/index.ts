@@ -1419,7 +1419,17 @@ serve(async (req) => {
 		// Solo ejecutar si NO es preview ni raw.
 		// Se ejecuta en try/catch independiente para no romper la respuesta
 		// principal si hay algún error en la lógica de Fase 3.
-		let closureStats: Awaited<ReturnType<typeof notifyUpcomingClosures>> | null = null;
+		// FIX: tipo explícito en lugar de Awaited<ReturnType<...>>
+		// (Deno SWC parser rechaza el tipo complejo — bug conocido).
+		// El tipo coincide con la firma de notifyUpcomingClosures (línea 490).
+		let closureStats:
+			| {
+					processedMatches: number;
+					totalSent: number;
+					totalSkipped: number;
+					totalFailed: number;
+			  }
+			| null = null;
 		if (!preview && !raw) {
 			try {
 				closureStats = await notifyUpcomingClosures(supabase);
