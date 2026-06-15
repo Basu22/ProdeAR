@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:host": "vite --host",
     "dev:sw": "cross-env VITE_PLUGIN_PWA_DEV=true vite",
     "dev:sh": "bash scripts/dev.sh",
     "build": "tsc -b && vite build",
