@@ -184,7 +184,7 @@ describe("pairSubstitutions", () => {
 		expect(isSubPair(result[0])).toBe(true);
 	});
 
-	it("NO empareja substitutions de equipos diferentes", () => {
+	it("NO empareja substitutions de equipos diferentes (las sintetiza como SubPair individuales)", () => {
 		const e1 = makeEvent({
 			type: "subst",
 			team: "home",
@@ -201,8 +201,51 @@ describe("pairSubstitutions", () => {
 			id: "evt-other",
 		});
 		const result = pairSubstitutions([e1, e2]);
+		// No se emparejan (quedan 2 items), pero cada uno se sintetiza como SubPair
+		// para mantener el formato UI unificado.
 		expect(result).toHaveLength(2);
-		expect(result.every((r) => !isSubPair(r))).toBe(true);
+		expect(result.every((r) => isSubPair(r))).toBe(true);
+		if (isSubPair(result[0]) && isSubPair(result[1])) {
+			expect(result[0].team).toBe("home");
+			expect(result[0].playerOut.name).toBe("Pérez");
+			expect(result[0].playerIn.name).toBe("López");
+			expect(result[1].team).toBe("away");
+			expect(result[1].playerOut.name).toBe("Gómez");
+			expect(result[1].playerIn.name).toBe("Ruiz");
+		}
+	});
+
+	it("sintetiza SubPair para un único sub con assistName (sin par)", () => {
+		const e1 = makeEvent({
+			type: "subst",
+			team: "home",
+			minute: 70,
+			playerName: "Ruiz", // entra
+			assistName: "Gómez", // sale
+		});
+		const result = pairSubstitutions([e1]);
+		expect(result).toHaveLength(1);
+		expect(isSubPair(result[0])).toBe(true);
+		if (isSubPair(result[0])) {
+			expect(result[0].team).toBe("home");
+			expect(result[0].minute).toBe(70);
+			expect(result[0].playerOut.name).toBe("Gómez");
+			expect(result[0].playerIn.name).toBe("Ruiz");
+			expect(result[0].id).toMatch(/^subpair-single-/);
+		}
+	});
+
+	it("NO sintetiza SubPair para sub sin assistName (datos incompletos)", () => {
+		const e1 = makeEvent({
+			type: "subst",
+			team: "home",
+			minute: 70,
+			playerName: "Ruiz",
+			assistName: null,
+		});
+		const result = pairSubstitutions([e1]);
+		expect(result).toHaveLength(1);
+		expect(isSubPair(result[0])).toBe(false);
 	});
 
 	it("mezcla eventos normales y sub pairs en el resultado", () => {

@@ -33,12 +33,12 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
+import type { Match } from "../lib/types";
 import {
-	getGroupTables,
 	type GroupTable,
+	getGroupTables,
 	type WorldCupMatch,
 } from "../lib/worldCupGroups";
-import type { Match } from "../lib/types";
 
 export type PositionChange = "up" | "down" | "same";
 

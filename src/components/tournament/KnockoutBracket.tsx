@@ -53,7 +53,13 @@ function getSlotLabel(slot: BracketSlot): string {
 	return "?";
 }
 
-function SlotDisplay({ slot, position }: { slot: BracketSlot; position: "A" | "B" }) {
+function SlotDisplay({
+	slot,
+	position,
+}: {
+	slot: BracketSlot;
+	position: "A" | "B";
+}) {
 	const isResolved = slot.teamName !== null;
 	const isLive = slot.isLive;
 
@@ -89,7 +95,10 @@ function SlotDisplay({ slot, position }: { slot: BracketSlot; position: "A" | "B
 	}
 
 	return (
-		<div className={baseClass} aria-label={`Slot ${position}: ${slot.teamName}`}>
+		<div
+			className={baseClass}
+			aria-label={`Slot ${position}: ${slot.teamName}`}
+		>
 			{slot.teamLogo ? (
 				<img
 					src={slot.teamLogo}

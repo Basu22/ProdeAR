@@ -15,7 +15,10 @@ interface LiveBadgeProps {
 	className?: string;
 }
 
-export function LiveBadge({ variant = "default", className = "" }: LiveBadgeProps) {
+export function LiveBadge({
+	variant = "default",
+	className = "",
+}: LiveBadgeProps) {
 	if (variant === "compact") {
 		return (
 			<span

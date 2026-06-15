@@ -183,8 +183,18 @@ export const COUNTRY_FLAGS: Record<string, string> = {
  */
 export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 	// Grupo A
-	{ canonicalName: "México", alias: "Mexico", groupLetter: "A", flagCode: "mx" },
-	{ canonicalName: "México", alias: "México", groupLetter: "A", flagCode: "mx" },
+	{
+		canonicalName: "México",
+		alias: "Mexico",
+		groupLetter: "A",
+		flagCode: "mx",
+	},
+	{
+		canonicalName: "México",
+		alias: "México",
+		groupLetter: "A",
+		flagCode: "mx",
+	},
 	{
 		canonicalName: "Corea del Sur",
 		alias: "South Korea",
@@ -229,8 +239,18 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 	},
 
 	// Grupo B
-	{ canonicalName: "Canadá", alias: "Canada", groupLetter: "B", flagCode: "ca" },
-	{ canonicalName: "Canadá", alias: "Canadá", groupLetter: "B", flagCode: "ca" },
+	{
+		canonicalName: "Canadá",
+		alias: "Canada",
+		groupLetter: "B",
+		flagCode: "ca",
+	},
+	{
+		canonicalName: "Canadá",
+		alias: "Canadá",
+		groupLetter: "B",
+		flagCode: "ca",
+	},
 	{
 		canonicalName: "Suiza",
 		alias: "Switzerland",
@@ -260,8 +280,18 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 	},
 
 	// Grupo C
-	{ canonicalName: "Brasil", alias: "Brazil", groupLetter: "C", flagCode: "br" },
-	{ canonicalName: "Brasil", alias: "Brasil", groupLetter: "C", flagCode: "br" },
+	{
+		canonicalName: "Brasil",
+		alias: "Brazil",
+		groupLetter: "C",
+		flagCode: "br",
+	},
+	{
+		canonicalName: "Brasil",
+		alias: "Brasil",
+		groupLetter: "C",
+		flagCode: "br",
+	},
 	{
 		canonicalName: "Marruecos",
 		alias: "Morocco",
@@ -320,9 +350,24 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "D",
 		flagCode: "au",
 	},
-	{ canonicalName: "Turquía", alias: "Turkey", groupLetter: "D", flagCode: "tr" },
-	{ canonicalName: "Turquía", alias: "Turquía", groupLetter: "D", flagCode: "tr" },
-	{ canonicalName: "Turquía", alias: "Türkiye", groupLetter: "D", flagCode: "tr" },
+	{
+		canonicalName: "Turquía",
+		alias: "Turkey",
+		groupLetter: "D",
+		flagCode: "tr",
+	},
+	{
+		canonicalName: "Turquía",
+		alias: "Turquía",
+		groupLetter: "D",
+		flagCode: "tr",
+	},
+	{
+		canonicalName: "Turquía",
+		alias: "Türkiye",
+		groupLetter: "D",
+		flagCode: "tr",
+	},
 
 	// Grupo E
 	{
@@ -337,7 +382,12 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "E",
 		flagCode: "de",
 	},
-	{ canonicalName: "Ecuador", alias: "Ecuador", groupLetter: "E", flagCode: "ec" },
+	{
+		canonicalName: "Ecuador",
+		alias: "Ecuador",
+		groupLetter: "E",
+		flagCode: "ec",
+	},
 	{
 		canonicalName: "Costa de Marfil",
 		alias: "Ivory Coast",
@@ -356,8 +406,18 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "E",
 		flagCode: "ci",
 	},
-	{ canonicalName: "Curaçao", alias: "Curacao", groupLetter: "E", flagCode: "cw" },
-	{ canonicalName: "Curaçao", alias: "Curaçao", groupLetter: "E", flagCode: "cw" },
+	{
+		canonicalName: "Curaçao",
+		alias: "Curacao",
+		groupLetter: "E",
+		flagCode: "cw",
+	},
+	{
+		canonicalName: "Curaçao",
+		alias: "Curaçao",
+		groupLetter: "E",
+		flagCode: "cw",
+	},
 
 	// Grupo F
 	{
@@ -374,16 +434,46 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 	},
 	{ canonicalName: "Japón", alias: "Japan", groupLetter: "F", flagCode: "jp" },
 	{ canonicalName: "Japón", alias: "Japón", groupLetter: "F", flagCode: "jp" },
-	{ canonicalName: "Túnez", alias: "Tunisia", groupLetter: "F", flagCode: "tn" },
+	{
+		canonicalName: "Túnez",
+		alias: "Tunisia",
+		groupLetter: "F",
+		flagCode: "tn",
+	},
 	{ canonicalName: "Túnez", alias: "Túnez", groupLetter: "F", flagCode: "tn" },
-	{ canonicalName: "Suecia", alias: "Sweden", groupLetter: "F", flagCode: "se" },
-	{ canonicalName: "Suecia", alias: "Suecia", groupLetter: "F", flagCode: "se" },
+	{
+		canonicalName: "Suecia",
+		alias: "Sweden",
+		groupLetter: "F",
+		flagCode: "se",
+	},
+	{
+		canonicalName: "Suecia",
+		alias: "Suecia",
+		groupLetter: "F",
+		flagCode: "se",
+	},
 
 	// Grupo G
-	{ canonicalName: "Bélgica", alias: "Belgium", groupLetter: "G", flagCode: "be" },
-	{ canonicalName: "Bélgica", alias: "Bélgica", groupLetter: "G", flagCode: "be" },
+	{
+		canonicalName: "Bélgica",
+		alias: "Belgium",
+		groupLetter: "G",
+		flagCode: "be",
+	},
+	{
+		canonicalName: "Bélgica",
+		alias: "Bélgica",
+		groupLetter: "G",
+		flagCode: "be",
+	},
 	{ canonicalName: "Egipto", alias: "Egypt", groupLetter: "G", flagCode: "eg" },
-	{ canonicalName: "Egipto", alias: "Egipto", groupLetter: "G", flagCode: "eg" },
+	{
+		canonicalName: "Egipto",
+		alias: "Egipto",
+		groupLetter: "G",
+		flagCode: "eg",
+	},
 	{ canonicalName: "Irán", alias: "Iran", groupLetter: "G", flagCode: "ir" },
 	{ canonicalName: "Irán", alias: "Irán", groupLetter: "G", flagCode: "ir" },
 	{
@@ -401,8 +491,18 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 
 	// Grupo H
 	{ canonicalName: "España", alias: "Spain", groupLetter: "H", flagCode: "es" },
-	{ canonicalName: "España", alias: "España", groupLetter: "H", flagCode: "es" },
-	{ canonicalName: "Uruguay", alias: "Uruguay", groupLetter: "H", flagCode: "uy" },
+	{
+		canonicalName: "España",
+		alias: "España",
+		groupLetter: "H",
+		flagCode: "es",
+	},
+	{
+		canonicalName: "Uruguay",
+		alias: "Uruguay",
+		groupLetter: "H",
+		flagCode: "uy",
+	},
 	{
 		canonicalName: "Arabia Saudita",
 		alias: "Saudi Arabia",
@@ -435,13 +535,38 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 	},
 
 	// Grupo I
-	{ canonicalName: "Francia", alias: "France", groupLetter: "I", flagCode: "fr" },
-	{ canonicalName: "Francia", alias: "Francia", groupLetter: "I", flagCode: "fr" },
-	{ canonicalName: "Senegal", alias: "Senegal", groupLetter: "I", flagCode: "sn" },
+	{
+		canonicalName: "Francia",
+		alias: "France",
+		groupLetter: "I",
+		flagCode: "fr",
+	},
+	{
+		canonicalName: "Francia",
+		alias: "Francia",
+		groupLetter: "I",
+		flagCode: "fr",
+	},
+	{
+		canonicalName: "Senegal",
+		alias: "Senegal",
+		groupLetter: "I",
+		flagCode: "sn",
+	},
 	{ canonicalName: "Irak", alias: "Iraq", groupLetter: "I", flagCode: "iq" },
 	{ canonicalName: "Irak", alias: "Irak", groupLetter: "I", flagCode: "iq" },
-	{ canonicalName: "Noruega", alias: "Norway", groupLetter: "I", flagCode: "no" },
-	{ canonicalName: "Noruega", alias: "Noruega", groupLetter: "I", flagCode: "no" },
+	{
+		canonicalName: "Noruega",
+		alias: "Norway",
+		groupLetter: "I",
+		flagCode: "no",
+	},
+	{
+		canonicalName: "Noruega",
+		alias: "Noruega",
+		groupLetter: "I",
+		flagCode: "no",
+	},
 
 	// Grupo J
 	{
@@ -450,10 +575,30 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "J",
 		flagCode: "ar",
 	},
-	{ canonicalName: "Argelia", alias: "Algeria", groupLetter: "J", flagCode: "dz" },
-	{ canonicalName: "Argelia", alias: "Argelia", groupLetter: "J", flagCode: "dz" },
-	{ canonicalName: "Austria", alias: "Austria", groupLetter: "J", flagCode: "at" },
-	{ canonicalName: "Jordania", alias: "Jordan", groupLetter: "J", flagCode: "jo" },
+	{
+		canonicalName: "Argelia",
+		alias: "Algeria",
+		groupLetter: "J",
+		flagCode: "dz",
+	},
+	{
+		canonicalName: "Argelia",
+		alias: "Argelia",
+		groupLetter: "J",
+		flagCode: "dz",
+	},
+	{
+		canonicalName: "Austria",
+		alias: "Austria",
+		groupLetter: "J",
+		flagCode: "at",
+	},
+	{
+		canonicalName: "Jordania",
+		alias: "Jordan",
+		groupLetter: "J",
+		flagCode: "jo",
+	},
 	{
 		canonicalName: "Jordania",
 		alias: "Jordania",
@@ -468,7 +613,12 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "K",
 		flagCode: "pt",
 	},
-	{ canonicalName: "Colombia", alias: "Colombia", groupLetter: "K", flagCode: "co" },
+	{
+		canonicalName: "Colombia",
+		alias: "Colombia",
+		groupLetter: "K",
+		flagCode: "co",
+	},
 	{
 		canonicalName: "Uzbekistán",
 		alias: "Uzbekistan",
@@ -481,8 +631,18 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "K",
 		flagCode: "uz",
 	},
-	{ canonicalName: "RD Congo", alias: "Congo DR", groupLetter: "K", flagCode: "cd" },
-	{ canonicalName: "RD Congo", alias: "RD Congo", groupLetter: "K", flagCode: "cd" },
+	{
+		canonicalName: "RD Congo",
+		alias: "Congo DR",
+		groupLetter: "K",
+		flagCode: "cd",
+	},
+	{
+		canonicalName: "RD Congo",
+		alias: "RD Congo",
+		groupLetter: "K",
+		flagCode: "cd",
+	},
 
 	// Grupo L
 	{
@@ -497,11 +657,31 @@ export const BUILT_IN_TEAM_ALIASES: TeamAlias[] = [
 		groupLetter: "L",
 		flagCode: "gb-eng",
 	},
-	{ canonicalName: "Croacia", alias: "Croatia", groupLetter: "L", flagCode: "hr" },
-	{ canonicalName: "Croacia", alias: "Croacia", groupLetter: "L", flagCode: "hr" },
+	{
+		canonicalName: "Croacia",
+		alias: "Croatia",
+		groupLetter: "L",
+		flagCode: "hr",
+	},
+	{
+		canonicalName: "Croacia",
+		alias: "Croacia",
+		groupLetter: "L",
+		flagCode: "hr",
+	},
 	{ canonicalName: "Ghana", alias: "Ghana", groupLetter: "L", flagCode: "gh" },
-	{ canonicalName: "Panamá", alias: "Panama", groupLetter: "L", flagCode: "pa" },
-	{ canonicalName: "Panamá", alias: "Panamá", groupLetter: "L", flagCode: "pa" },
+	{
+		canonicalName: "Panamá",
+		alias: "Panama",
+		groupLetter: "L",
+		flagCode: "pa",
+	},
+	{
+		canonicalName: "Panamá",
+		alias: "Panamá",
+		groupLetter: "L",
+		flagCode: "pa",
+	},
 ];
 
 // ============================================================================
@@ -544,7 +724,9 @@ export function normalizeTeamName(name: string): string {
  *
  * Retorna `null` si no matchea con un grupo (ej. "Group Stage", "Round of 16").
  */
-export function getGroupLetterFromStage(stageName: string | null | undefined): string | null {
+export function getGroupLetterFromStage(
+	stageName: string | null | undefined,
+): string | null {
 	if (!stageName) return null;
 	// Flag `i` para case-insensitive (cubre "Group A", "group a", "GRUPO A", etc.)
 	// Negative lookahead `(?![a-zA-Z])` evita que "Group AB" matchee con "A"
@@ -903,7 +1085,11 @@ export function resolveKnockoutMatchups(
 	}
 
 	// Helper: crea un match
-	function makeMatch(position: number, slotA: BracketSlot, slotB: BracketSlot): BracketMatch {
+	function makeMatch(
+		position: number,
+		slotA: BracketSlot,
+		slotB: BracketSlot,
+	): BracketMatch {
 		return {
 			id: `R32-${position}`,
 			position,

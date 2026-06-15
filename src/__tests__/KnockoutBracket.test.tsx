@@ -10,7 +10,7 @@
  * - Leyenda al final con los tipos de slot
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { KnockoutBracket } from "../components/tournament/KnockoutBracket";
 import type {
@@ -22,9 +22,7 @@ import type {
 /**
  * Helper: crea un BracketSlot mock.
  */
-function makeSlot(
-	overrides: Partial<BracketSlot> = {},
-): BracketSlot {
+function makeSlot(overrides: Partial<BracketSlot> = {}): BracketSlot {
 	return {
 		slotType: "1st",
 		groupLetter: "A",
@@ -92,9 +90,7 @@ describe("KnockoutBracket", () => {
 	});
 
 	it("renderiza los 16 partidos", () => {
-		const { container } = render(
-			<KnockoutBracket bracket={makeBracket(16)} />,
-		);
+		const { container } = render(<KnockoutBracket bracket={makeBracket(16)} />);
 
 		// Cada match es un <article>. Contar.
 		const articles = container.querySelectorAll("article");
@@ -102,9 +98,7 @@ describe("KnockoutBracket", () => {
 	});
 
 	it("muestra 'R32 · N' en el header de cada match", () => {
-		const { container } = render(
-			<KnockoutBracket bracket={makeBracket(16)} />,
-		);
+		const { container } = render(<KnockoutBracket bracket={makeBracket(16)} />);
 
 		// Verificar que aparece "R32 · 1" hasta "R32 · 16"
 		for (let i = 1; i <= 16; i++) {
@@ -276,9 +270,7 @@ describe("KnockoutBracket", () => {
 	it("renderiza el match con la opacidad reducida si NO está completo", () => {
 		const bracket: KnockoutBracketType = {
 			roundName: "Dieciseisavos de final",
-			matches: [
-				makeMatch(1, { isComplete: false }),
-			],
+			matches: [makeMatch(1, { isComplete: false })],
 			completedMatches: 0,
 			totalMatches: 1,
 		};

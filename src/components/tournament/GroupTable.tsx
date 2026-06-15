@@ -40,9 +40,7 @@ function getRankBadgeClass(rank: number): string {
 	return "bg-white/10 text-white/70";
 }
 
-function getPositionAnimationClass(
-	change: PositionChange | undefined,
-): string {
+function getPositionAnimationClass(change: PositionChange | undefined): string {
 	if (change === "up") return "animate-rank-up";
 	if (change === "down") return "animate-rank-down";
 	return "";

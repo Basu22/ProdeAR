@@ -120,9 +120,7 @@ describe("GroupTable", () => {
 		const coreaRow = screen.getByText("Corea del Sur").closest("tr");
 
 		// Buscar el badge de rank (1, 2) en cada fila
-		const mexicoRankBadge = mexicoRow?.querySelector(
-			"td:first-child > div",
-		);
+		const mexicoRankBadge = mexicoRow?.querySelector("td:first-child > div");
 		const coreaRankBadge = coreaRow?.querySelector("td:first-child > div");
 
 		expect(mexicoRankBadge).toHaveClass("bg-emerald-500");

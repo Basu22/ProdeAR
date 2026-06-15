@@ -3,7 +3,6 @@ import { isSupabaseConfigured, supabase } from "../supabase";
 import type {
 	Match,
 	MatchStatus,
-	PlayerPhoto,
 	Prediction,
 	Tournament,
 	TournamentMember,

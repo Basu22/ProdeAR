@@ -1,13 +1,18 @@
-import { useMemo } from "react";
-import {
-	getEventSummary,
-	isSubPair,
-	pairSubstitutions,
-	type EventSummaryItem,
-	type TimelineItem,
-} from "../../../lib/eventHelpers";
+import { useState } from "react";
 import { useEventPeriods } from "../../../hooks/useEventPeriods";
-import type { Match, MatchEvent } from "../../../lib/types";
+import { useMockMatchData } from "../../../hooks/useMockMatchData";
+import { isSubPair, pairSubstitutions } from "../../../lib/eventHelpers";
+import { useCachedImage } from "../../../lib/imageCache";
+import {
+	getPlayerInitials,
+	resolvePlayerPhoto,
+} from "../../../lib/playerHelpers";
+import type {
+	Match,
+	MatchEvent,
+	PlayerPhoto,
+	TeamLineup,
+} from "../../../lib/types";
 
 interface EventosTabProps {
 	match: Match;
@@ -23,29 +28,23 @@ interface EventosTabProps {
  */
 export function EventosTab({ match }: EventosTabProps) {
 	const events = match.events ?? [];
-	const summary = useMemo(() => getEventSummary(events), [events]);
 	const periodGroups = useEventPeriods(events);
+	const { lineups, playerPhotos } = useMockMatchData(match);
 
 	if (events.length === 0) {
 		return (
-			<div className="space-y-3">
-				{summary.length > 0 && <EventSummaryBar items={summary} />}
-				<div className="text-center py-4">
-					<span className="text-[10px] text-on-surface-variant/70 italic uppercase tracking-wider">
-						{match.status === "not_started"
-							? "El partido no ha comenzado"
-							: "No se registraron eventos en este partido"}
-					</span>
-				</div>
+			<div className="text-center py-4">
+				<span className="text-[10px] text-on-surface-variant/70 italic uppercase tracking-wider">
+					{match.status === "not_started"
+						? "El partido no ha comenzado"
+						: "No se registraron eventos en este partido"}
+				</span>
 			</div>
 		);
 	}
 
 	return (
 		<div className="space-y-3">
-			{/* F1: Resumen de eventos (pills) */}
-			{summary.length > 0 && <EventSummaryBar items={summary} />}
-
 			{/* Header con nombres de equipos */}
 			<div className="flex items-center justify-between px-2 pb-2 border-b border-white/5">
 				<span className="font-label-caps text-[10px] font-extrabold tracking-widest uppercase text-secondary truncate max-w-[40%]">
@@ -75,12 +74,19 @@ export function EventosTab({ match }: EventosTabProps) {
 							{/* Items del período (mezcla de MatchEvent y SubPair) */}
 							{items.map((item) =>
 								isSubPair(item) ? (
-									<SubstitutionPairRow key={item.id} pair={item} />
+									<SubstitutionPairRow
+										key={item.id}
+										pair={item}
+										lineups={lineups}
+										playerPhotos={playerPhotos}
+									/>
 								) : (
 									<EventRow
 										key={item.id}
 										event={item}
 										isHome={item.team === "home"}
+										lineups={lineups}
+										playerPhotos={playerPhotos}
 									/>
 								),
 							)}
@@ -88,48 +94,6 @@ export function EventosTab({ match }: EventosTabProps) {
 					);
 				})}
 			</div>
-		</div>
-	);
-}
-
-/* === F1: EventSummaryBar === */
-
-/**
- * Barra de pills con el conteo de cada tipo de evento.
- * Sprint 1 F1: 4 pills base (gol, amarilla, roja, cambio) + VAR condicional.
- * Layout: grid-cols-4 gap-2, mobile y desktop.
- * Animación: stagger 50ms entre pills, opacity 0→1 + scale 0.92→1.
- * Accesibilidad: role="group" + aria-label por pill.
- */
-function EventSummaryBar({ items }: { items: EventSummaryItem[] }) {
-	return (
-		<div
-			className="grid grid-cols-4 gap-2"
-			role="group"
-			aria-label="Resumen de eventos del partido"
-		>
-			{items.map((item, idx) => (
-				<div
-					key={item.type}
-					role="button"
-					tabIndex={0}
-					aria-label={`${item.count} ${item.label}`}
-					style={{ animationDelay: `${idx * 50}ms` }}
-					className={`flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-lg border ${item.bgClass} ${item.borderClass} animate-enter`}
-				>
-					<span
-						className={`material-symbols-outlined text-[20px] leading-none ${item.colorClass}`}
-						aria-hidden="true"
-					>
-						{item.icon}
-					</span>
-					<span
-						className={`font-stat-value text-2xl font-black leading-none tabular-nums ${item.colorClass}`}
-					>
-						{item.count}
-					</span>
-				</div>
-			))}
 		</div>
 	);
 }
@@ -157,29 +121,52 @@ function PeriodSeparator({ label }: { label: string }) {
 	);
 }
 
-/* === EventRow (sin cambios desde Commit 3) === */
+/* === EventRow (con foto del jugador) === */
 
 /**
  * Fila individual de evento en el timeline de 3 columnas.
  * Columna izquierda = equipo LOCAL (alineado a la derecha, hacia el centro).
  * Columna central = minuto del evento (píldora).
  * Columna derecha = equipo VISITANTE (alineado a la izquierda, hacia el centro).
+ *
+ * Layout de cada evento (con foto del jugador):
+ * - HOME: [foto 24px] [nombre + assist opcional] [emoji]      → pegado al centro
+ * - AWAY: [emoji] [nombre + assist opcional] [foto 24px]      → pegado al centro
+ *
+ * La foto se resuelve en runtime vía `resolvePlayerPhoto`, que matchea
+ * el nombre del jugador contra `match.lineups` y busca en `match.playerPhotos`.
+ * Si no hay match → fallback a iniciales.
  */
 function EventRow({
 	event,
 	isHome,
+	lineups,
+	playerPhotos,
 }: {
 	event: MatchEvent;
 	isHome: boolean;
+	lineups: TeamLineup[] | null;
+	playerPhotos: PlayerPhoto[];
 }) {
+	const playerPhoto = resolvePlayerPhoto(
+		{ name: event.playerName, team: event.team },
+		lineups,
+		playerPhotos,
+	);
+
 	return (
 		<div className="relative flex items-center py-1.5">
 			{/* Columna IZQUIERDA (eventos del LOCAL) */}
 			<div
-				className={`flex-1 flex items-center gap-2 ${isHome ? "justify-end pr-3 md:pr-4" : "invisible"}`}
+				className={`flex-1 flex items-center gap-1.5 ${isHome ? "justify-end pr-3 md:pr-4" : "invisible"}`}
 			>
 				{isHome && (
 					<>
+						<PlayerAvatar
+							name={event.playerName}
+							photoUrl={playerPhoto}
+							isHome={true}
+						/>
 						<div className="text-right min-w-0">
 							<div className="text-[13px] text-white font-bold truncate leading-tight">
 								{event.playerName}
@@ -214,7 +201,7 @@ function EventRow({
 
 			{/* Columna DERECHA (eventos del VISITANTE) */}
 			<div
-				className={`flex-1 flex items-center gap-2 ${!isHome ? "justify-start pl-3 md:pl-4" : "invisible"}`}
+				className={`flex-1 flex items-center gap-1.5 ${!isHome ? "justify-start pl-3 md:pl-4" : "invisible"}`}
 			>
 				{!isHome && (
 					<>
@@ -236,6 +223,11 @@ function EventRow({
 								</div>
 							)}
 						</div>
+						<PlayerAvatar
+							name={event.playerName}
+							photoUrl={playerPhoto}
+							isHome={false}
+						/>
 					</>
 				)}
 			</div>
@@ -252,135 +244,89 @@ function getEventEmoji(type: string): string {
 	return "📢";
 }
 
-/* === F11: SubstitutionPairRow (cambios emparejados) === */
+/* === F11: SubstitutionPairRow (formato minimal con foto del jugador) === */
 
 /**
- * Fila de cambio emparejado (F11): muestra "sale X ⬇ / entra Y ⬆" como una
- * sola unidad visual en el timeline, en lugar de 2 eventos separados.
+ * Fila de cambio emparejado (F11) — formato minimal con foto del jugador.
+ * Inspirado en apps como FotMob/Sofascore: la línea principal muestra la
+ * foto + nombre del que SALE (bold), la línea secundaria solo swap + nombre
+ * del que ENTRA (dim).
  *
- * Layout:
- * - Card dashed sky, max-width 180px, dentro del lado del equipo
- * - Row SALIENTE: icono north_east (rojo) + número + nombre
- * - Row ENTRANTE: icono south_west (verde) + número + nombre
- * - Dot central: el mismo que el resto del timeline
+ * Layout 3 columnas (igual que EventRow):
+ * - Columna IZQUIERDA: subs del LOCAL (visible solo si isHome)
+ * - Columna CENTRAL: píldora con el minuto
+ * - Columna DERECHA: subs del VISITANTE (visible solo si !isHome)
  *
- * Nota: usamos `north_east`/`south_west` en vez de `arrow_outward`/`arrow_inward`
- * porque estos últimos no se renderizan correctamente en la variante Outlined
- * de Material Symbols que carga el proyecto.
- *
- * Accesibilidad: role="group" con aria-label descriptivo.
+ * La foto se resuelve en runtime vía `resolvePlayerPhoto`, que matchea
+ * el nombre del jugador contra `match.lineups` y busca en `match.playerPhotos`.
+ * Si no hay match → fallback a iniciales (gris).
  */
 function SubstitutionPairRow({
 	pair,
+	lineups,
+	playerPhotos,
 }: {
 	pair: import("../../../lib/eventHelpers").SubPair;
+	lineups: TeamLineup[] | null;
+	playerPhotos: PlayerPhoto[];
 }) {
 	const isHome = pair.team === "home";
-	const ariaLabel = `Cambio al minuto ${pair.minute}: sale ${
-		pair.playerOut.name
-	}${pair.playerOut.number !== null ? ` número ${pair.playerOut.number}` : ""}, entra ${
-		pair.playerIn.name
-	}${pair.playerIn.number !== null ? ` número ${pair.playerIn.number}` : ""}`;
+	const ariaLabel = `Cambio al minuto ${pair.minute}: sale ${pair.playerOut.name}, entra ${pair.playerIn.name}`;
+
+	// Resolver la foto del jugador que SALE (playerOut)
+	const outPhoto = resolvePlayerPhoto(
+		{ name: pair.playerOut.name, team: pair.team },
+		lineups,
+		playerPhotos,
+	);
+
+	// Contenido reutilizable (mismo markup, se renderiza en la columna del equipo)
+	const subContent = (
+		<div className="space-y-0.5 min-w-0 max-w-[220px]">
+			{/* Sale - bold + foto del jugador */}
+			<div
+				className={`flex items-center gap-1.5 ${isHome ? "justify-end" : "justify-start"}`}
+			>
+				<PlayerAvatar
+					name={pair.playerOut.name}
+					photoUrl={outPhoto}
+					isHome={isHome}
+				/>
+				<span className="text-[15px] font-bold text-white leading-tight truncate min-w-0">
+					{pair.playerOut.name}
+				</span>
+			</div>
+
+			{/* Entra - dim + swap icon */}
+			<div
+				className={`flex items-center gap-1.5 ${isHome ? "justify-end" : "justify-start"}`}
+			>
+				<span
+					className="material-symbols-outlined text-[14px] text-sky-400 flex-shrink-0"
+					aria-hidden="true"
+				>
+					swap_horiz
+				</span>
+				<span className="text-[12px] text-white/70 leading-tight truncate min-w-0">
+					{pair.playerIn.name}
+				</span>
+			</div>
+		</div>
+	);
 
 	return (
 		<div
-			className="relative flex items-center py-1.5 animate-sub-pair-enter"
+			className="relative flex items-center py-1 animate-sub-pair-enter"
 			role="group"
 			aria-label={ariaLabel}
 		>
-			{/* Columna del lado del equipo afectado */}
+			{/* Columna IZQUIERDA (HOME) — visible solo si isHome */}
 			<div
 				className={`flex-1 flex ${
-					isHome ? "justify-end pr-3 md:pr-4" : "justify-start pl-3 md:pl-4"
+					isHome ? "justify-end pr-3 md:pr-4" : "invisible"
 				}`}
 			>
-				<div className="max-w-[200px] md:max-w-[220px] border border-dashed border-sky-500/40 bg-sky-500/[0.08] rounded-lg px-2.5 py-2 space-y-1 shadow-[0_2px_8px_rgba(56,189,248,0.06)]">
-					{/* Row SALIENTE */}
-					<div className="flex items-center gap-1.5">
-							{isHome ? (
-							<>
-								<div className="text-right min-w-0 flex-1">
-									<div className="text-[12px] text-white/85 truncate font-stat-value leading-tight">
-										{pair.playerOut.name}
-									</div>
-								</div>
-								{pair.playerOut.number !== null && (
-									<span className="text-[10px] font-black text-white/70 bg-white/10 px-1.5 rounded tabular-nums flex-shrink-0 leading-none">
-										{pair.playerOut.number}
-									</span>
-								)}
-								<span
-									className="material-symbols-outlined text-[18px] text-error flex-shrink-0"
-									aria-hidden="true"
-								>
-									north_east
-								</span>
-							</>
-						) : (
-							<>
-								<span
-									className="material-symbols-outlined text-[18px] text-error flex-shrink-0"
-									aria-hidden="true"
-								>
-									north_east
-								</span>
-								{pair.playerOut.number !== null && (
-									<span className="text-[10px] font-black text-white/70 bg-white/10 px-1.5 rounded tabular-nums flex-shrink-0 leading-none">
-										{pair.playerOut.number}
-									</span>
-								)}
-								<div className="text-left min-w-0 flex-1">
-									<div className="text-[12px] text-white/85 truncate font-stat-value leading-tight">
-										{pair.playerOut.name}
-									</div>
-								</div>
-							</>
-						)}
-					</div>
-
-					{/* Row ENTRANTE */}
-					<div className="flex items-center gap-1.5">
-						{isHome ? (
-							<>
-								<div className="text-right min-w-0 flex-1">
-									<div className="text-[12px] text-white truncate font-stat-value leading-tight">
-										{pair.playerIn.name}
-									</div>
-								</div>
-								{pair.playerIn.number !== null && (
-									<span className="text-[10px] font-black text-pitch-green bg-pitch-green/15 px-1.5 rounded tabular-nums flex-shrink-0 leading-none">
-										{pair.playerIn.number}
-									</span>
-								)}
-								<span
-									className="material-symbols-outlined text-[18px] text-pitch-green flex-shrink-0"
-									aria-hidden="true"
-								>
-									south_west
-								</span>
-							</>
-						) : (
-							<>
-								<span
-									className="material-symbols-outlined text-[18px] text-pitch-green flex-shrink-0"
-									aria-hidden="true"
-								>
-									south_west
-								</span>
-								{pair.playerIn.number !== null && (
-									<span className="text-[10px] font-black text-pitch-green bg-pitch-green/15 px-1.5 rounded tabular-nums flex-shrink-0 leading-none">
-										{pair.playerIn.number}
-									</span>
-								)}
-								<div className="text-left min-w-0 flex-1">
-									<div className="text-[12px] text-white truncate font-stat-value leading-tight">
-										{pair.playerIn.name}
-									</div>
-								</div>
-							</>
-						)}
-					</div>
-				</div>
+				{isHome && subContent}
 			</div>
 
 			{/* Columna CENTRAL — píldora con el minuto (igual que en EventRow) */}
@@ -390,8 +336,70 @@ function SubstitutionPairRow({
 				</div>
 			</div>
 
-			{/* Columna vacía del lado opuesto */}
-			<div className="flex-1" />
+			{/* Columna DERECHA (AWAY) — visible solo si !isHome */}
+			<div
+				className={`flex-1 flex ${
+					!isHome ? "justify-start pl-3 md:pl-4" : "invisible"
+				}`}
+			>
+				{!isHome && subContent}
+			</div>
 		</div>
+	);
+}
+
+/* === PlayerAvatar (foto con fallback a iniciales, reutilizable) === */
+
+/**
+ * Avatar circular del jugador con foto y fallback a iniciales.
+ * Reutilizable por `EventRow` (size "sm" = 24px) y `SubstitutionPairRow`
+ * (size "md" = 28px).
+ *
+ * - Si `photoUrl` está disponible y el cache lo tiene, muestra la foto.
+ * - Si no hay foto, no se cargó aún, o el CDN devolvió error, muestra iniciales.
+ * - El ring usa el color del equipo (secondary=home, primary=away).
+ *
+ * Implementación:
+ * - `useCachedImage` para evitar re-fetch de URLs ya cacheadas
+ * - `useState` local para `onError` de la imagen (flip a iniciales)
+ */
+function PlayerAvatar({
+	name,
+	photoUrl,
+	isHome,
+}: {
+	name: string;
+	photoUrl: string | null;
+	isHome: boolean;
+}) {
+	const cached = useCachedImage(photoUrl);
+	const [imgErrored, setImgErrored] = useState(false);
+
+	const ringClass = isHome ? "ring-secondary/60" : "ring-primary/60";
+	const initialsBg = isHome ? "bg-secondary/30" : "bg-primary/30";
+	const initialsText = isHome ? "text-secondary" : "text-primary";
+
+	// Sin foto, sin cached, o imagen rota → iniciales
+	if (!photoUrl || !cached || imgErrored) {
+		return (
+			<div
+				className={`w-[50px] h-[50px] rounded-full ring-2 ${ringClass} ${initialsBg} flex items-center justify-center flex-shrink-0`}
+				aria-hidden="true"
+			>
+				<span className={`text-[14px] font-black ${initialsText} leading-none`}>
+					{getPlayerInitials(name)}
+				</span>
+			</div>
+		);
+	}
+
+	return (
+		<img
+			src={cached}
+			alt={name}
+			loading="lazy"
+			onError={() => setImgErrored(true)}
+			className={`w-[50px] h-[50px] rounded-full ring-2 ${ringClass} object-cover flex-shrink-0`}
+		/>
 	);
 }

@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
+import { getEventSummary, type EventSummaryItem } from "../../../lib/eventHelpers";
 import type { Match, TeamStats } from "../../../lib/types";
 
 interface StatsTabProps {
@@ -10,9 +12,16 @@ interface StatsTabProps {
  * Sprint 1 (F10): solo lectura, muestra las 6 stats principales.
  * Sprint 1 (Commit 7): usa `useMockMatchData` para fallback de mocks en DEV.
  * Sprint 2 (F4) ampliará a las 15-20 stats completas.
+ * Patch UI: el resumen de eventos (goles, tarjetas, cambios) se movió
+ * desde EventosTab a este tab con el formato StatIconCard (icono + número
+ * + label, estilo corner kicks / fouls).
  */
 export function StatsTab({ match }: StatsTabProps) {
 	const { stats, isMockedStats } = useMockMatchData(match);
+	const eventSummary = useMemo(
+		() => getEventSummary(match.events ?? []),
+		[match.events],
+	);
 
 	if (!stats || stats.length < 2) {
 		return (
@@ -27,6 +36,10 @@ export function StatsTab({ match }: StatsTabProps) {
 	return (
 		<div className="space-y-4">
 			{isMockedStats && <DemoTag />}
+
+			{/* Resumen de eventos con formato StatIconCard (movido desde EventosTab) */}
+			{eventSummary.length > 0 && <EventSummarySection items={eventSummary} />}
+
 			<div className="grid gap-3 bg-surface-container-low/30 rounded-xl p-3 border border-white/5">
 				{/* Ball Possession */}
 				<StatProgressRow
@@ -190,6 +203,81 @@ function DemoTag() {
 		<div className="flex justify-end">
 			<span className="font-label-caps text-[8px] text-on-surface-variant/50 bg-surface-container-high/40 border border-white/10 px-1.5 py-0.5 rounded tracking-widest">
 				DEMO
+			</span>
+		</div>
+	);
+}
+
+/* === Patch UI: StatIconCard (resumen de eventos con icono + número + label) === */
+
+/**
+ * Sección "EVENTOS" con 4 StatIconCards en grid responsive.
+ * Mismo visual que las cards de corner kicks / fouls pero con icono grande
+ * de color, número grande y label uppercase. Se renderiza solo si hay
+ * eventos (summary.length > 0).
+ *
+ * Layout: grid-cols-4 con stagger 50ms entre cards.
+ * Accesibilidad: role="group" + aria-label por card.
+ */
+function EventSummarySection({ items }: { items: EventSummaryItem[] }) {
+	return (
+		<div className="space-y-1.5">
+			<h3 className="font-label-caps text-[9px] font-extrabold tracking-widest uppercase text-on-surface-variant/80 px-1">
+				Eventos
+			</h3>
+			<div
+				className="grid grid-cols-4 gap-2"
+				role="group"
+				aria-label="Resumen de eventos del partido"
+			>
+				{items.map((item, idx) => (
+					<StatIconCard
+						key={item.type}
+						item={item}
+						animationDelay={`${idx * 50}ms`}
+					/>
+				))}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Card individual de stat con icono de color + número grande + label.
+ * Estructura: border sutil del color + bg tintado, icono 26px, número 24px,
+ * label 7.5px uppercase tracking-widest en dim.
+ *
+ * Accesibilidad: role="button" + tabIndex + aria-label descriptivo.
+ * Interacción: active:scale-[0.96] para feedback táctil.
+ */
+function StatIconCard({
+	item,
+	animationDelay,
+}: {
+	item: EventSummaryItem;
+	animationDelay: string;
+}) {
+	return (
+		<div
+			role="button"
+			tabIndex={0}
+			aria-label={`${item.count} ${item.label}`}
+			style={{ animationDelay }}
+			className={`flex flex-col items-center justify-center gap-0.5 py-2.5 px-1 rounded-xl border ${item.borderClass} ${item.bgClass} animate-enter transition-transform active:scale-[0.96]`}
+		>
+			<span
+				className={`material-symbols-outlined text-[26px] leading-none ${item.colorClass}`}
+				aria-hidden="true"
+			>
+				{item.icon}
+			</span>
+			<span
+				className={`font-stat-value text-2xl font-black leading-none tabular-nums ${item.colorClass}`}
+			>
+				{item.count}
+			</span>
+			<span className="font-label-caps text-[7.5px] text-on-surface-variant/80 font-bold tracking-widest uppercase mt-0.5">
+				{item.label}
 			</span>
 		</div>
 	);

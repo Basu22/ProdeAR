@@ -649,6 +649,57 @@
 		z-index: 5;
 	}
 
+	/* === Broadcast Lower-Third (Sprint 4) === */
+	/* Sweep cyan que cruza el banner en hover (broadcast TV metaphor) */
+	@keyframes broadcastSweep {
+		0% {
+			background-position: 200% 0;
+		}
+		100% {
+			background-position: -200% 0;
+		}
+	}
+
+	.broadcast-sweep {
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			rgba(0, 229, 255, 0.08) 45%,
+			rgba(0, 229, 255, 0.18) 50%,
+			rgba(0, 229, 255, 0.08) 55%,
+			transparent 100%
+		);
+		background-size: 200% 100%;
+		background-repeat: no-repeat;
+	}
+
+	.group\/broadcast:hover .broadcast-sweep {
+		animation: broadcastSweep 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	}
+
+	/* Marching ants: chevrones ▶▶▶ que se desplazan en stagger */
+	@keyframes arrowMarch {
+		0%,
+		100% {
+			opacity: 0.3;
+			transform: translateX(0);
+		}
+		50% {
+			opacity: 1;
+			transform: translateX(2px);
+		}
+	}
+
+	.animate-arrow-march > *:nth-child(1) {
+		animation: arrowMarch 1.2s ease-in-out infinite;
+	}
+	.animate-arrow-march > *:nth-child(2) {
+		animation: arrowMarch 1.2s ease-in-out infinite 0.2s;
+	}
+	.animate-arrow-march > *:nth-child(3) {
+		animation: arrowMarch 1.2s ease-in-out infinite 0.4s;
+	}
+
 	/* === Sprint 3: Live Pulse (F1) — punto rojo pulsante para badges EN VIVO === */
 	@keyframes livePulse {
 		0%,
@@ -741,6 +792,13 @@
 		.stadium-glow-green,
 		.stadium-glow-red,
 		.stadium-glow-amber {
+			animation: none !important;
+		}
+		.animate-arrow-march > * {
+			animation: none !important;
+			opacity: 0.6 !important;
+		}
+		.broadcast-sweep {
 			animation: none !important;
 		}
 	}

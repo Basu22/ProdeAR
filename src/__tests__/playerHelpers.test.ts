@@ -4,6 +4,8 @@ import {
 	enrichLineupsWithPhotos,
 	getPlayerInitials,
 	getPlayerPhoto,
+	normalizePlayerName,
+	resolvePlayerPhoto,
 } from "../lib/playerHelpers";
 import type { PlayerPhoto, TeamLineup, TacticalPlayerInfo } from "../lib/types";
 
@@ -227,5 +229,245 @@ describe("getPlayerInitials", () => {
 
 	it("lowercase se capitaliza", () => {
 		expect(getPlayerInitials("juan pérez")).toBe("JP");
+	});
+});
+
+describe("normalizePlayerName", () => {
+	it("lowercase + sin tildes", () => {
+		expect(normalizePlayerName("Lautaro Martínez")).toBe("lautaro martinez");
+	});
+
+	it("null/undefined/empty → empty", () => {
+		expect(normalizePlayerName(null)).toBe("");
+		expect(normalizePlayerName(undefined)).toBe("");
+		expect(normalizePlayerName("")).toBe("");
+	});
+
+	it("trim + colapsa whitespace múltiple", () => {
+		expect(normalizePlayerName("  Éder   Militao  ")).toBe("eder militao");
+	});
+
+	it("tildes, eñes y acentos varios", () => {
+		expect(normalizePlayerName("Ángel Di María")).toBe("angel di maria");
+		expect(normalizePlayerName("Hélder")).toBe("helder");
+		expect(normalizePlayerName("Ibañez")).toBe("ibanez");
+	});
+
+	it("tilde de la ñ se elimina (matching: 'Ibañez' === 'Ibanez')", () => {
+		// ñ en NFD se descompone en 'n' + combining tilde (U+0303).
+		// El regex strip la elimina, dando 'ibanez'.
+		// Esto es lo que queremos: la API de API-Football a veces devuelve
+		// "Ibañez" y a veces "Ibanez" para el mismo jugador.
+		expect(normalizePlayerName("Ibañez")).toBe("ibanez");
+		expect(normalizePlayerName("Año")).toBe("ano");
+	});
+});
+
+describe("resolvePlayerPhoto", () => {
+	const homeLineup: TeamLineup = {
+		team: { id: 1, name: "Boca", logo: "" },
+		formation: "4-3-3",
+		startXI: [
+			{
+				player: {
+					id: 100,
+					name: "Lautaro Martínez",
+					number: 10,
+					pos: "F",
+					grid: "4:2",
+				},
+			},
+			{
+				player: {
+					id: 101,
+					name: "Éder Militão",
+					number: 3,
+					pos: "D",
+					grid: "2:2",
+					photo: "https://cdn.example.com/eder.png", // tiene photo en el lineup
+				},
+			},
+		],
+		substitutes: [
+			{
+				player: { id: 200, name: "Julián Álvarez", number: 19, pos: "F", grid: null },
+			},
+		],
+		coach: { id: 999, name: "DT", photo: null },
+	};
+
+	const awayLineup: TeamLineup = {
+		team: { id: 2, name: "River", logo: "" },
+		formation: "4-4-2",
+		startXI: [
+			{
+				player: { id: 300, name: "Mohamed Naceur", number: 7, pos: "F", grid: "4:1" },
+			},
+			{
+				player: { id: 301, name: "A. Martial", number: 9, pos: "F", grid: "4:2" },
+			},
+		],
+		substitutes: [],
+		coach: { id: 888, name: "DT", photo: null },
+	};
+
+	const lineups: TeamLineup[] = [homeLineup, awayLineup];
+	const photos: PlayerPhoto[] = [
+		{ player_id: 100, photo: "https://cdn.example.com/lautaro.png" },
+		{ player_id: 200, photo: "https://cdn.example.com/julian.png" },
+		// ID 101 (Éder) NO está en photos, pero sí en lineup.player.photo
+		{ player_id: 300, photo: "https://cdn.example.com/mohamed.png" },
+		{ player_id: 301, photo: "https://cdn.example.com/martial.png" },
+	];
+
+	it("happy path: nombre matchea titular → devuelve URL de playerPhotos", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "Lautaro Martínez", team: "home" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/lautaro.png");
+	});
+
+	it("match contra suplente", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "Julián Álvarez", team: "home" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/julian.png");
+	});
+
+	it("playerPhotos vacío pero lineup tiene photo → fallback al lineup", () => {
+		// Éder Militão: ID 101 no está en photos, pero lineup.player.photo SÍ
+		const url = resolvePlayerPhoto(
+			{ name: "Éder Militão", team: "home" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/eder.png");
+	});
+
+	it("playerPhotos null pero lineup tiene photo → fallback al lineup", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "Éder Militão", team: "home" },
+			lineups,
+			null,
+		);
+		expect(url).toBe("https://cdn.example.com/eder.png");
+	});
+
+	it("lineup sin photo Y playerPhotos vacío → null", () => {
+		const lineupSinFoto: TeamLineup = {
+			...homeLineup,
+			startXI: [
+				{
+					player: {
+						id: 999,
+						name: "Sin Foto",
+						number: 1,
+						pos: "G",
+						grid: "1:1",
+						photo: null,
+					},
+				},
+			],
+		};
+		const url = resolvePlayerPhoto(
+			{ name: "Sin Foto", team: "home" },
+			[lineupSinFoto, awayLineup],
+			[],
+		);
+		expect(url).toBeNull();
+	});
+
+	it("nombre no matchea ningún lineup → null", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "Jugador Misterioso", team: "home" },
+			lineups,
+			photos,
+		);
+		expect(url).toBeNull();
+	});
+
+	it("lineups null → null (no throw)", () => {
+		expect(
+			resolvePlayerPhoto(
+				{ name: "Lautaro Martínez", team: "home" },
+				null,
+				photos,
+			),
+		).toBeNull();
+	});
+
+	it("team=home busca en lineups[0], team=away busca en lineups[1]", () => {
+		const homeUrl = resolvePlayerPhoto(
+			{ name: "Lautaro Martínez", team: "home" },
+			lineups,
+			photos,
+		);
+		const awayUrl = resolvePlayerPhoto(
+			{ name: "Mohamed Naceur", team: "away" },
+			lineups,
+			photos,
+		);
+		expect(homeUrl).toBe("https://cdn.example.com/lautaro.png");
+		expect(awayUrl).toBe("https://cdn.example.com/mohamed.png");
+	});
+
+	it("match insensible a tildes/mayúsculas (Lautaro MARTÍNEZ vs Lautaro Martínez)", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "LAUTARO MARTÍNEZ", team: "home" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/lautaro.png");
+	});
+
+	it("FUZZY: nombre con abreviación 'A. Martial' matchea 'A. Martial' exacto", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "A. Martial", team: "away" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/martial.png");
+	});
+
+	it("FUZZY: 'Anthony Martial' matchea 'A. Martial' del lineup (Levenshtein ≤ 2)", () => {
+		// "anthony martial" vs "a. martial" → 5 ediciones (muy lejos)
+		// Mejor caso: API devuelve "A. Martial" en lineup y "A. Martial" en event → match exacto
+		// Caso real problemático: "MARTIAL" vs "A. Martial"
+		const url = resolvePlayerPhoto(
+			{ name: "Anthony", team: "away" }, // solo primer nombre
+			lineups,
+			photos,
+		);
+		// "anthony" vs "a. martial" → muchas ediciones, no debería matchear
+		// (documentamos el límite del fuzzy match)
+		expect(url).toBeNull();
+	});
+
+	it("FUZZY: 'A.Martial' (sin espacio) matchea 'A. Martial' (Levenshtein = 1)", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "A.Martial", team: "away" },
+			lineups,
+			photos,
+		);
+		expect(url).toBe("https://cdn.example.com/martial.png");
+	});
+
+	it("FUZZY: nombre muy diferente (>2 ediciones) → null", () => {
+		const url = resolvePlayerPhoto(
+			{ name: "Lionel Messi", team: "away" }, // "lionel messi" vs lineup más cercano
+			lineups,
+			photos,
+		);
+		expect(url).toBeNull();
+	});
+
+	it("nombre vacío → null", () => {
+		expect(
+			resolvePlayerPhoto({ name: "", team: "home" }, lineups, photos),
+		).toBeNull();
 	});
 });

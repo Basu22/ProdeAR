@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
+import { MatchSheet } from "../components/match/MatchSheet";
 import { PositionsView } from "../components/tournament/PositionsView";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
 import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";
@@ -64,6 +65,23 @@ export function Tournament() {
 	const [selectedRound, setSelectedRound] = useState("");
 	const [isRoundDropdownOpen, setIsRoundDropdownOpen] = useState(false);
 	const [isRulesOpen, setIsRulesOpen] = useState(false);
+
+	// MatchSheet: partido seleccionado (null = sheet cerrado).
+	// Se abre desde el BroadcastLink (lower-third) en cada MatchCard de la
+	// tab de pronósticos, mostrando el detalle completo (eventos, stats,
+	// formaciones) sin perder el contexto del torneo.
+	const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+	const selectedMatch = useMemo(
+		() => matches?.find((m) => m.id === selectedMatchId) ?? null,
+		[matches, selectedMatchId],
+	);
+	const selectedMatchPredictions = useMemo(
+		() =>
+			selectedMatchId
+				? (predictions ?? []).filter((p) => p.matchId === selectedMatchId)
+				: [],
+		[selectedMatchId, predictions],
+	);
 
 	const isWorldCup =
 		tournament?.competitionId === "comp-1" ||
@@ -655,6 +673,7 @@ export function Tournament() {
 													match={match}
 													showPrediction={true}
 													prediction={pred}
+													onOpenDetails={setSelectedMatchId}
 													onSave={async (home, away, penaltyWinner) => {
 														await savePrediction({
 															matchId: match.id,
@@ -681,6 +700,15 @@ export function Tournament() {
 					<ChatPanel tournamentId={tournament.id} />
 				</div>
 			)}
+
+			{/* MatchSheet — abre al hacer click en el BroadcastLink de una MatchCard */}
+			<MatchSheet
+				match={selectedMatch}
+				predictions={selectedMatchPredictions}
+				tournaments={tournaments ?? []}
+				isOpen={!!selectedMatchId}
+				onClose={() => setSelectedMatchId(null)}
+			/>
 
 			{/* MODAL CONFIGURACIÓN DE TORNEO (OWNER / USER) */}
 			{isSettingsOpen && (

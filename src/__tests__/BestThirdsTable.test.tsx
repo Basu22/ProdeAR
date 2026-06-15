@@ -47,7 +47,6 @@ function makeBestThirds(
 	);
 
 	return {
-		roundName: "Dieciseisavos de final",
 		qualifyCount: 8,
 		cutoffIndex: 7,
 		standings: teams,

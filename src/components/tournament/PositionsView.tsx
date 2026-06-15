@@ -40,7 +40,10 @@
 import { useState } from "react";
 import { useGroupStandings } from "../../hooks/useGroupStandings";
 import type { Match } from "../../lib/types";
-import { calculateBestThirds, resolveKnockoutMatchups } from "../../lib/worldCupGroups";
+import {
+	calculateBestThirds,
+	resolveKnockoutMatchups,
+} from "../../lib/worldCupGroups";
 import { GlassCard } from "../ui/GlassCard";
 import { PillTabs } from "../ui/PillTabs";
 import { BestThirdsTable } from "./BestThirdsTable";
@@ -145,9 +148,7 @@ export function PositionsView({ matches }: PositionsViewProps) {
 				</>
 			)}
 
-			{subTab === "mejores3ros" && (
-				<BestThirdsTable bestThirds={bestThirds} />
-			)}
+			{subTab === "mejores3ros" && <BestThirdsTable bestThirds={bestThirds} />}
 
 			{subTab === "dieciseisavos" && <KnockoutBracket bracket={bracket} />}
 		</div>

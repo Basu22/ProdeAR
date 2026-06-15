@@ -191,8 +191,7 @@ describe("useGroupStandings — position changes", () => {
 		];
 
 		const { result, rerender } = renderHook(
-			({ matches }: { matches: WorldCupMatch[] }) =>
-				useGroupStandings(matches),
+			({ matches }: { matches: WorldCupMatch[] }) => useGroupStandings(matches),
 			{ initialProps: { matches: initial } },
 		);
 
@@ -229,9 +228,7 @@ describe("useGroupStandings — position changes", () => {
 		// - México: 3pts, +1dg (3-2) → rank 1
 		// - Corea: 3pts, -1dg (2-3) → rank 2
 		// México went from rank 4 → rank 1 → 'up'
-		const mexicoChange = result.current.positionChanges.get(
-			KEY("A", "México"),
-		);
+		const mexicoChange = result.current.positionChanges.get(KEY("A", "México"));
 		expect(mexicoChange).toBe("up");
 	});
 
@@ -249,8 +246,7 @@ describe("useGroupStandings — position changes", () => {
 		];
 
 		const { result, rerender } = renderHook(
-			({ matches }: { matches: WorldCupMatch[] }) =>
-				useGroupStandings(matches),
+			({ matches }: { matches: WorldCupMatch[] }) => useGroupStandings(matches),
 			{ initialProps: { matches: initial } },
 		);
 
@@ -271,9 +267,7 @@ describe("useGroupStandings — position changes", () => {
 			rerender({ matches: updated });
 		});
 
-		const mexicoChange = result.current.positionChanges.get(
-			KEY("A", "México"),
-		);
+		const mexicoChange = result.current.positionChanges.get(KEY("A", "México"));
 		expect(mexicoChange).toBe("down");
 	});
 
@@ -290,8 +284,7 @@ describe("useGroupStandings — position changes", () => {
 		];
 
 		const { result, rerender } = renderHook(
-			({ matches }: { matches: WorldCupMatch[] }) =>
-				useGroupStandings(matches),
+			({ matches }: { matches: WorldCupMatch[] }) => useGroupStandings(matches),
 			{ initialProps: { matches: initial } },
 		);
 
@@ -312,9 +305,7 @@ describe("useGroupStandings — position changes", () => {
 			rerender({ matches: updated });
 		});
 
-		const mexicoChange = result.current.positionChanges.get(
-			KEY("A", "México"),
-		);
+		const mexicoChange = result.current.positionChanges.get(KEY("A", "México"));
 		expect(mexicoChange).toBe("same");
 	});
 
@@ -367,9 +358,7 @@ describe("useGroupStandings — stability", () => {
 			}),
 		];
 
-		const { result, rerender } = renderHook(() =>
-			useGroupStandings(matches),
-		);
+		const { result, rerender } = renderHook(() => useGroupStandings(matches));
 
 		const first = result.current.groupTables;
 		rerender();
@@ -391,8 +380,7 @@ describe("useGroupStandings — stability", () => {
 		];
 
 		const { result, rerender } = renderHook(
-			({ matches }: { matches: WorldCupMatch[] }) =>
-				useGroupStandings(matches),
+			({ matches }: { matches: WorldCupMatch[] }) => useGroupStandings(matches),
 			{ initialProps: { matches: initial } },
 		);
 

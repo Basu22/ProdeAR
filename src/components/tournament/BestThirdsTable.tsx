@@ -157,10 +157,7 @@ export function BestThirdsTable({ bestThirds }: BestThirdsTableProps) {
 													{standing.teamName}
 												</span>
 												{standing.isLive && (
-													<LiveBadge
-														variant="compact"
-														className="ml-1"
-													/>
+													<LiveBadge variant="compact" className="ml-1" />
 												)}
 											</div>
 										</td>

@@ -57,11 +57,33 @@ npm test
 - TypeScript: 0 errores
 - Tests: **344/344 pasando** en 21 archivos (incluyendo 68 component tests nuevos)
 
-### 1.3 ⚠️ Verificar DB migration aplicada (CRÍTICO)
+### 1.3 ⚠️ APLICAR DB migration (CRÍTICO — sin esto el deploy falla)
 
-Los commits `bf9837a` y `2acee61` asumen que la DB ya tiene las columnas `group_letter`, `home_team_canonical`, `away_team_canonical` en `matches` y la tabla `team_aliases` populada.
+**Esta migration es REQUERIDA** y debe correrse en el SQL Editor de Supabase **ANTES** del push. Sin ella, la feature POSICIONES no funcionará (los partidos no tendrán `group_letter` populado, las tablas saldrán vacías).
 
-**Query de verificación** (correr en Supabase SQL Editor):
+**Archivo**: `supabase/migrations/0003_sprint3_posiciones_groups.sql` (~250 líneas)
+
+**Cómo correrlo**:
+
+1. Abrir [Supabase Dashboard](https://supabase.com/dashboard) → tu proyecto → SQL Editor
+2. Abrir el archivo `supabase/migrations/0003_sprint3_posiciones_groups.sql` y copiar todo su contenido
+3. Pegar en el SQL Editor y correr (Run)
+
+**Lo que hace la migration** (es idempotente — se puede re-correr):
+
+| # | Acción | Resultado |
+|---|---|---|
+| 1 | `ALTER TABLE matches ADD COLUMN...` | 3 columnas nuevas: `group_letter`, `home_team_canonical`, `away_team_canonical` |
+| 2 | `CREATE TABLE team_aliases` | Nueva tabla lookup con 120+ filas |
+| 3 | `INSERT INTO team_aliases...` | Popula aliases de los 48 equipos del Mundial 2026 (con variantes EN/ES/diacríticos) |
+| 4 | `UPDATE matches SET...` (backfill) | Popula las columnas nuevas para partidos ya existentes |
+| 5 | `NOTIFY pgrst, 'reload schema'` | Refresca el cache de PostgREST (CRÍTICO sin esto las queries no ven las columnas) |
+
+**Tiempo estimado**: 30-60 segundos (incluye el INSERT de ~120 aliases).
+
+### 1.4 Verificar DB migration aplicada
+
+Después de correr la migration, ejecutar las queries de verificación:
 
 ```sql
 -- 1. Verificar que las columnas existen
@@ -78,7 +100,7 @@ SELECT COUNT(*) AS total_aliases,
        COUNT(DISTINCT group_letter) AS grupos_cubiertos
 FROM team_aliases;
 
--- Esperado: ~120 aliases, 12 grupos cubiertos
+-- Esperado: 92 aliases (48 equipos × ~2 aliases promedio), 12 grupos cubiertos
 
 -- 3. Verificar que no hay matches sin group_letter
 SELECT COUNT(*) AS unmapped
@@ -89,33 +111,7 @@ WHERE stage_name ILIKE '%group%'
 -- Esperado: 0
 ```
 
-**Si `unmapped > 0`**: NO pushees todavía. Hay que correr el backfill manualmente:
-
-```sql
--- Backfill: poblar group_letter y canonical names para matches existentes
-UPDATE matches m
-SET
-  group_letter = ta.group_letter,
-  home_team_canonical = COALESCE(
-    (SELECT ta2.canonical_name FROM team_aliases ta2
-     WHERE LOWER(TRIM(ta2.alias)) = LOWER(TRIM(m.home_team)) LIMIT 1),
-    m.home_team
-  ),
-  away_team_canonical = COALESCE(
-    (SELECT ta3.canonical_name FROM team_aliases ta3
-     WHERE LOWER(TRIM(ta3.alias)) = LOWER(TRIM(m.away_team)) LIMIT 1),
-    m.away_team
-  )
-FROM team_aliases ta
-WHERE LOWER(TRIM(ta.alias)) = LOWER(TRIM(m.home_team))
-  AND ta.group_letter IS NOT NULL
-  AND m.group_letter IS NULL;
-
--- Refrescar schema cache de PostgREST
-NOTIFY pgrst, 'reload schema';
-```
-
-Si después del backfill siguen quedando unmapped, ver §6 (Known issues).
+**Si `unmapped > 0`** después del backfill: ver §6.6.2 (Known issues — alias faltante).
 
 ### 1.4 Verificar Supabase env vars
 

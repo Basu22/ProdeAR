@@ -205,13 +205,7 @@ describe("PillTabs", () => {
 			expect(typeof id).toBe("string");
 		};
 
-		render(
-			<PillTabs
-				options={options}
-				active="grupos"
-				onChange={onChange}
-			/>,
-		);
+		render(<PillTabs options={options} active="grupos" onChange={onChange} />);
 
 		expect(screen.getByRole("tablist")).toBeInTheDocument();
 	});

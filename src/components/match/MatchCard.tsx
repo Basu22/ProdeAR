@@ -1,45 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveMinute } from "../../hooks/useLiveMinute";
 import { useNewEvents } from "../../hooks/useNewEvents";
 import type { MatchCardState } from "../../lib/matchCardState";
 import type { Match, MatchEvent, Prediction } from "../../lib/types";
+import { BroadcastLink } from "./BroadcastLink";
 import { EventToast } from "./EventToast";
 import { GoalAnimation } from "./GoalAnimation";
 import { MatchStatusBar } from "./MatchStatusBar";
 import { RedCardBadge } from "./RedCardBadge";
-
-// Sprint 3 hygiene: code-splitting de los 3 tabs (Eventos/Stats/Formaciones).
-// Solo se cargan cuando el usuario hace click en el tab correspondiente.
-// Antes: ~24KB minified de los 3 tabs se incluían en el bundle inicial
-// de MatchCard, que se importa eagerly en Tournament.tsx, Dashboard.tsx, etc.
-// Ahora: el bundle inicial solo carga el MatchCard "core", y los tabs
-// se fetchan on-demand vía dynamic import.
-const EventosTab = lazy(() =>
-	import("./tabs/EventosTab").then((m) => ({ default: m.EventosTab })),
-);
-const StatsTab = lazy(() =>
-	import("./tabs/StatsTab").then((m) => ({ default: m.StatsTab })),
-);
-const FormacionesTab = lazy(() =>
-	import("./tabs/FormacionesTab").then((m) => ({ default: m.FormacionesTab })),
-);
-
-// Fallback minimalista mientras se fetcha el chunk del tab.
-// Es un flash muy corto (~50ms en 4G), así que un texto simple es suficiente.
-// No usamos skeleton para no agregar más bytes al bundle principal.
-function TabLoadingFallback() {
-	return (
-		<div className="flex items-center justify-center py-12">
-			<div className="flex items-center gap-2 text-on-surface-variant text-xs font-label-caps uppercase tracking-widest">
-				<span className="material-symbols-outlined text-base animate-spin">
-					progress_activity
-				</span>
-				Cargando…
-			</div>
-		</div>
-	);
-}
 
 const TEAM_TRANSLATIONS: Record<string, string> = {
 	Argentina: "Argentina",
@@ -178,6 +147,12 @@ interface MatchCardProps {
 	predictionCount?: number;
 	/** Si se provee, reemplaza el toggle del acordeón por este callback (abre MatchSheet). */
 	onSelect?: (matchId: string) => void;
+	/**
+	 * Si se provee, renderiza el BroadcastLink (lower-third) al pie de la
+	 * card. El callback abre el MatchSheet de detalles del partido. La card
+	 * mantiene el comportamiento de acordeón para edición del pronóstico.
+	 */
+	onOpenDetails?: (matchId: string) => void;
 }
 
 export function MatchCard({
@@ -193,6 +168,7 @@ export function MatchCard({
 	isFullyPredicted,
 	predictionCount,
 	onSelect,
+	onOpenDetails,
 }: MatchCardProps) {
 	const isLive = match.status === "live";
 	const isFinished = match.status === "finished";
@@ -225,9 +201,6 @@ export function MatchCard({
 	const goalAudioRef = useRef<HTMLAudioElement | null>(null);
 
 	// Tab activo del detalle expandido (eventos / stats / formaciones)
-	const [detailTab, setDetailTab] = useState<"eventos" | "stats" | "formaciones">(
-		"eventos",
-	);
 
 	// Determinar si el gol fue acertado por el usuario (soporta modo multi-torneo)
 	const isUserGoal = useMemo(() => {
@@ -279,7 +252,9 @@ export function MatchCard({
 			// Cap a 5 elementos
 			return combined.slice(-5);
 		});
-		newEvents.forEach((e) => clearEvent(e.id));
+		for (const e of newEvents) {
+			clearEvent(e.id);
+		}
 	}, [newEvents, clearEvent]);
 
 	// Limpiar cola si no es live
@@ -1086,60 +1061,13 @@ export function MatchCard({
 							)}
 						</div>
 					)}
-
-					{/* Tactical Details Tabs (Events, Stats, Lineups) — Sprint 1 F10 */}
-					<CardDetailsTabs match={match} activeTab={detailTab} onTabChange={setDetailTab} />
 				</div>
 			)}
-		</div>
-	);
-}
 
-/**
- * Selector de tabs local para el detalle expandido de MatchCard.
- * Sprint 1 (F10): usa los nuevos componentes de `tabs/`.
- * 3 tabs: Eventos / Estadísticas / Formaciones.
- */
-function CardDetailsTabs({
-	match,
-	activeTab,
-	onTabChange,
-}: {
-	match: Match;
-	activeTab: "eventos" | "stats" | "formaciones";
-	onTabChange: (tab: "eventos" | "stats" | "formaciones") => void;
-}) {
-	return (
-		<div className="pt-2 mt-2 border-t border-white/5 space-y-4">
-			{/* Tab Selector */}
-			<div className="flex border-b border-white/5">
-				{(["eventos", "stats", "formaciones"] as const).map((t) => (
-					<button
-						type="button"
-						key={t}
-						role="tab"
-						aria-selected={activeTab === t}
-						onClick={() => onTabChange(t)}
-						className={`flex-1 py-2 font-label-caps text-[10px] tracking-widest font-extrabold transition-[color,transform] duration-200 active:scale-[0.96] relative cursor-pointer uppercase ${
-							activeTab === t
-								? "text-primary text-glowing"
-								: "text-on-surface-variant hover:text-primary"
-						}`}
-					>
-						{t}
-						{activeTab === t && (
-							<div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
-						)}
-					</button>
-				))}
-			</div>
-
-			{/* Contenido del tab activo — Suspense wrapper para los lazy tabs */}
-			<Suspense fallback={<TabLoadingFallback />}>
-				{activeTab === "eventos" && <EventosTab match={match} />}
-				{activeTab === "stats" && <StatsTab match={match} />}
-				{activeTab === "formaciones" && <FormacionesTab match={match} />}
-			</Suspense>
+			{/* BroadcastLink (lower-third) — abre el MatchSheet de detalles */}
+			{onOpenDetails && (
+				<BroadcastLink match={match} onOpenDetails={onOpenDetails} />
+			)}
 		</div>
 	);
 }

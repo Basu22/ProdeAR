@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
 import { useCachedImage } from "../../../lib/imageCache";
 import { getPlayerInitials } from "../../../lib/playerHelpers";
@@ -32,11 +32,27 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 		<div className="space-y-4">
 			{isMockedLineups && <DemoTag />}
 			{/* The Tactical Pitch Board */}
-			<div className="glass-card rounded-xl overflow-hidden aspect-[3/4] md:aspect-[4/3] relative pitch-grid border-white/10 shadow-2xl flex flex-col justify-between py-4 max-w-md mx-auto">
-				{/* Field Overlay & Markings */}
-				<div className="absolute inset-0 bg-black/45 pointer-events-none" />
-				<div className="absolute top-1/2 w-full h-px bg-white/20 pointer-events-none" />
-				<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-white/10 rounded-full pointer-events-none" />
+			<div className="glass-card rounded-xl overflow-hidden min-h-[480px] relative pitch-grid border-white/10 shadow-2xl flex flex-col justify-between py-5 max-w-md mx-auto">
+				{/* Field Overlay (oscurece levemente para que destaquen las marcas blancas) */}
+				<div className="absolute inset-0 bg-black/35 pointer-events-none" />
+
+				{/* === Field Markings (z-0, decorativos) === */}
+				{/* Área grande superior (penalty area) */}
+				<div className="absolute top-0 left-1/2 -translate-x-1/2 w-[64%] h-[28%] border border-white/10 rounded-b-sm pointer-events-none" />
+				{/* Área del arquero superior (6-yard box) */}
+				<div className="absolute top-[1%] left-1/2 -translate-x-1/2 w-[32%] h-[15%] border border-white/10 rounded-b-sm pointer-events-none" />
+				{/* Arco superior (travesaño) */}
+				<div className="absolute top-0 left-1/2 -translate-x-1/2 w-[14%] h-[2.5%] border border-white/15 border-b-0 pointer-events-none" />
+				{/* Círculo central */}
+				<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[24%] aspect-square border border-white/15 rounded-full pointer-events-none" />
+				{/* Línea media */}
+				<div className="absolute top-1/2 w-full h-px bg-white/15 pointer-events-none" />
+				{/* Arco inferior (travesaño) */}
+				<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[14%] h-[2.5%] border border-white/15 border-t-0 pointer-events-none" />
+				{/* Área del arquero inferior (6-yard box) */}
+				<div className="absolute bottom-[1%] left-1/2 -translate-x-1/2 w-[32%] h-[15%] border border-white/10 rounded-t-sm pointer-events-none" />
+				{/* Área grande inferior (penalty area) */}
+				<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[64%] h-[28%] border border-white/10 rounded-t-sm pointer-events-none" />
 
 				{/* Home Team (Top Half, descending rows) */}
 				<TacticalTeamFormation lineup={lineups[0]} isHome />
@@ -45,65 +61,95 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 				<TacticalTeamFormation lineup={lineups[1]} isHome={false} />
 			</div>
 
-			{/* Coaches & Substitutes Panel */}
-			<div className="grid sm:grid-cols-2 gap-3 bg-surface-container-low/40 rounded-xl p-3 border border-white/5 text-[10px]">
+			{/* Coaches & Substitutes Panel — siempre 2 columnas lado a lado */}
+			<div className="grid grid-cols-2 gap-3 bg-surface-container-low/40 rounded-xl p-3 border border-white/5 text-[10px]">
 				{/* Home Details */}
 				<div className="space-y-2">
-					<div className="pb-1 border-b border-white/5">
-						<p className="font-bold text-secondary uppercase truncate">
-							{match.homeTeam}
-						</p>
-						<p className="text-[9px] text-on-surface-variant">
-							DT:{" "}
-							<span className="text-white font-bold">
-								{lineups[0].coach.name || "No disponible"}
-							</span>
-						</p>
-					</div>
-					<div>
-						<p className="text-[9px] font-bold text-on-surface-variant/70 mb-1">
-							SUPLENTES
-						</p>
-						<ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-white/90">
-							{lineups[0].substitutes.map((s) => (
-								<li key={s.player.id} className="truncate">
-									<span className="text-[8px] font-black text-secondary mr-1 bg-white/5 px-1 rounded">
-										{s.player.number}
-									</span>
+					{/* Team name */}
+					<p className="font-bold text-secondary uppercase truncate pb-1 border-b border-white/5">
+						{match.homeTeam}
+					</p>
+
+					{/* Substitutes: photo + number + name (1 por fila, vertical, nombre wrappea) */}
+					<ul className="flex flex-col gap-1.5">
+						{lineups[0].substitutes.map((s) => (
+							<li
+								key={s.player.id}
+								className="flex items-center gap-2 min-w-0"
+							>
+								<SubstituteAvatar
+									name={s.player.name}
+									number={s.player.number}
+									photo={s.player.photo ?? null}
+									isHome={true}
+								/>
+								<span className="text-[10px] text-white leading-tight min-w-0 flex-1">
 									{s.player.name}
-								</li>
-							))}
-						</ul>
+								</span>
+							</li>
+						))}
+					</ul>
+
+					{/* DT (coach) at the bottom with photo */}
+					<div className="pt-2 border-t border-white/5 flex items-center gap-2">
+						<CoachAvatar
+							name={lineups[0].coach.name ?? "DT"}
+							photo={lineups[0].coach.photo}
+							isHome={true}
+						/>
+						<div className="min-w-0 flex-1">
+							<p className="text-[8px] text-on-surface-variant uppercase tracking-wider font-bold">
+								DT
+							</p>
+							<p className="text-[11px] text-white font-bold truncate">
+								{lineups[0].coach.name || "No disponible"}
+							</p>
+						</div>
 					</div>
 				</div>
 
 				{/* Away Details */}
 				<div className="space-y-2">
-					<div className="pb-1 border-b border-white/5">
-						<p className="font-bold text-primary uppercase truncate text-glowing">
-							{match.awayTeam}
-						</p>
-						<p className="text-[9px] text-on-surface-variant">
-							DT:{" "}
-							<span className="text-white font-bold">
-								{lineups[1].coach.name || "No disponible"}
-							</span>
-						</p>
-					</div>
-					<div>
-						<p className="text-[9px] font-bold text-on-surface-variant/70 mb-1">
-							SUPLENTES
-						</p>
-						<ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-white/90">
-							{lineups[1].substitutes.map((s) => (
-								<li key={s.player.id} className="truncate">
-									<span className="text-[8px] font-black text-primary mr-1 bg-primary/10 px-1 rounded">
-										{s.player.number}
-									</span>
+					{/* Team name */}
+					<p className="font-bold text-primary uppercase truncate text-glowing pb-1 border-b border-white/5">
+						{match.awayTeam}
+					</p>
+
+					{/* Substitutes: photo + number + name (1 por fila, vertical, nombre wrappea) */}
+					<ul className="flex flex-col gap-1.5">
+						{lineups[1].substitutes.map((s) => (
+							<li
+								key={s.player.id}
+								className="flex items-center gap-2 min-w-0"
+							>
+								<SubstituteAvatar
+									name={s.player.name}
+									number={s.player.number}
+									photo={s.player.photo ?? null}
+									isHome={false}
+								/>
+								<span className="text-[10px] text-white leading-tight min-w-0 flex-1">
 									{s.player.name}
-								</li>
-							))}
-						</ul>
+								</span>
+							</li>
+						))}
+					</ul>
+
+					{/* DT (coach) at the bottom with photo */}
+					<div className="pt-2 border-t border-white/5 flex items-center gap-2">
+						<CoachAvatar
+							name={lineups[1].coach.name ?? "DT"}
+							photo={lineups[1].coach.photo}
+							isHome={false}
+						/>
+						<div className="min-w-0 flex-1">
+							<p className="text-[8px] text-on-surface-variant uppercase tracking-wider font-bold">
+								DT
+							</p>
+							<p className="text-[11px] text-white font-bold truncate">
+								{lineups[1].coach.name || "No disponible"}
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -115,6 +161,25 @@ interface TacticalTeamFormationProps {
 	lineup: TeamLineup;
 	isHome: boolean;
 }
+
+/**
+ * Mapa de `flex-basis` + `flex-grow` por fila para que GK y FWD queden
+ * compactos contra los extremos (arco y círculo central respectivamente),
+ * mientras DEF y MID absorben el espacio sobrante.
+ *
+ * - GK (rowNum 1) y FWD (rowNum 4): basis 60px + grow bajo → ~80px total
+ * - DEF (rowNum 2) y MID (rowNum 3): basis 80px + grow alto → ~140px total
+ *
+ * Total basis: 60+80+80+60 = 280px. Con grow ratio 0.5+1.5+1.5+0.5=4.0,
+ * en una cancha de 480px (440px disponibles) cada grow unit = 40px.
+ * → GK: 80px | DEF: 140px | MID: 140px | FWD: 80px (suma 440px ✅).
+ */
+const ROW_FLEX: Record<number, string> = {
+	1: "basis-[60px] grow-[0.5]", // GK
+	2: "basis-[80px] grow-[1.5]", // DEF
+	3: "basis-[80px] grow-[1.5]", // MID
+	4: "basis-[60px] grow-[0.5]", // FWD
+};
 
 function TacticalTeamFormation({ lineup, isHome }: TacticalTeamFormationProps) {
 	// Group players by row based on coordinate grid "row:col" or pos fallback
@@ -170,12 +235,14 @@ function TacticalTeamFormation({ lineup, isHome }: TacticalTeamFormationProps) {
 	}, [lineup, isHome]);
 
 	return (
-		<div className="relative z-10 flex flex-col justify-around h-[45%]">
-				{rows.map((row) => (
-					<div
-						key={row.rowNum}
-						className="flex justify-around w-full max-w-xs mx-auto"
-					>
+		<div className="relative z-10 flex flex-col flex-1">
+			{rows.map((row) => (
+				<div
+					key={row.rowNum}
+					className={`flex items-center w-full px-3 gap-x-2 ${
+						row.players.length === 1 ? "justify-center" : "justify-evenly"
+					} ${ROW_FLEX[Math.min(row.rowNum, 4)]}`}
+				>
 						{row.players.map((p) => (
 							<TacticalPlayerPin
 								key={p.player.id}
@@ -254,9 +321,6 @@ function TacticalPlayerPin({
 	const pinColors = getPosColorClasses(pos, isHome);
 	const posName = POS_FULL_NAME[pos.toUpperCase()] ?? "Jugador";
 
-	// Truncate player name for pin label (e.g. Advíncula -> Advin..)
-	const displayName = name.length > 9 ? `${name.substring(0, 8)}.` : name;
-
 	// A11y: aria-label completo con posición, número y nombre
 	const ariaLabel = `${posName} número ${number}, ${name}`;
 
@@ -275,7 +339,7 @@ function TacticalPlayerPin({
 			role="img"
 			aria-label={ariaLabel}
 		>
-			<div className="relative w-8 h-8 md:w-9 md:h-9">
+			<div className="relative w-[50px] h-[50px]">
 				{/* Foto del jugador o fallback con iniciales */}
 				{cachedPhoto ? (
 					<img
@@ -286,25 +350,141 @@ function TacticalPlayerPin({
 					/>
 				) : (
 					<div
-						className={`w-full h-full rounded-full flex items-center justify-center font-stat-value text-[11px] md:text-[12px] font-black border-2 shadow-md ${pinColors}`}
+						className={`w-full h-full rounded-full flex items-center justify-center font-stat-value text-[14px] font-black border-2 shadow-md ${pinColors}`}
 					>
 						{initials}
 					</div>
 				)}
 
-				{/* Badge del número de camiseta (esquina superior derecha) */}
+				{/* Badge del número de camiseta (esquina inferior derecha) */}
 				<div
-					className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full ${pinColors} flex items-center justify-center text-[9px] md:text-[10px] font-black border border-white/30 px-1 tabular-nums`}
+					className={`absolute -bottom-1 -right-1 min-w-[18px] h-[18px] rounded-full ${pinColors} flex items-center justify-center text-[10px] font-black border border-white/30 px-1 tabular-nums`}
 				>
 					{number}
 				</div>
 			</div>
 
 			{/* Nombre del jugador (debajo del pin) */}
-			<span className="font-label-caps text-[7px] md:text-[8px] text-white/95 bg-black/60 px-1 py-0.5 rounded border border-white/5 mt-1 max-w-[56px] truncate">
-				{displayName}
+			<span className="font-label-caps text-[11px] text-white/95 bg-black/60 px-1 py-0.5 rounded border border-white/5 mt-1 max-w-[80px] truncate">
+				{name}
 			</span>
 		</div>
+	);
+}
+
+/* === SubstituteAvatar (foto 20px + número, layout horizontal) === */
+
+/**
+ * Avatar compacto de suplente: foto 20px con badge de número en la
+ * esquina inferior derecha, en layout horizontal junto al nombre.
+ *
+ * Reutiliza `useCachedImage` para cachear la foto del CDN.
+ * Si no hay foto, muestra iniciales con fondo neutro.
+ */
+function SubstituteAvatar({
+	name,
+	number,
+	photo,
+	isHome,
+}: {
+	name: string;
+	number: number;
+	photo: string | null;
+	isHome: boolean;
+}) {
+	const cached = useCachedImage(photo);
+	const [imgErrored, setImgErrored] = useState(false);
+
+	const ringClass = isHome ? "ring-secondary/60" : "ring-primary/60";
+	const badgeBg = isHome ? "bg-secondary" : "bg-primary";
+	const badgeText = isHome ? "text-on-secondary" : "text-on-primary";
+	const initialsBg = isHome ? "bg-secondary/30" : "bg-primary/30";
+	const initialsText = isHome ? "text-secondary" : "text-primary";
+
+	// Badge del número (esquina inferior derecha) — 18px convención
+	const numberBadge = (
+		<div
+			className={`absolute -bottom-1 -right-1 min-w-[18px] h-[18px] rounded-full ${badgeBg} ${badgeText} flex items-center justify-center text-[10px] font-black border border-white/30 px-1 tabular-nums leading-none`}
+		>
+			{number}
+		</div>
+	);
+
+	if (!photo || !cached || imgErrored) {
+		return (
+			<div
+				className={`relative w-[50px] h-[50px] rounded-full ring-2 ${ringClass} ${initialsBg} flex items-center justify-center flex-shrink-0`}
+				aria-hidden="true"
+			>
+				<span
+					className={`text-[14px] font-black ${initialsText} leading-none`}
+				>
+					{getPlayerInitials(name)}
+				</span>
+				{numberBadge}
+			</div>
+		);
+	}
+
+	return (
+		<div className="relative w-[50px] h-[50px] flex-shrink-0">
+			<img
+				src={cached}
+				alt={name}
+				loading="lazy"
+				onError={() => setImgErrored(true)}
+				className={`w-full h-full rounded-full ring-2 ${ringClass} object-cover`}
+			/>
+			{numberBadge}
+		</div>
+	);
+}
+
+/* === CoachAvatar (foto 30px sin número, con icono de fallback) === */
+
+/**
+ * Avatar del director técnico (DT/Coach): foto 30px sin número, con
+ * icono `person` de Material Symbols como fallback cuando no hay foto.
+ *
+ * Se renderiza en la parte inferior del panel de suplentes junto al
+ * nombre y label "DT".
+ */
+function CoachAvatar({
+	name,
+	photo,
+	isHome,
+}: {
+	name: string;
+	photo: string | null;
+	isHome: boolean;
+}) {
+	const cached = useCachedImage(photo);
+	const [imgErrored, setImgErrored] = useState(false);
+
+	const ringClass = isHome ? "ring-secondary/60" : "ring-primary/60";
+	const initialsBg = isHome ? "bg-secondary/30" : "bg-primary/30";
+
+	if (!photo || !cached || imgErrored) {
+		return (
+			<div
+				className={`w-[50px] h-[50px] rounded-full ring-2 ${ringClass} ${initialsBg} flex items-center justify-center flex-shrink-0`}
+				aria-hidden="true"
+			>
+				<span className="material-symbols-outlined text-[24px] text-white/60 leading-none">
+					person
+				</span>
+			</div>
+		);
+	}
+
+	return (
+		<img
+			src={cached}
+			alt={name}
+			loading="lazy"
+			onError={() => setImgErrored(true)}
+			className={`w-[50px] h-[50px] rounded-full ring-2 ${ringClass} object-cover flex-shrink-0`}
+		/>
 	);
 }
 

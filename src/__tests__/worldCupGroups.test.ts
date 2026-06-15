@@ -11,7 +11,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Match } from "../lib/types";
 import {
 	BEST_THIRDS_QUALIFY_COUNT,
 	BUILT_IN_TEAM_ALIASES,
@@ -76,7 +75,9 @@ describe("normalizeTeamName", () => {
 	});
 
 	it("preserves ampersands", () => {
-		expect(normalizeTeamName("Bosnia & Herzegovina")).toBe("bosnia & herzegovina");
+		expect(normalizeTeamName("Bosnia & Herzegovina")).toBe(
+			"bosnia & herzegovina",
+		);
 	});
 
 	it("handles empty / whitespace-only strings", () => {
@@ -242,15 +243,11 @@ describe("isKnockoutMatch", () => {
 	});
 
 	it("returns true for stageMultiplier === 1 + knockout strings", () => {
-		expect(
-			isKnockoutMatch(makeMatch({ stageName: "Round of 16" })),
-		).toBe(true);
-		expect(
-			isKnockoutMatch(makeMatch({ stageName: "Quarter-finals" })),
-		).toBe(true);
-		expect(isKnockoutMatch(makeMatch({ stageName: "Semi-finals" }))).toBe(
+		expect(isKnockoutMatch(makeMatch({ stageName: "Round of 16" }))).toBe(true);
+		expect(isKnockoutMatch(makeMatch({ stageName: "Quarter-finals" }))).toBe(
 			true,
 		);
+		expect(isKnockoutMatch(makeMatch({ stageName: "Semi-finals" }))).toBe(true);
 		expect(isKnockoutMatch(makeMatch({ stageName: "Final" }))).toBe(true);
 		expect(isKnockoutMatch(makeMatch({ stageName: "Dieciseisavos" }))).toBe(
 			true,
@@ -332,9 +329,7 @@ describe("getGroupTables", () => {
 		expect(mexico?.dg).toBe(1);
 		expect(mexico?.isLive).toBe(false);
 
-		const corea = groupA?.standings.find(
-			(s) => s.teamName === "Corea del Sur",
-		);
+		const corea = groupA?.standings.find((s) => s.teamName === "Corea del Sur");
 		expect(corea?.pj).toBe(1);
 		expect(corea?.pp).toBe(1);
 		expect(corea?.pts).toBe(0);
@@ -578,9 +573,7 @@ describe("getGroupTables", () => {
 
 		const tables = getGroupTables(matches);
 		const groupJ = tables.find((g) => g.groupName === "Grupo J");
-		const argentina = groupJ?.standings.find(
-			(s) => s.teamName === "Argentina",
-		);
+		const argentina = groupJ?.standings.find((s) => s.teamName === "Argentina");
 
 		expect(argentina?.pj).toBe(1);
 		expect(argentina?.pts).toBe(3);
@@ -709,10 +702,58 @@ describe("calculateBestThirds", () => {
 		// Construir 12 grupos, asignando el third provisto al índice 2
 		return thirds.map((t) => {
 			const otherTeams = [
-				{ teamName: `${t.teamName} (1°)`, pts: 9, dg: 5, gf: 6, gc: 1, pj: 3, pg: 3, pe: 0, pp: 0, isLive: false, logo: null },
-				{ teamName: `${t.teamName} (2°)`, pts: 6, dg: 2, gf: 4, gc: 2, pj: 3, pg: 2, pe: 0, pp: 1, isLive: false, logo: null },
-				{ teamName: t.teamName, pts: t.pts, dg: t.dg, gf: t.gf, gc: 0, pj: 3, pg: 0, pe: 0, pp: 3, isLive: false, logo: null },
-				{ teamName: `${t.teamName} (4°)`, pts: 0, dg: -10, gf: 0, gc: 10, pj: 3, pg: 0, pe: 0, pp: 3, isLive: false, logo: null },
+				{
+					teamName: `${t.teamName} (1°)`,
+					pts: 9,
+					dg: 5,
+					gf: 6,
+					gc: 1,
+					pj: 3,
+					pg: 3,
+					pe: 0,
+					pp: 0,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: `${t.teamName} (2°)`,
+					pts: 6,
+					dg: 2,
+					gf: 4,
+					gc: 2,
+					pj: 3,
+					pg: 2,
+					pe: 0,
+					pp: 1,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: t.teamName,
+					pts: t.pts,
+					dg: t.dg,
+					gf: t.gf,
+					gc: 0,
+					pj: 3,
+					pg: 0,
+					pe: 0,
+					pp: 3,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: `${t.teamName} (4°)`,
+					pts: 0,
+					dg: -10,
+					gf: 0,
+					gc: 10,
+					pj: 3,
+					pg: 0,
+					pe: 0,
+					pp: 3,
+					isLive: false,
+					logo: null,
+				},
 			];
 			return {
 				groupName: `Grupo ${t.groupLetter}`,
@@ -884,10 +925,58 @@ describe("resolveKnockoutMatchups", () => {
 	) {
 		return top2PerGroup.map(({ groupLetter, first, second }) => {
 			const standings = [
-				{ teamName: first, pts: 9, dg: 5, gf: 6, gc: 1, pj: 3, pg: 3, pe: 0, pp: 0, isLive: false, logo: null },
-				{ teamName: second, pts: 6, dg: 2, gf: 4, gc: 2, pj: 3, pg: 2, pe: 0, pp: 1, isLive: false, logo: null },
-				{ teamName: "Third", pts: 3, dg: 0, gf: 2, gc: 2, pj: 3, pg: 1, pe: 0, pp: 2, isLive: false, logo: null },
-				{ teamName: "Fourth", pts: 0, dg: -7, gf: 0, gc: 7, pj: 3, pg: 0, pe: 0, pp: 3, isLive: false, logo: null },
+				{
+					teamName: first,
+					pts: 9,
+					dg: 5,
+					gf: 6,
+					gc: 1,
+					pj: 3,
+					pg: 3,
+					pe: 0,
+					pp: 0,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: second,
+					pts: 6,
+					dg: 2,
+					gf: 4,
+					gc: 2,
+					pj: 3,
+					pg: 2,
+					pe: 0,
+					pp: 1,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: "Third",
+					pts: 3,
+					dg: 0,
+					gf: 2,
+					gc: 2,
+					pj: 3,
+					pg: 1,
+					pe: 0,
+					pp: 2,
+					isLive: false,
+					logo: null,
+				},
+				{
+					teamName: "Fourth",
+					pts: 0,
+					dg: -7,
+					gf: 0,
+					gc: 7,
+					pj: 3,
+					pg: 0,
+					pe: 0,
+					pp: 3,
+					isLive: false,
+					logo: null,
+				},
 			];
 			return {
 				groupName: `Grupo ${groupLetter}`,

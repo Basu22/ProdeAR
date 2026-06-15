@@ -41,8 +41,21 @@ export interface SubPair {
 	id: string;
 	minute: number;
 	team: "home" | "away";
-	playerOut: { name: string; number: number | null };
-	playerIn: { name: string; number: number | null };
+	/**
+	 * Foto del jugador. Se popula en `EventosTab` vía `resolveSubstitutionPhoto`
+	 * (que matchea por nombre contra `match.lineups` y busca en `match.playerPhotos`).
+	 * Opcional: si es undefined, la UI debe resolverlo o caer a iniciales.
+	 */
+	playerOut: {
+		name: string;
+		number: number | null;
+		photoUrl?: string | null;
+	};
+	playerIn: {
+		name: string;
+		number: number | null;
+		photoUrl?: string | null;
+	};
 }
 
 /**
@@ -233,8 +246,28 @@ export function pairSubstitutions(
 				},
 			});
 		} else {
-			// No encontramos par, lo dejamos como evento normal
-			result.push(e);
+			// No encontramos par. Si tiene assistName (ambos nombres disponibles),
+			// sintetizamos un SubPair para que la UI muestre el formato unificado
+			// (sale bold / entra dim) en vez del fallback con emoji 🔄.
+			// Si no tiene assistName, lo dejamos como evento normal (datos incompletos).
+			if (e.assistName) {
+				result.push({
+					__type: "subPair",
+					id: `subpair-single-${e.id}`,
+					minute: realMinute(e),
+					team: e.team,
+					playerOut: {
+						name: e.assistName,
+						number: e.detail ? extractNumber(e.detail) : null,
+					},
+					playerIn: {
+						name: e.playerName,
+						number: e.detail ? extractNumber(e.detail) : null,
+					},
+				});
+			} else {
+				result.push(e);
+			}
 		}
 	}
 

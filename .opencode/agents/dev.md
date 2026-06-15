@@ -20,6 +20,7 @@ permission:
     "planner": allow          # 🤝 Permitimos invocar automáticamente al subagente planificador
     "qa-engineer": allow
     "brainstormer": allow
+    "documentacion": allow
 ---
 
 Sos el agente encargado del desarrollo activo y la implementación de código en el espacio de trabajo.

@@ -20,10 +20,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Match } from "../lib/types";
-import type {
-	GroupTable,
-	WorldCupMatch,
-} from "../lib/worldCupGroups";
+import type { GroupTable, WorldCupMatch } from "../lib/worldCupGroups";
 
 // Mock del hook useGroupStandings — ANTES de importar el componente
 vi.mock("../hooks/useGroupStandings", () => ({
@@ -122,7 +119,9 @@ function makeGroupTables(): GroupTable[] {
 	}));
 }
 
-function makeHookReturn(overrides: Partial<ReturnType<typeof useGroupStandings>> = {}) {
+function makeHookReturn(
+	overrides: Partial<ReturnType<typeof useGroupStandings>> = {},
+) {
 	return {
 		groupTables: makeGroupTables(),
 		liveGroups: new Set<string>(),
@@ -155,9 +154,7 @@ describe("PositionsView", () => {
 	});
 
 	it("renderiza las 12 GroupTable cuando GRUPOS está activo", () => {
-		const { container } = render(
-			<PositionsView matches={makeMatches()} />,
-		);
+		const { container } = render(<PositionsView matches={makeMatches()} />);
 
 		// 12 GroupTable = 12 cards con nombre "Grupo X"
 		for (let i = 0; i < 12; i++) {
@@ -213,7 +210,9 @@ describe("PositionsView", () => {
 		await user.click(screen.getByRole("tab", { name: /GRUPOS/i }));
 		expect(screen.getByText("Grupo A")).toBeInTheDocument();
 		// El header de KnockoutBracket ya NO debe estar
-		expect(screen.queryByText("Dieciseisavos de final")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("Dieciseisavos de final"),
+		).not.toBeInTheDocument();
 	});
 
 	it("muestra badge con contador de partidos en vivo en el pill GRUPOS", () => {
@@ -248,13 +247,9 @@ describe("PositionsView", () => {
 
 		render(<PositionsView matches={makeMatches()} />);
 
+		expect(screen.getByText("No hay grupos disponibles")).toBeInTheDocument();
 		expect(
-			screen.getByText("No hay grupos disponibles"),
-		).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				/No se encontraron partidos de fase de grupos/i,
-			),
+			screen.getByText(/No se encontraron partidos de fase de grupos/i),
 		).toBeInTheDocument();
 	});
 
@@ -262,7 +257,9 @@ describe("PositionsView", () => {
 		render(<PositionsView matches={makeMatches()} />);
 
 		expect(screen.getByText("Clasifica a 16vos")).toBeInTheDocument();
-		expect(screen.getByText("Posible clasificado (mejor 3°)")).toBeInTheDocument();
+		expect(
+			screen.getByText("Posible clasificado (mejor 3°)"),
+		).toBeInTheDocument();
 	});
 
 	it("pasa los matches al hook useGroupStandings", () => {

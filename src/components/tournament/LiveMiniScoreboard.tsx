@@ -93,7 +93,9 @@ function SingleMatch({ match }: { match: Match }) {
 				logo={match.homeLogo}
 				isWinning={homeWinning}
 			/>
-			<span className="text-on-surface-variant/40 text-[10px] font-bold">vs</span>
+			<span className="text-on-surface-variant/40 text-[10px] font-bold">
+				vs
+			</span>
 			<TeamChip
 				team={match.awayTeam}
 				score={awayScore}
