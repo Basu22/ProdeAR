@@ -160,6 +160,17 @@ export function MatchSheet({
 	const locked = !predictable;
 	const hasLineupsAvailable = (match.lineups?.length ?? 0) >= 2;
 
+	// Sprint "Habilitar formations upcoming" (Fase UX):
+	// Label e icono del tab cambian según el contexto. "Formación" es
+	// semánticamente más preciso para un XI titular pre-partido;
+	// "Equipo" se mantiene en live/finished (consistencia con el
+	// comportamiento previo, donde el usuario espera ver "el equipo
+	// jugando" con sus cambios posicionales).
+	const isUpcomingWithLineups =
+		match.status === "not_started" && hasLineupsAvailable;
+	const lineupsTabLabel = isUpcomingWithLineups ? "Formación" : "Equipo";
+	const lineupsTabIcon = isUpcomingWithLineups ? "groups" : "sports_soccer";
+
 	// === Tabs disponibles según estado del partido ===
 	const tabsAvailable: SheetTabDef[] = [
 		{ id: "predictions", label: "Pronós", icon: "stadia_controller" },
@@ -171,7 +182,11 @@ export function MatchSheet({
 			: []),
 		// Formaciones: solo si hay lineups O si el partido es live/finished
 		...(isLive || isFinished || hasLineupsAvailable
-			? [{ id: "lineups" as const, label: "Equipo", icon: "sports_soccer" }]
+			? [{
+					id: "lineups" as const,
+					label: lineupsTabLabel,
+					icon: lineupsTabIcon,
+				}]
 			: []),
 	];
 
@@ -227,6 +242,15 @@ export function MatchSheet({
 									locked={locked}
 									isCancelled={isCancelled}
 									onSlideDirtyChange={handleSlideDirtyChange}
+									// Sprint "Habilitar formations upcoming" (UX):
+									// callback que cambia al tab "lineups" cuando
+									// el usuario toca el chip "Formación disponible".
+									// Usamos mountedTabsRef + setActiveTab para
+									// mantener el patrón lazy mount del tab.
+									onLineupsTabRequest={() => {
+										mountedTabsRef.current.add("lineups");
+										setActiveTab("lineups");
+									}}
 								/>
 							</div>
 						)}

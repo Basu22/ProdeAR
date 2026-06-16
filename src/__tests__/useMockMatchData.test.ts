@@ -180,4 +180,53 @@ describe("useMockMatchData", () => {
 		expect(result.current.lineups).toBeNull();
 		expect(result.current.isMockedLineups).toBe(false);
 	});
+
+	// Sprint "Habilitar formations upcoming" (Fase UX): los mocks
+	// determinísticos deben incluir `publishedAt` para que el badge
+	// "Recién publicada" funcione en DEV.
+	it("mocks incluyen publishedAt determinístico (kickoff - 10min)", () => {
+		vi.stubEnv("DEV", true);
+		const match = makeMatch({
+			id: "fixture-abc",
+			kickOff: "2026-06-20T20:00:00.000Z",
+		});
+		const { result } = renderHook(() => useMockMatchData(match));
+		expect(result.current.lineups?.[0]?.publishedAt).toBe(
+			"2026-06-20T19:50:00.000Z",
+		);
+		expect(result.current.lineups?.[1]?.publishedAt).toBe(
+			"2026-06-20T19:50:00.000Z",
+		);
+	});
+
+	it("lineups reales preservan el publishedAt que viene del backend", () => {
+		vi.stubEnv("DEV", true);
+		const realLineups = [
+			{
+				team: { id: 1, name: "Boca", logo: "" },
+				formation: "4-3-3",
+				startXI: [],
+				substitutes: [],
+				coach: { id: 1, name: "DT", photo: null },
+				publishedAt: "2026-06-20T19:30:00.000Z",
+			},
+			{
+				team: { id: 2, name: "River", logo: "" },
+				formation: "4-4-2",
+				startXI: [],
+				substitutes: [],
+				coach: { id: 2, name: "DT", photo: null },
+				publishedAt: "2026-06-20T19:30:00.000Z",
+			},
+		];
+		const match = makeMatch({
+			status: "not_started",
+			lineups: realLineups,
+		});
+		const { result } = renderHook(() => useMockMatchData(match));
+		expect(result.current.lineups?.[0]?.publishedAt).toBe(
+			"2026-06-20T19:30:00.000Z",
+		);
+		expect(result.current.isMockedLineups).toBe(false);
+	});
 });
