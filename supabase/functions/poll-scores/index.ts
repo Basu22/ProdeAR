@@ -4,7 +4,11 @@ import webpush from "npm:web-push";
 // Sprint "Habilitar formations upcoming": función pura extraída a
 // src/lib/lineupFetch.ts para ser testeable con Vitest. El Edge
 // Function solo la consume (sin redefinirla).
-import { shouldFetchLineups } from "../../../../src/lib/lineupFetch.ts";
+//
+// Path relativo: desde supabase/functions/poll-scores/index.ts subir
+// 3 niveles (poll-scores → functions → supabase → ProdeAR) y luego
+// entrar a src/lib/lineupFetch.ts.
+import { shouldFetchLineups } from "../../../src/lib/lineupFetch.ts";
 
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
