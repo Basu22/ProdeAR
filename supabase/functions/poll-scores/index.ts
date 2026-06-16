@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import webpush from "npm:web-push";
+// Sprint "Habilitar formations upcoming": función pura extraída a
+// src/lib/lineupFetch.ts para ser testeable con Vitest. El Edge
+// Function solo la consume (sin redefinirla).
+import { shouldFetchLineups } from "../../../../src/lib/lineupFetch.ts";
 
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
@@ -1069,7 +1073,9 @@ serve(async (req) => {
 			if (!preview) {
 				const { data } = await supabase
 					.from("matches")
-					.select("id, status, stats, lineups, events, player_photos")
+					.select(
+						"id, status, stats, lineups, events, player_photos, lineups_updated_at",
+					)
 					.eq("api_match_id", f.fixture.id)
 					.maybeSingle();
 				existingMatch = data;
@@ -1082,15 +1088,28 @@ serve(async (req) => {
 			const exLineups = existingMatch?.lineups || [];
 			const exEvents = existingMatch?.events || [];
 			const exPhotos = existingMatch?.player_photos || [];
+			const exLineupsUpdatedAt = existingMatch?.lineups_updated_at ?? null;
 
 			const needsStats =
 				isLive ||
 				isNewlyFinished ||
 				(mappedStatus === "finished" && (!exStats || exStats.length === 0));
-			const needsLineups =
-				isLive ||
-				isNewlyFinished ||
-				(mappedStatus === "finished" && (!exLineups || exLineups.length === 0));
+
+			// Sprint "Habilitar formations upcoming": la lógica de decisión
+			// para lineups ahora cubre también upcoming en ventana de 2h
+			// antes del kickoff, con un staleness check de 30 min para
+			// evitar re-fetches innecesarios. Ver `shouldFetchLineups()`
+			// arriba (función pura testeable).
+			const lineupsDecision = shouldFetchLineups({
+				status: mappedStatus,
+				isNewlyFinished,
+				kickOff: f.fixture.date,
+				exLineups,
+				exLineupsUpdatedAt,
+				nowMs: Date.now(),
+			});
+			const needsLineups = lineupsDecision.needs;
+
 			const needsEvents =
 				isLive ||
 				isNewlyFinished ||
@@ -1110,6 +1129,21 @@ serve(async (req) => {
 				needsEvents,
 				needsPlayerPhotos,
 			});
+
+			// Sprint "Habilitar formations upcoming": log de observabilidad
+			// para entender en producción por qué se decidió fetchar (o no)
+			// las lineups de este fixture. Útil para auditar cuota y
+			// detectar partidos que no reciben lineups cuando deberían.
+			if (needsLineups || lineupsDecision.reason === "no_window") {
+				console.log(
+					`[poll-scores] lineups fixture=${f.fixture.id} ` +
+					`${f.teams.home.name} vs ${f.teams.away.name} ` +
+					`status=${mappedStatus} kickoff=${f.fixture.date} ` +
+					`→ needs=${needsLineups} reason=${lineupsDecision.reason} ` +
+					`exLineupsLen=${Array.isArray(exLineups) ? exLineups.length : 0} ` +
+					`exUpdatedAt=${exLineupsUpdatedAt ?? "null"}`,
+				);
+			}
 		}
 
 		// Phase B: Batch fetch todos los IDs que necesitan CUALQUIER dato
@@ -1286,6 +1320,10 @@ serve(async (req) => {
 			let lineups = existingMatch?.lineups || [];
 			let events = existingMatch?.events || [];
 			let player_photos = existingMatch?.player_photos || [];
+			// Sprint "Habilitar formations upcoming": flag que indica si
+			// sobrescribimos las lineups en este poll. Se usa más abajo
+			// para popular `lineups_updated_at` solo cuando corresponde.
+			let lineupsWereUpdated = false;
 
 			if (!preview) {
 				const fetchedData = batchData.get(f.fixture.id);
@@ -1302,8 +1340,26 @@ serve(async (req) => {
 					if (decision.needsStats && processed.stats) {
 						stats = processed.stats;
 					}
-					if (decision.needsLineups && processed.lineups && processed.lineups.length > 0) {
+					// Sprint "Habilitar formations upcoming": fix de gap. Antes
+					// aceptaba `length > 0` (1 solo equipo pisaba 2 ya guardados).
+					// Ahora requiere `>= 2` para sobrescribir, con fallback
+					// permisivo: si la API devuelve 1 solo equipo y NO había
+					// lineups previas, aceptar (mejor que nada).
+					if (
+						decision.needsLineups &&
+						processed.lineups &&
+						processed.lineups.length >= 2
+					) {
 						lineups = processed.lineups;
+						lineupsWereUpdated = true;
+					} else if (
+						decision.needsLineups &&
+						Array.isArray(processed.lineups) &&
+						processed.lineups.length === 1 &&
+						(!exLineups || exLineups.length === 0)
+					) {
+						lineups = processed.lineups;
+						lineupsWereUpdated = true;
 					}
 					if (decision.needsEvents && processed.events && processed.events.length > 0) {
 						events = processed.events;
@@ -1355,6 +1411,13 @@ serve(async (req) => {
 				stats: stats,
 				lineups: lineups,
 				player_photos: player_photos,
+				// Sprint "Habilitar formations upcoming": timestamp de cuándo
+				// se actualizaron las lineups por última vez. Se popula SOLO
+				// cuando sobrescribimos (evita pisar el valor real con NOW()
+				// en polls que no tocaron lineups).
+				lineups_updated_at: lineupsWereUpdated
+					? new Date().toISOString()
+					: (exLineupsUpdatedAt ?? null),
 				// Canonicalización Sprint 3 (server-side, opcional en DB)
 				group_letter: groupLetter,
 				home_team_canonical: homeResolved.canonical,
