@@ -522,7 +522,7 @@ async function notifyUpcomingClosures(
 			stats.processedMatches += matches.length;
 
 			// Para cada match, obtener destinatarios y enviar.
-			for (const match of matches as MatchForClosure[]) {
+			for (const match of matches) {
 				const { data: recipients, error: recErr } = await supabase.rpc(
 					"get_closure_notification_recipients",
 					{ p_match_id: match.id, p_competition_id: match.competition_id },
@@ -536,7 +536,7 @@ async function notifyUpcomingClosures(
 				// Batching paralelo de envíos.
 				const sendPromises: Promise<void>[] = [];
 
-				for (const recipient of recipients as ClosureRecipient[]) {
+				for (const recipient of recipients) {
 					// Idempotencia: insertar en notification_log antes de enviar.
 					const { error: logErr } = await supabase
 						.from("notification_log")
@@ -609,6 +609,18 @@ async function notifyUpcomingClosures(
 		`[Phase 3] Done: ${stats.processedMatches} matches, ${stats.totalSent} sent, ${stats.totalSkipped} skipped, ${stats.totalFailed} failed`,
 	);
 	return stats;
+}
+
+
+// FIX: SWC parser rejects 5-level nested ternary with optional chaining
+// inside object literals. Extracted to helper function.
+function mapEventType(e: any): string {
+	if (e.type === "Goal") return "goal";
+	if (e.detail && e.detail.includes("Red")) return "red";
+	if (e.type === "Card") return "yellow";
+	if (e.type === "subst") return "subst";
+	if (e.type === "Var") return "var";
+	return "info";
 }
 
 serve(async (req) => {
@@ -987,17 +999,7 @@ serve(async (req) => {
 				events = f.events.map((e: any, idx: number) => ({
 					id: `evt-${f.fixture.id}-${idx}`,
 					type:
-						e.type === "Goal"
-							? "goal"
-							: e.detail?.includes("Red")
-								? "red"
-								: e.type === "Card"
-									? "yellow"
-									: e.type === "subst"
-										? "subst"
-										: e.type === "Var"
-											? "var"
-											: "info",
+						mapEventType(e),
 					minute: e.time?.elapsed ?? 0,
 					extra: e.time?.extra ?? null,
 					team: e.team?.id === f.teams.home.id ? "home" : "away",
@@ -1157,8 +1159,9 @@ serve(async (req) => {
 			fixture: any,
 			originalFixture: any,
 		) {
-			const season =
-				fixture?.league?.season ?? originalFixture?.league?.season ?? null;
+			let season: any = null;
+			if (fixture?.league?.season) season = fixture.league.season;
+			else if (originalFixture?.league?.season) season = originalFixture.league.season;
 
 			// Sprint 2 Fix (#4): Coverage check. Si la API indica que la feature
 			// no está disponible para esta liga+season, NO procesamos la data.
@@ -1188,9 +1191,11 @@ serve(async (req) => {
 				  )
 				: true;
 
-			const stats = hasStats
-				? fixture?.statistics ?? originalFixture?.stats ?? null
-				: [];
+			let stats: any = [];
+			if (hasStats) {
+				if (fixture?.statistics) stats = fixture.statistics;
+				else if (originalFixture?.stats) stats = originalFixture.stats;
+			}
 			const lineups = hasLineups
 				? fixture?.lineups ?? null
 				: [];
@@ -1203,17 +1208,7 @@ serve(async (req) => {
 				events = apiEvents.map((e: any, idx: number) => ({
 					id: `evt-${fixture.fixture.id}-${idx}`,
 					type:
-						e.type === "Goal"
-							? "goal"
-							: e.detail?.includes("Red")
-								? "red"
-								: e.type === "Card"
-									? "yellow"
-									: e.type === "subst"
-										? "subst"
-										: e.type === "Var"
-											? "var"
-											: "info",
+						mapEventType(e),
 					minute: e.time?.elapsed ?? 0,
 					extra: e.time?.extra ?? null,
 					team: e.team?.id === originalFixture.teams.home.id ? "home" : "away",
@@ -1227,17 +1222,7 @@ serve(async (req) => {
 				events = originalFixture.events.map((e: any, idx: number) => ({
 					id: `evt-${originalFixture.fixture.id}-${idx}`,
 					type:
-						e.type === "Goal"
-							? "goal"
-							: e.detail?.includes("Red")
-								? "red"
-								: e.type === "Card"
-									? "yellow"
-									: e.type === "subst"
-										? "subst"
-										: e.type === "Var"
-											? "var"
-											: "info",
+						mapEventType(e),
 					minute: e.time?.elapsed ?? 0,
 					extra: e.time?.extra ?? null,
 					team:
@@ -1419,15 +1404,14 @@ serve(async (req) => {
 		// Solo ejecutar si NO es preview ni raw.
 		// Se ejecuta en try/catch independiente para no romper la respuesta
 		// principal si hay algún error en la lógica de Fase 3.
-		// FIX: tipo explícito en lugar de Awaited<ReturnType<...>>
+		// FIX: tipo explícito en lugar de Awaited<ReturnType<typeof ...>>
 		// (Deno SWC parser rechaza el tipo complejo — bug conocido).
-		// El tipo coincide con la firma de notifyUpcomingClosures (línea 490).
 		let closureStats:
 			| {
-					processedMatches: number;
-					totalSent: number;
-					totalSkipped: number;
-					totalFailed: number;
+				processedMatches: number;
+				totalSent: number;
+				totalSkipped: number;
+				totalFailed: number;
 			  }
 			| null = null;
 		if (!preview && !raw) {
