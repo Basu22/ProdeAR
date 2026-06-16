@@ -86,8 +86,24 @@ CREATE TABLE public.matches (
     tv_channel TEXT, -- Canal de televisión
     elapsed INTEGER, -- Minutos transcurridos
     raw_status TEXT, -- Estado crudo de la API (ej. HT, 1H, 2H)
-    events JSONB DEFAULT '[]'::jsonb -- Eventos en vivo (goles, tarjetas)
+    events JSONB DEFAULT '[]'::jsonb, -- Eventos en vivo (goles, tarjetas)
+    -- Sprint 1/2: columnas agregadas manualmente en Supabase Dashboard,
+    -- formalizadas en migration 0004 (idempotente). Estructura documentada
+    -- en src/lib/types.ts (TeamLineup, TeamStats, PlayerPhoto).
+    stats JSONB DEFAULT '[]'::jsonb,
+    lineups JSONB DEFAULT '[]'::jsonb,
+    player_photos JSONB DEFAULT '[]'::jsonb,
+    -- Sprint "Habilitar formaciones upcoming": timestamp de la última vez
+    -- que poll-scores actualizó las formations desde API-Football. NULL si
+    -- nunca se fetcheó. Usado para evitar re-fetches innecesarios (la API
+    -- publica lineups T-20-40min antes del kickoff).
+    lineups_updated_at TIMESTAMPTZ DEFAULT NULL
 );
+
+-- Índice para queries de "partidos upcoming sin lineups" (monitoreo + poll-scores)
+CREATE INDEX IF NOT EXISTS idx_matches_upcoming_no_lineups
+  ON matches (kick_off, status)
+  WHERE status = 'scheduled' AND (lineups IS NULL OR jsonb_array_length(lineups) < 2);
 
 -- TABLA: PREDICTIONS (Pronósticos de los usuarios)
 CREATE TABLE public.predictions (
