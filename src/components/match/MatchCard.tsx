@@ -542,6 +542,15 @@ export function MatchCard({
 							isFullyPredicted={isFullyPredicted}
 							live={live}
 							predictionCount={predictionCount}
+							// Sprint "Habilitar formations upcoming" (v1.1): badge
+							// "👥 11" al lado del horario en estados de pre-partido.
+							hasLineupsUpcoming={
+								!isLive &&
+								!isFinished &&
+								!isCancelled &&
+								!isPostponed &&
+								(match.lineups?.length ?? 0) >= 2
+							}
 						/>
 					) : isLive ? (
 						<LiveClockBadge live={live} size="sm" />
@@ -558,12 +567,33 @@ export function MatchCard({
 							PPTO
 						</span>
 					) : (
-						<span className="text-[9px] md:text-[10px] text-on-surface-variant font-bold tabular-nums">
-							{new Date(match.kickOff).toLocaleTimeString("es-AR", {
-								hour: "2-digit",
-								minute: "2-digit",
-							})}
-						</span>
+						// Sprint "Habilitar formations upcoming" (v1.1): badge
+						// "👥 11" al lado del horario en upcoming SIN cardState.
+						<div className="flex items-center gap-1.5">
+							<span className="text-[9px] md:text-[10px] text-on-surface-variant font-bold tabular-nums">
+								{new Date(match.kickOff).toLocaleTimeString("es-AR", {
+									hour: "2-digit",
+									minute: "2-digit",
+								})}
+							</span>
+							{(match.lineups?.length ?? 0) >= 2 && (
+								<span
+									className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary"
+									aria-label="Formación titular disponible"
+									title="Formación titular disponible — tocá para ver"
+								>
+									<span
+										className="material-symbols-outlined text-[10px]"
+										aria-hidden="true"
+									>
+										groups
+									</span>
+									<span className="font-label-caps text-[8px] tracking-widest font-bold">
+										11
+									</span>
+								</span>
+							)}
+						</div>
 					)}
 				</div>
 
