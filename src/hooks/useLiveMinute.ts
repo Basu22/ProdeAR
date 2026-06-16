@@ -97,12 +97,7 @@ export function useLiveMinute(
 	useEffect(() => {
 		// Si las props cambiaron (o el hook se montó con un partido en vivo),
 		// reseteamos al valor de la API y registramos el timestamp del update.
-		const freshStart = computeStartMinute(
-			match,
-			isPaused,
-			isLive,
-			rawStatus,
-		);
+		const freshStart = computeStartMinute(match, isPaused, isLive, rawStatus);
 		setLiveMinute(freshStart);
 		setLastApiUpdateAt(Date.now());
 
@@ -143,22 +138,17 @@ export function useLiveMinute(
 		}, 10_000);
 
 		return () => clearInterval(interval);
-	}, [
-		match.id,
-		match.minute,
-		match.kickOff,
-		isLive,
-		rawStatus,
-		isPaused,
-	]);
+	}, [match.id, match.minute, match.kickOff, isLive, rawStatus, isPaused]);
 
 	const ageMs = tickNow - lastApiUpdateAt;
 	const ageMinutes = Math.floor(ageMs / 60_000);
 
 	let freshness: LiveFreshness = "unknown";
 	if (isLive) {
-		if (ageMs < 90_000) freshness = "fresh"; // < 90s
-		else if (ageMs < 240_000) freshness = "warm"; // 90s - 4min
+		if (ageMs < 90_000)
+			freshness = "fresh"; // < 90s
+		else if (ageMs < 240_000)
+			freshness = "warm"; // 90s - 4min
 		else freshness = "stale"; // > 4min
 	}
 
@@ -238,7 +228,13 @@ function getSavedLiveMinute(
 		if (elapsedMinutes > 2) return dbMinute; // > 2 min: no confiable
 
 		const estimatedMinute = saved.minute + elapsedMinutes;
-		if (estimatedMinute > dbMinute) return estimatedMinute;
+		// Si la estimación local está >5 min por delante de la DB, descartamos:
+		// probablemente el localStorage quedó stale (sesión cerrada, etc.) y
+		// debemos priorizar el valor de la API, que es la fuente de verdad.
+		if (estimatedMinute > dbMinute) {
+			if (estimatedMinute - dbMinute > 5) return dbMinute;
+			return estimatedMinute;
+		}
 	} catch (e) {
 		console.error("Error reading saved live minute:", e);
 	}

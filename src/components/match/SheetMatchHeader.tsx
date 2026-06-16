@@ -1,6 +1,8 @@
 import { useCountdown } from "../../hooks/useCountdown";
+import { useLiveMinute } from "../../hooks/useLiveMinute";
 import { getPotentialPoints } from "../../lib/predictionHelpers";
 import type { Match } from "../../lib/types";
+import { LiveClockBadge } from "./LiveClockBadge";
 
 export interface SheetMatchHeaderProps {
 	match: Match;
@@ -18,13 +20,16 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 		hour12: false,
 	});
 	const countdown = useCountdown(kickoffDate, 30_000);
-	const showCountdown =
-		match.status === "not_started" && !countdown.isExpired;
+	const showCountdown = match.status === "not_started" && !countdown.isExpired;
 
 	const isLive = match.status === "live";
 	const isFinished = match.status === "finished";
 	const isCancelled =
 		match.status === "cancelled" || match.status === "postponed";
+
+	// Fuente única de verdad para el cronómetro en vivo: mismo hook que usa
+	// la MatchCard, para que no haya divergencia entre card (73') y modal (24').
+	const live = useLiveMinute(match);
 
 	const potential = getPotentialPoints(match.stageMultiplier);
 
@@ -40,14 +45,7 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 		<header className="relative w-full space-y-4 px-2 pt-2 pb-4 border-b border-white/5">
 			{/* Status badge + countdown */}
 			<div className="flex items-center justify-center gap-3 text-[10px] font-label-caps uppercase tracking-widest">
-				{isLive && (
-					<span className="flex items-center gap-1.5 text-error font-bold">
-						<span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
-						<span>
-							● {typeof match.minute === "number" ? `${match.minute}'` : "EN VIVO"}
-						</span>
-					</span>
-				)}
+				{isLive && <LiveClockBadge live={live} size="lg" highlightOnMount />}
 				{isFinished && (
 					<span className="text-on-surface-variant/60 font-bold">FIN</span>
 				)}
@@ -56,12 +54,18 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 				)}
 				{showCountdown && (
 					<span className="text-tertiary font-bold flex items-center gap-1.5">
-						<span className="material-symbols-outlined text-[14px]">schedule</span>
-						<span>⏰ {kickoffTime} · {countdown.formatted}</span>
+						<span className="material-symbols-outlined text-[14px]">
+							schedule
+						</span>
+						<span>
+							⏰ {kickoffTime} · {countdown.formatted}
+						</span>
 					</span>
 				)}
 				{!isLive && !isFinished && !isCancelled && !showCountdown && (
-					<span className="text-on-surface-variant font-bold">⏰ {kickoffTime}</span>
+					<span className="text-on-surface-variant font-bold">
+						⏰ {kickoffTime}
+					</span>
 				)}
 			</div>
 
@@ -93,7 +97,9 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 						<div className="font-stat-value text-4xl md:text-5xl font-black text-white tabular-nums tracking-tight flex items-center gap-2">
 							<span
 								className={
-									homeWon ? "text-primary text-glowing" : "text-on-surface-variant"
+									homeWon
+										? "text-primary text-glowing"
+										: "text-on-surface-variant"
 								}
 							>
 								{homeScore}
@@ -101,7 +107,9 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 							<span className="text-on-surface-variant/40 text-2xl">:</span>
 							<span
 								className={
-									awayWon ? "text-primary text-glowing" : "text-on-surface-variant"
+									awayWon
+										? "text-primary text-glowing"
+										: "text-on-surface-variant"
 								}
 							>
 								{awayScore}
@@ -149,7 +157,9 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 				)}
 				{match.stadium && (
 					<span className="flex items-center gap-1">
-						<span className="material-symbols-outlined text-[12px]">stadium</span>
+						<span className="material-symbols-outlined text-[12px]">
+							stadium
+						</span>
 						<span className="truncate max-w-[180px]">{match.stadium}</span>
 					</span>
 				)}
@@ -166,13 +176,22 @@ export function SheetMatchHeader({ match }: SheetMatchHeaderProps) {
 				<div className="flex items-center justify-center gap-3 text-[10px] font-label-caps uppercase tracking-widest pt-1">
 					<span className="text-tertiary font-bold">💰 En juego</span>
 					<span className="text-on-surface-variant">
-						Exacto <span className="text-pitch-green font-bold">+{potential.exact}</span>
+						Exacto{" "}
+						<span className="text-pitch-green font-bold">
+							+{potential.exact}
+						</span>
 					</span>
 					<span className="text-on-surface-variant">
-						Dif <span className="text-pitch-green font-bold">+{potential.goalDiff}</span>
+						Dif{" "}
+						<span className="text-pitch-green font-bold">
+							+{potential.goalDiff}
+						</span>
 					</span>
 					<span className="text-on-surface-variant">
-						Básico <span className="text-pitch-green font-bold">+{potential.basic}</span>
+						Básico{" "}
+						<span className="text-pitch-green font-bold">
+							+{potential.basic}
+						</span>
 					</span>
 					{match.stageMultiplier > 1 && (
 						<span className="text-tertiary/80">(×{match.stageMultiplier})</span>

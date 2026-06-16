@@ -10,12 +10,16 @@
  * ============================================================================
  * NOTAS
  * ============================================================================
- * - El minuto se muestra solo si `match.minute` está presente.
+ * - El minuto se muestra solo si `live.minute` está presente y es positivo.
  * - Si hay múltiples partidos en vivo en el mismo grupo, se muestran
  *   todos apilados.
+ * - El cronómetro usa `useLiveMinute` (mismo hook que MatchCard/SheetMatchHeader)
+ *   para mantener la consistencia de tiempo entre vistas.
  */
 
+import { useLiveMinute } from "../../hooks/useLiveMinute";
 import type { Match } from "../../lib/types";
+import { LiveClockBadge } from "../match/LiveClockBadge";
 
 interface LiveMiniScoreboardProps {
 	/** Partidos en vivo del grupo. Si está vacío, no se renderiza nada. */
@@ -85,6 +89,12 @@ function SingleMatch({ match }: { match: Match }) {
 	const awayWinning =
 		homeScore !== null && awayScore !== null && awayScore > homeScore;
 
+	// Mismo hook que MatchCard/SheetMatchHeader — unifica el cronómetro en todas las vistas.
+	const live = useLiveMinute(match);
+
+	const showMinute =
+		live.minute !== undefined && live.minute !== "0" && live.minute !== 0;
+
 	return (
 		<div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-container-lowest/60 border border-white/5">
 			<TeamChip
@@ -102,12 +112,10 @@ function SingleMatch({ match }: { match: Match }) {
 				logo={match.awayLogo}
 				isWinning={awayWinning}
 			/>
-			{match.minute !== undefined && match.minute > 0 && (
+			{showMinute && (
 				<>
 					<span className="w-px h-3 bg-white/10 mx-0.5" />
-					<span className="font-stat-value text-[11px] tabular-nums text-error font-bold">
-						{match.minute}'
-					</span>
+					<LiveClockBadge live={live} size="inline" />
 				</>
 			)}
 		</div>

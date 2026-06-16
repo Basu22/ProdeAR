@@ -754,6 +754,22 @@
 		animation: rankDown 800ms cubic-bezier(0.2, 0, 0, 1) both;
 	}
 
+	/* === LiveBadge Highlight (Fase 3) ===
+	   Sutil "ping" de atención al montar el cronómetro del modal, para conectar
+	   perceptualmente la card del dashboard con el detalle que se acaba de abrir.
+	   Usa un glow externo que se expande y desvanece en ~1.2s. */
+	@keyframes liveBadgeHighlight {
+		0% {
+			box-shadow: 0 0 0 0 rgba(255, 42, 42, 0.55);
+		}
+		60% {
+			box-shadow: 0 0 0 10px rgba(255, 42, 42, 0);
+		}
+		100% {
+			box-shadow: 0 0 0 0 rgba(255, 42, 42, 0);
+		}
+	}
+
 	/* === Reduced motion === */
 	@media (prefers-reduced-motion: reduce) {
 		.animate-ball-cross-ltr,
@@ -799,6 +815,9 @@
 			opacity: 0.6 !important;
 		}
 		.broadcast-sweep {
+			animation: none !important;
+		}
+		[class*="liveBadgeHighlight"] {
 			animation: none !important;
 		}
 	}

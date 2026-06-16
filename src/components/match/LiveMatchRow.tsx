@@ -1,25 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLiveMinute } from "../../hooks/useLiveMinute";
 import type { Match } from "../../lib/types";
+import { LiveClockBadge } from "./LiveClockBadge";
 
 export const LiveMatchRow = React.memo(({ match }: { match: Match }) => {
 	const getAbrev = (name: string) => name.substring(0, 3).toUpperCase();
 	const [isGoal, setIsGoal] = useState(false);
 	const prevScoreRef = useRef({ home: match.homeScore, away: match.awayScore });
-	const {
-		minute: liveMinute,
-		freshness,
-		ageMinutes,
-		isStale,
-	} = useLiveMinute(match);
-
-	const freshnessPrefix =
-		freshness === "stale" ? "⏱️ " : freshness === "warm" ? "~" : "";
-	const freshnessTitle = isStale
-		? `Última actualización hace ${ageMinutes} min`
-		: freshness === "warm"
-			? `Actualizado hace ${ageMinutes} min`
-			: undefined;
+	const live = useLiveMinute(match);
 
 	useEffect(() => {
 		if (
@@ -41,16 +29,7 @@ export const LiveMatchRow = React.memo(({ match }: { match: Match }) => {
 		>
 			<div className="flex items-center gap-3 w-[80px]">
 				<div className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
-				<span
-					className={`font-label-caps text-[10px] tabular-nums font-bold ${
-						isStale ? "text-amber-400" : "text-error"
-					}`}
-					title={freshnessTitle}
-				>
-					{typeof liveMinute === "number"
-						? `${freshnessPrefix}${liveMinute}'`
-						: liveMinute}
-				</span>
+				<LiveClockBadge live={live} size="inline" />
 			</div>
 
 			<div className="flex-1 grid grid-cols-[1fr,auto,1fr] items-center gap-2 font-headline-md text-xs font-bold text-white uppercase text-center">

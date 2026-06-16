@@ -7,6 +7,7 @@ import type { Match, MatchEvent, Prediction } from "../../lib/types";
 import { BroadcastLink } from "./BroadcastLink";
 import { EventToast } from "./EventToast";
 import { GoalAnimation } from "./GoalAnimation";
+import { LiveClockBadge } from "./LiveClockBadge";
 import { MatchStatusBar } from "./MatchStatusBar";
 import { RedCardBadge } from "./RedCardBadge";
 
@@ -174,20 +175,10 @@ export function MatchCard({
 	const isFinished = match.status === "finished";
 	const isCancelled = match.status === "cancelled";
 	const isPostponed = match.status === "postponed";
-	const {
-		minute: liveMinute,
-		freshness,
-		ageMinutes,
-		isStale,
-	} = useLiveMinute(match);
-
-	const freshnessPrefix =
-		freshness === "stale" ? "⏱️ " : freshness === "warm" ? "~" : "";
-	const freshnessTitle = isStale
-		? `Última actualización hace ${ageMinutes} min`
-		: freshness === "warm"
-			? `Actualizado hace ${ageMinutes} min`
-			: undefined;
+	// Hook único: usado por MatchStatusBar (vía prop `live`) Y por el render
+	// inline del cronómetro (vía LiveClockBadge). Mantener un solo consumer
+	// del hook aquí garantiza una única fuente de verdad en esta card.
+	const live = useLiveMinute(match);
 
 	const [isExpanded, setIsExpanded] = useState(false);
 	const { newEvents, clearEvent } = useNewEvents(match, isLive);
@@ -549,21 +540,11 @@ export function MatchCard({
 							state={cardState}
 							kickOff={match.kickOff}
 							isFullyPredicted={isFullyPredicted}
-							minute={typeof liveMinute === "number" ? liveMinute : undefined}
+							live={live}
 							predictionCount={predictionCount}
 						/>
 					) : isLive ? (
-						<span
-							className={`flex items-center gap-1 bg-error/10 border border-error/30 px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase animate-pulse ${
-								isStale ? "text-amber-400" : "text-error"
-							}`}
-							title={freshnessTitle}
-						>
-							<span className="w-1 h-1 rounded-full bg-error inline-block animate-ping" />
-							{typeof liveMinute === "number"
-								? `${freshnessPrefix}${liveMinute}'`
-								: "EN VIVO"}
-						</span>
+						<LiveClockBadge live={live} size="sm" />
 					) : isFinished ? (
 						<span className="bg-white/5 border border-white/10 text-on-surface-variant px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase">
 							FIN

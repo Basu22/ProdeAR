@@ -1,5 +1,7 @@
 import { useCountdown } from "../../hooks/useCountdown";
+import type { LiveMinuteInfo } from "../../hooks/useLiveMinute";
 import type { MatchCardState } from "../../lib/matchCardState";
+import { LiveClockBadge } from "./LiveClockBadge";
 
 export interface MatchStatusBarProps {
 	state: MatchCardState;
@@ -7,8 +9,13 @@ export interface MatchStatusBarProps {
 	kickOff: string;
 	/** Si el usuario ya pronosticó este partido en todos los torneos asignados */
 	isFullyPredicted?: boolean;
-	/** Minuto del partido (solo para live) */
-	minute?: number;
+	/**
+	 * Info del cronómetro en vivo (retornada por `useLiveMinute`).
+	 * Se pasa el objeto completo (no `minute` solo) para preservar
+	 * `freshness`/`isStale` y mostrar el indicador honesto en la UI.
+	 * Solo se usa cuando `state === "live"`.
+	 */
+	live?: LiveMinuteInfo;
 	/** Cantidad de predicciones del usuario (multi-torneo) */
 	predictionCount?: number;
 }
@@ -27,7 +34,7 @@ export function MatchStatusBar({
 	state,
 	kickOff,
 	isFullyPredicted = false,
-	minute,
+	live,
 	predictionCount = 0,
 }: MatchStatusBarProps) {
 	// Hooks SIEMPRE al principio (Rules of Hooks: orden estable entre renders)
@@ -39,15 +46,16 @@ export function MatchStatusBar({
 		hour12: false,
 	});
 
-	// live: rojo pulse con minuto
+	// live: renderiza el badge compartido (mismo estilo que la card sin cardState)
 	if (state === "live") {
+		if (live) {
+			return <LiveClockBadge live={live} size="sm" />;
+		}
+		// Fallback defensivo: si por alguna razón no llega `live`, no rompemos.
 		return (
-			<div className="flex items-center gap-1.5" role="status" aria-live="polite">
+			<div className="flex items-center gap-1.5 text-error" role="status">
 				<span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
-				<span className="font-stat-value text-base font-bold text-error tabular-nums">
-					{formatMinute(minute)}
-				</span>
-				<span className="font-label-caps text-[10px] font-bold text-error uppercase tracking-widest">
+				<span className="font-label-caps text-[10px] font-bold uppercase tracking-widest">
 					EN VIVO
 				</span>
 			</div>
@@ -57,7 +65,10 @@ export function MatchStatusBar({
 	// finished
 	if (state === "finished") {
 		return (
-			<div className="flex items-center gap-1.5 text-on-surface-variant/60" role="status">
+			<div
+				className="flex items-center gap-1.5 text-on-surface-variant/60"
+				role="status"
+			>
 				<span className="font-label-caps text-[10px] font-bold tracking-widest uppercase">
 					FIN
 				</span>
@@ -83,7 +94,10 @@ export function MatchStatusBar({
 	// predicted_locked (con predicción, ventana cerrada): solo horario
 	if (state === "predicted_locked") {
 		return (
-			<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+			<div
+				className="flex items-center gap-1.5 text-on-surface-variant"
+				role="status"
+			>
 				<span className="font-stat-value text-base font-bold tabular-nums">
 					{kickoffTime}
 				</span>
@@ -98,7 +112,10 @@ export function MatchStatusBar({
 	// Sub-estado 1: isFullyPredicted → solo horario
 	if (isFullyPredicted) {
 		return (
-			<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+			<div
+				className="flex items-center gap-1.5 text-on-surface-variant"
+				role="status"
+			>
 				<span className="font-stat-value text-base font-bold tabular-nums">
 					{kickoffTime}
 				</span>
@@ -134,7 +151,10 @@ export function MatchStatusBar({
 
 	// Sub-estado 3: NO isFullyPredicted + faltan >=24h → "⏰ HH:mm · PENDIENTE"
 	return (
-		<div className="flex items-center gap-1.5 text-on-surface-variant" role="status">
+		<div
+			className="flex items-center gap-1.5 text-on-surface-variant"
+			role="status"
+		>
 			<span className="font-stat-value text-base font-bold tabular-nums">
 				{kickoffTime}
 			</span>
@@ -143,10 +163,4 @@ export function MatchStatusBar({
 			</span>
 		</div>
 	);
-}
-
-/** Formatea el minuto del partido (ej: 67 → "67'") */
-function formatMinute(minute?: number): string {
-	if (minute === undefined || minute === null) return "0'";
-	return `${minute}'`;
 }
