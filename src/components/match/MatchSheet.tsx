@@ -221,6 +221,10 @@ export function MatchSheet({
 						tabs={tabsAvailable}
 						activeTab={safeActiveTab}
 						onChange={handleTabChange}
+						// Sprint "Habilitar formations upcoming" (v1.1):
+						// dot pulsante en el tab "lineups" cuando hay formations
+						// en upcoming (señal de discovery).
+						hasFreshLineups={isUpcomingWithLineups}
 					/>
 				)}
 

@@ -5,6 +5,13 @@ interface SheetTabBarProps {
 	tabs: readonly SheetTabDef[];
 	activeTab: SheetTabId;
 	onChange: (tab: SheetTabId) => void;
+	/**
+	 * Sprint "Habilitar formations upcoming" (v1.1): si true, muestra un
+	 * dot pulsante en la esquina superior derecha del tab "lineups" como
+	 * señal de discovery. Solo se renderiza cuando el tab NO está activo
+	 * (no necesita discovery lo que ya se está viendo).
+	 */
+	hasFreshLineups?: boolean;
 }
 
 /**
@@ -22,7 +29,12 @@ interface SheetTabBarProps {
  * - Navegación por teclado: ← → Home End Enter Space
  * - Focus visible con ring primary
  */
-export function SheetTabBar({ tabs, activeTab, onChange }: SheetTabBarProps) {
+export function SheetTabBar({
+	tabs,
+	activeTab,
+	onChange,
+	hasFreshLineups = false,
+}: SheetTabBarProps) {
 	if (tabs.length === 0) return null;
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
@@ -82,6 +94,17 @@ export function SheetTabBar({ tabs, activeTab, onChange }: SheetTabBarProps) {
 							<span className="leading-none whitespace-nowrap">
 								{tab.label}
 							</span>
+							{/* Sprint "Habilitar formations upcoming" (v1.1):
+							    Dot pulsante en la esquina superior derecha del
+							    tab "lineups" como señal de discovery. Solo se
+							    muestra si hay formations frescas y el tab NO está
+							    activo. */}
+							{tab.id === "lineups" && hasFreshLineups && !isActive && (
+								<span
+									className="absolute top-1.5 right-1/2 translate-x-3 w-1.5 h-1.5 rounded-full bg-pitch-green animate-live-pulse"
+									aria-label="Formación recién publicada"
+								/>
+							)}
 						</button>
 					);
 				})}
