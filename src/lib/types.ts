@@ -93,6 +93,17 @@ export interface TeamLineup {
 		name: string | null;
 		photo: string | null;
 	};
+	/**
+	 * Sprint "Habilitar formations upcoming": ISO timestamp de cuándo la API
+	 * publicó esta formación (o cuándo poll-scores la guardó por primera
+	 * vez si la API no lo expone). Se popula server-side desde
+	 * `matches.lineups_updated_at` en `mapDbMatchToFrontend` y se usa en
+	 * `FormacionesTab` para mostrar el badge "Actualizado hace X min".
+	 *
+	 * Opcional: solo presente cuando el backend ya guardó la formación
+	 * (lineups.length >= 2 en DB).
+	 */
+	publishedAt?: string;
 }
 
 export interface Match {

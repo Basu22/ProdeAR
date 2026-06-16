@@ -69,9 +69,24 @@ function mapDbMatchToFrontend(m: any): Match {
 				: m.stats
 			: undefined,
 		lineups: m.lineups
-			? typeof m.lineups === "string"
-				? JSON.parse(m.lineups)
-				: m.lineups
+			? (() => {
+					const parsed =
+						typeof m.lineups === "string"
+							? JSON.parse(m.lineups)
+							: m.lineups;
+					// Sprint "Habilitar formations upcoming": inyectar
+					// `publishedAt` en cada lineup desde el timestamp del match.
+					// Lo hacemos acá (no en el backend) para no duplicar data
+					// en JSONB y porque la UI no necesita distinguir entre
+					// equipos: ambas formations se publican "a la vez".
+					if (Array.isArray(parsed) && m.lineups_updated_at) {
+						return parsed.map((l: any) => ({
+							...l,
+							publishedAt: m.lineups_updated_at,
+						}));
+					}
+					return parsed;
+				})()
 			: undefined,
 		playerPhotos: m.player_photos
 			? typeof m.player_photos === "string"

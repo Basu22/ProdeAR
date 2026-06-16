@@ -327,5 +327,11 @@ function generateMockLineupForTeam(match: Match, isHome: boolean): TeamLineup {
 		startXI,
 		substitutes,
 		coach,
+		// Sprint "Habilitar formations upcoming": mock con publishedAt
+		// determinístico (10 min antes del kickoff) para que el badge
+		// "Actualizado" se vea en DEV sin depender de la API real.
+		publishedAt: new Date(
+			new Date(match.kickOff).getTime() - 10 * 60_000,
+		).toISOString(),
 	};
 }
