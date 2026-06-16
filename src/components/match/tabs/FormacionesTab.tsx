@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useCountdown } from "../../../hooks/useCountdown";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
 import { useCachedImage } from "../../../lib/imageCache";
 import { getPlayerInitials, getShortPlayerName } from "../../../lib/playerHelpers";
@@ -14,23 +15,44 @@ interface FormacionesTabProps {
  * - F10: solo lectura, muestra la cancha con los 11 titulares de cada equipo
  * - F6: pins coloreados por posición G/D/M/F
  * - Commit 7: usa `useMockMatchData` para fallback de mocks en DEV
+ *
+ * Sprint "Habilitar formations upcoming" (Fase UX):
+ * - Empty state con countdown al kickoff cuando es upcoming
+ * - Badge "Confirmada" arriba de la cancha cuando hay data
+ * - Banner "Actualizado hace X min" si `publishedAt` está presente
  */
 export function FormacionesTab({ match }: FormacionesTabProps) {
 	const { lineups, isMockedLineups } = useMockMatchData(match);
 
 	if (!lineups || lineups.length < 2) {
+		// Empty state contextual: si el partido es upcoming, mostramos un
+		// countdown al kickoff (espera activa). Si ya pasó, mensaje genérico.
+		if (match.status === "not_started") {
+			return <EmptyStateUpcoming kickoff={new Date(match.kickOff)} />;
+		}
 		return (
 			<EmptyState
 				icon="search_off"
 				message="SIN INFORMACIÓN DISPONIBLE"
-				submessage="Las alineaciones se publican cerca del inicio del partido"
+				submessage="Las alineaciones no se publicaron para este partido."
 			/>
 		);
 	}
 
+	const publishedAt = lineups[0]?.publishedAt;
+	const lineupsAreFresh = publishedAt
+		? Date.now() - new Date(publishedAt).getTime() < 15 * 60 * 1000
+		: false;
+
 	return (
 		<div className="space-y-4">
-			{isMockedLineups && <DemoTag />}
+			{/* Header: badge "Confirmada" + banner "Actualizado hace X" */}
+			<LineupHeader
+				isMocked={isMockedLineups}
+				publishedAt={publishedAt}
+				isFresh={lineupsAreFresh}
+			/>
+
 			{/* The Tactical Pitch Board */}
 			<div className="glass-card rounded-xl overflow-hidden min-h-[480px] relative pitch-grid border-white/10 shadow-2xl flex flex-col justify-between py-5 max-w-md mx-auto">
 				{/* Field Overlay (oscurece levemente para que destaquen las marcas blancas) */}
@@ -501,6 +523,105 @@ function getPosBorderClass(pos: string): string {
 	if (posKey === "M") return "border-pos-m";
 	if (posKey === "F") return "border-pos-f";
 	return "border-white/30";
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Sprint "Habilitar formations upcoming" (Fase UX):
+   Componentes nuevos para mejorar la presentación de las formations.
+   ════════════════════════════════════════════════════════════════ */
+
+/**
+ * Header compacto arriba de la cancha: muestra el badge "Formación
+ * confirmada" + un dot pulsante "Recién publicada" si la data fue
+ * fetcheada en los últimos 15 minutos.
+ *
+ * Si los datos son mocks (solo DEV), muestra el `DemoTag` en lugar del
+ * badge oficial para evitar confusiones.
+ */
+function LineupHeader({
+	isMocked,
+	publishedAt,
+	isFresh,
+}: {
+	isMocked: boolean;
+	publishedAt: string | undefined;
+	isFresh: boolean;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-2 px-1 min-h-[24px]">
+			{isMocked ? (
+				<DemoTag />
+			) : publishedAt ? (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pitch-green/10 border border-pitch-green/30 text-pitch-green">
+					<span className="material-symbols-outlined text-[10px]">verified</span>
+					<span className="font-label-caps text-[8px] tracking-widest font-bold uppercase">
+						Formación confirmada
+					</span>
+				</span>
+			) : null}
+
+			{publishedAt && isFresh && !isMocked && (
+				<span
+					className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-pitch-green/5 border border-pitch-green/20 text-pitch-green"
+					title={`Actualizado ${new Date(publishedAt).toLocaleString("es-AR")}`}
+				>
+					<span className="w-1 h-1 rounded-full bg-pitch-green animate-live-pulse" />
+					<span className="font-label-caps text-[8px] tracking-widest font-bold uppercase">
+						Recién publicada
+					</span>
+				</span>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Empty state contextual para partidos upcoming: muestra un countdown
+ * al kickoff (espera activa) + dot pulsante cuando faltan < 1h.
+ *
+ * Reemplaza al `EmptyState` genérico cuando `match.status === "not_started"`
+ * y aún no hay formations. Reusa `useCountdown` (ya en el proyecto)
+ * con update cada 30s (default del hook).
+ */
+function EmptyStateUpcoming({ kickoff }: { kickoff: Date }) {
+	const countdown = useCountdown(kickoff, 30_000);
+	const isCloseToKickoff =
+		countdown.msRemaining > 0 && countdown.msRemaining < 60 * 60 * 1000;
+
+	return (
+		<div className="text-center py-8 flex flex-col items-center gap-3">
+			<div className="relative">
+				<span className="material-symbols-outlined text-4xl text-primary/40">
+					groups
+				</span>
+				{isCloseToKickoff && (
+					<span
+						className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-pitch-green animate-live-pulse"
+						aria-label="Alineaciones próximas a publicarse"
+					/>
+				)}
+			</div>
+			<div className="space-y-1">
+				<p className="font-label-caps text-[10px] text-on-surface-variant/80 uppercase tracking-widest font-bold">
+					AÚN SIN ALINEACIONES OFICIALES
+				</p>
+				{countdown.msRemaining > 0 ? (
+					<p className="font-label-caps text-[9px] text-primary/70 uppercase tracking-widest font-bold tabular-nums leading-relaxed">
+						⏱ se publican típicamente ~30 min antes
+						<br />
+						<span className="text-pitch-green text-[11px]">
+							{countdown.formatted}
+						</span>{" "}
+						al kickoff
+					</p>
+				) : (
+					<p className="font-label-caps text-[9px] text-on-surface-variant/60 uppercase tracking-widest font-bold">
+						El partido está por comenzar
+					</p>
+				)}
+			</div>
+		</div>
+	);
 }
 
 function EmptyState({
