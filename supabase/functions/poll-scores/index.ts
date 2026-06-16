@@ -22,7 +22,7 @@ if (vapidPublicKey && vapidPrivateKey) {
 	}
 }
 
-function mapApiFootballStatus(statusShort: string): string {
+function mapApiFootballStatus(statusShort: string): MatchStatus {
 	const liveStatuses = ["1H", "HT", "2H", "ET", "BT", "P", "INT", "LIVE"];
 	const finishedStatuses = ["FT", "AET", "PEN"];
 	const cancelledStatuses = ["PST", "CANC", "ABD", "SUSP", "INT"];
@@ -176,7 +176,10 @@ type LeagueCoverage = {
 	fixtures_events: boolean;
 	fixtures_lineups: boolean;
 	fixtures_statistics_fixtures: boolean;
+	fixtures_statistics_players: boolean;
 };
+
+type MatchStatus = "live" | "finished" | "cancelled" | "scheduled";
 
 const COVERAGE_FRESH_MS = 24 * 60 * 60 * 1000; // 24h
 
@@ -1009,6 +1012,7 @@ serve(async (req) => {
 					comments: e.comments || null,
 				}));
 			}
+		}
 
 // ════════════════════════════════════════════════════════════════
 // Sprint 2 Fix (refactor #1): BATCH FETCH con /fixtures?ids=
