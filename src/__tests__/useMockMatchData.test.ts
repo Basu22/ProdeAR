@@ -141,4 +141,43 @@ describe("useMockMatchData", () => {
 		const formation = result.current.lineups?.[0].formation;
 		expect(["4-3-3", "4-4-2"]).toContain(formation);
 	});
+
+	// Sprint "Habilitar formations upcoming": cubrir el caso en que
+	// poll-scores ya populó lineups reales para un partido upcoming
+	// (dentro de la ventana T-2h). El hook debe devolver los datos
+	// reales tal cual, sin generar mocks ni retornar null.
+	it("retorna lineups reales para upcoming (sin generar mocks)", () => {
+		vi.stubEnv("DEV", true);
+		const realLineups = [
+			{
+				team: { id: 1, name: "Boca", logo: "" },
+				formation: "4-3-3",
+				startXI: [],
+				substitutes: [],
+				coach: { id: 1, name: "DT Boca", photo: null },
+			},
+			{
+				team: { id: 2, name: "River", logo: "" },
+				formation: "4-4-2",
+				startXI: [],
+				substitutes: [],
+				coach: { id: 2, name: "DT River", photo: null },
+			},
+		];
+		const match = makeMatch({
+			status: "not_started",
+			lineups: realLineups,
+		});
+		const { result } = renderHook(() => useMockMatchData(match));
+		expect(result.current.lineups).toBe(realLineups);
+		expect(result.current.isMockedLineups).toBe(false);
+	});
+
+	it("retorna null de lineups para upcoming sin data real (ni siquiera mocks)", () => {
+		vi.stubEnv("DEV", true);
+		const match = makeMatch({ status: "not_started", lineups: undefined });
+		const { result } = renderHook(() => useMockMatchData(match));
+		expect(result.current.lineups).toBeNull();
+		expect(result.current.isMockedLineups).toBe(false);
+	});
 });
