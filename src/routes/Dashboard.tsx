@@ -16,12 +16,12 @@ import {
 	getTodayKey,
 	groupMatchesByDay,
 } from "../lib/dateHelpers";
-import { getNextCloseTime, isMatchPredictable } from "../lib/predictionHelpers";
 import {
 	deriveEmptyStateVariant,
 	type EmptyStateInput,
 } from "../lib/emptyStateHelpers";
 import { deriveMatchCardState } from "../lib/matchCardState";
+import { getNextCloseTime, isMatchPredictable } from "../lib/predictionHelpers";
 import { isSupabaseConfigured } from "../lib/supabase";
 import type { Prediction } from "../lib/types";
 import { useAuthStore } from "../stores/authStore";
@@ -70,9 +70,7 @@ export function Dashboard() {
 	);
 	const selectedMatchPredictions = useMemo(
 		() =>
-			selectedMatchId
-				? (predictionsByMatch.get(selectedMatchId) ?? [])
-				: [],
+			selectedMatchId ? (predictionsByMatch.get(selectedMatchId) ?? []) : [],
 		[selectedMatchId, predictionsByMatch],
 	);
 

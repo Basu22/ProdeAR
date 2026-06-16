@@ -79,7 +79,9 @@ export function SheetTabBar({ tabs, activeTab, onChange }: SheetTabBarProps) {
 							>
 								{tab.icon}
 							</span>
-							<span className="leading-none whitespace-nowrap">{tab.label}</span>
+							<span className="leading-none whitespace-nowrap">
+								{tab.label}
+							</span>
 						</button>
 					);
 				})}

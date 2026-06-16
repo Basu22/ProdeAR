@@ -62,9 +62,9 @@ describe("tournamentsApi.joinTournament (local mode)", () => {
 	});
 
 	it("should throw for invalid code", async () => {
-		await expect(
-			tournamentsApi.joinTournament("AR-ZZZZ"),
-		).rejects.toThrow("Código de invitación inválido");
+		await expect(tournamentsApi.joinTournament("AR-ZZZZ")).rejects.toThrow(
+			"Código de invitación inválido",
+		);
 	});
 
 	it("should join tournament with valid code", async () => {
@@ -125,8 +125,8 @@ describe("tournamentsApi.joinTournament (local mode)", () => {
 			}),
 		);
 
-		await expect(
-			tournamentsApi.joinTournament("AR-FULL"),
-		).rejects.toThrow("El torneo ha alcanzado el límite máximo de 50 participantes.");
+		await expect(tournamentsApi.joinTournament("AR-FULL")).rejects.toThrow(
+			"El torneo ha alcanzado el límite máximo de 50 participantes.",
+		);
 	});
 });

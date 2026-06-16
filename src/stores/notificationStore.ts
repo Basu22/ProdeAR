@@ -61,7 +61,9 @@ const initialState = {
 		"PushManager" in window,
 	// permission también es síncrono (es una propiedad estática de Notification).
 	permission:
-		typeof Notification !== "undefined" ? Notification.permission : ("default" as NotificationPermission),
+		typeof Notification !== "undefined"
+			? Notification.permission
+			: ("default" as NotificationPermission),
 	pushEnabled: false,
 	isLoading: false,
 };

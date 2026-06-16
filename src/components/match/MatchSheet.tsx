@@ -1,14 +1,20 @@
 import { useCallback, useRef, useState } from "react";
+import {
+	formatPredictionForSharing,
+	isMatchPredictable,
+} from "../../lib/predictionHelpers";
+import type {
+	Match,
+	Prediction,
+	SheetTabDef,
+	SheetTabId,
+	Tournament,
+} from "../../lib/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { SheetActions } from "./SheetActions";
 import { SheetMatchHeader } from "./SheetMatchHeader";
 import { SheetTabBar } from "./SheetTabBar";
 import { EventosTab, FormacionesTab, PronosticosTab, StatsTab } from "./tabs";
-import {
-	formatPredictionForSharing,
-	isMatchPredictable,
-} from "../../lib/predictionHelpers";
-import type { Match, Prediction, SheetTabDef, SheetTabId, Tournament } from "../../lib/types";
 
 export interface MatchSheetProps {
 	match: Match | null;
@@ -93,33 +99,33 @@ export function MatchSheet({
 		"idle",
 	);
 
-	const copyToClipboard = useCallback(async (text: string): Promise<boolean> => {
-		if (
-			typeof navigator !== "undefined" &&
-			navigator.clipboard?.writeText
-		) {
-			try {
-				await navigator.clipboard.writeText(text);
-				return true;
-			} catch {
-				// Fallback below
+	const copyToClipboard = useCallback(
+		async (text: string): Promise<boolean> => {
+			if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+				try {
+					await navigator.clipboard.writeText(text);
+					return true;
+				} catch {
+					// Fallback below
+				}
 			}
-		}
-		if (typeof document === "undefined") return false;
-		try {
-			const ta = document.createElement("textarea");
-			ta.value = text;
-			ta.style.position = "fixed";
-			ta.style.opacity = "0";
-			document.body.appendChild(ta);
-			ta.select();
-			const ok = document.execCommand("copy");
-			document.body.removeChild(ta);
-			return ok;
-		} catch {
-			return false;
-		}
-	}, []);
+			if (typeof document === "undefined") return false;
+			try {
+				const ta = document.createElement("textarea");
+				ta.value = text;
+				ta.style.position = "fixed";
+				ta.style.opacity = "0";
+				document.body.appendChild(ta);
+				ta.select();
+				const ok = document.execCommand("copy");
+				document.body.removeChild(ta);
+				return ok;
+			} catch {
+				return false;
+			}
+		},
+		[],
+	);
 
 	const handleShare = useCallback(async () => {
 		if (!match) return;
@@ -130,11 +136,7 @@ export function MatchSheet({
 		);
 		if (!pred) return;
 
-		const text = formatPredictionForSharing(
-			match,
-			pred,
-			activeTournament.name,
-		);
+		const text = formatPredictionForSharing(match, pred, activeTournament.name);
 
 		const ok = await copyToClipboard(text);
 		if (ok) {
@@ -209,24 +211,25 @@ export function MatchSheet({
 
 				{/* Contenido scrollable: lazy mount por tab con cross-fade */}
 				<div className="flex-1 overflow-y-auto px-2 py-4 space-y-6">
-					{mountedTabs.has("predictions") && safeActiveTab === "predictions" && (
-						<div
-							id="tabpanel-predictions"
-							role="tabpanel"
-							aria-labelledby="tab-predictions"
-							className="animate-tab-enter"
-							key="panel-predictions"
-						>
-							<PronosticosTab
-								match={match}
-								predictions={predictions}
-								tournaments={tournaments}
-								locked={locked}
-								isCancelled={isCancelled}
-								onSlideDirtyChange={handleSlideDirtyChange}
-							/>
-						</div>
-					)}
+					{mountedTabs.has("predictions") &&
+						safeActiveTab === "predictions" && (
+							<div
+								id="tabpanel-predictions"
+								role="tabpanel"
+								aria-labelledby="tab-predictions"
+								className="animate-tab-enter"
+								key="panel-predictions"
+							>
+								<PronosticosTab
+									match={match}
+									predictions={predictions}
+									tournaments={tournaments}
+									locked={locked}
+									isCancelled={isCancelled}
+									onSlideDirtyChange={handleSlideDirtyChange}
+								/>
+							</div>
+						)}
 
 					{mountedTabs.has("events") && safeActiveTab === "events" && (
 						<div

@@ -209,7 +209,11 @@ describe("formatPredictionForSharing", () => {
 	const pred = makePrediction({ predictedHome: 2, predictedAway: 1 });
 
 	it("incluye equipos + score predicho", () => {
-		const result = formatPredictionForSharing(match, pred, "Liga de los Amigos");
+		const result = formatPredictionForSharing(
+			match,
+			pred,
+			"Liga de los Amigos",
+		);
 		expect(result).toContain("Argentina 2 - 1 Brasil");
 	});
 

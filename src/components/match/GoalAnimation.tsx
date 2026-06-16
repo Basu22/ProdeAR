@@ -21,9 +21,7 @@ const BallSVG = ({ direction }: { direction: "ltr" | "rtl" }) => (
 		height="48"
 		viewBox="0 0 48 48"
 		className={
-			direction === "ltr"
-				? "animate-ball-cross-ltr"
-				: "animate-ball-cross-rtl"
+			direction === "ltr" ? "animate-ball-cross-ltr" : "animate-ball-cross-rtl"
 		}
 	>
 		<circle
@@ -135,20 +133,15 @@ export function GoalAnimation({
 			{(phase === "detail" || phase === "detail-exit") && (
 				<div
 					className={`bg-surface-container/90 backdrop-blur-sm border border-white/10 rounded-xl px-6 py-4 ${
-						phase === "detail"
-							? "animate-detail-enter"
-							: "animate-detail-exit"
+						phase === "detail" ? "animate-detail-enter" : "animate-detail-exit"
 					}`}
 				>
 					<div className="flex items-center gap-3">
 						<span className="text-2xl">⚽</span>
 						<div>
-							<p className="text-white font-bold text-sm">
-								{event.playerName}
-							</p>
+							<p className="text-white font-bold text-sm">{event.playerName}</p>
 							<p className="text-on-surface-variant text-xs">
-								{event.minute}'
-								{event.extra ? `+${event.extra}` : ""}
+								{event.minute}'{event.extra ? `+${event.extra}` : ""}
 								{event.assistName ? ` · Asist: ${event.assistName}` : ""}
 							</p>
 						</div>

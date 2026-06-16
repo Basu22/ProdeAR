@@ -73,10 +73,7 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 					{/* Substitutes: photo + number + name (1 por fila, vertical, nombre wrappea) */}
 					<ul className="flex flex-col gap-1.5">
 						{lineups[0].substitutes.map((s) => (
-							<li
-								key={s.player.id}
-								className="flex items-center gap-2 min-w-0"
-							>
+							<li key={s.player.id} className="flex items-center gap-2 min-w-0">
 								<SubstituteAvatar
 									name={s.player.name}
 									number={s.player.number}
@@ -118,10 +115,7 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 					{/* Substitutes: photo + number + name (1 por fila, vertical, nombre wrappea) */}
 					<ul className="flex flex-col gap-1.5">
 						{lineups[1].substitutes.map((s) => (
-							<li
-								key={s.player.id}
-								className="flex items-center gap-2 min-w-0"
-							>
+							<li key={s.player.id} className="flex items-center gap-2 min-w-0">
 								<SubstituteAvatar
 									name={s.player.name}
 									number={s.player.number}
@@ -243,18 +237,18 @@ function TacticalTeamFormation({ lineup, isHome }: TacticalTeamFormationProps) {
 						row.players.length === 1 ? "justify-center" : "justify-evenly"
 					} ${ROW_FLEX[Math.min(row.rowNum, 4)]}`}
 				>
-						{row.players.map((p) => (
-							<TacticalPlayerPin
-								key={p.player.id}
-								name={p.player.name}
-								number={p.player.number}
-								pos={p.player.pos}
-								photo={p.player.photo ?? null}
-								isHome={isHome}
-							/>
-						))}
-					</div>
-				))}
+					{row.players.map((p) => (
+						<TacticalPlayerPin
+							key={p.player.id}
+							name={p.player.name}
+							number={p.player.number}
+							pos={p.player.pos}
+							photo={p.player.photo ?? null}
+							isHome={isHome}
+						/>
+					))}
+				</div>
+			))}
 		</div>
 	);
 }
@@ -416,9 +410,7 @@ function SubstituteAvatar({
 				className={`relative w-[50px] h-[50px] rounded-full ring-2 ${ringClass} ${initialsBg} flex items-center justify-center flex-shrink-0`}
 				aria-hidden="true"
 			>
-				<span
-					className={`text-[14px] font-black ${initialsText} leading-none`}
-				>
+				<span className={`text-[14px] font-black ${initialsText} leading-none`}>
 					{getPlayerInitials(name)}
 				</span>
 				{numberBadge}

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PLAYERS } from "../lib/api/mockData";
 import { enrichLineupsWithPhotos } from "../lib/playerHelpers";
 import type {
 	Match,
@@ -8,7 +9,6 @@ import type {
 	TeamLineup,
 	TeamStats,
 } from "../lib/types";
-import { PLAYERS } from "../lib/api/mockData";
 
 /**
  * Datos enriquecidos de un partido con mocks determinísticos como fallback.
@@ -235,8 +235,7 @@ function generateMockLineupForTeam(match: Match, isHome: boolean): TeamLineup {
 	const teamName = isHome ? match.homeTeam : match.awayTeam;
 	const rng = makeRng(getSeed(match.id) + (isHome ? 0 : 123));
 
-	const availablePlayers =
-		PLAYERS[teamName as keyof typeof PLAYERS] || [];
+	const availablePlayers = PLAYERS[teamName as keyof typeof PLAYERS] || [];
 	const genericNames = isHome ? GENERIC_NAMES_HOME : GENERIC_NAMES_AWAY;
 
 	// Elegir formación determinísticamente

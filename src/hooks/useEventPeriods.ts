@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { MatchEvent } from "../lib/types";
 import { groupEventsByPeriod, type PeriodGroup } from "../lib/periodHelpers";
+import type { MatchEvent } from "../lib/types";
 
 /**
  * Hook que agrupa eventos por período con memoización.

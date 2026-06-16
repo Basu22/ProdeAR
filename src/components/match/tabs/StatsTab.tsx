@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
-import { getEventSummary, type EventSummaryItem } from "../../../lib/eventHelpers";
+import {
+	type EventSummaryItem,
+	getEventSummary,
+} from "../../../lib/eventHelpers";
 import type { Match, TeamStats } from "../../../lib/types";
 
 interface StatsTabProps {

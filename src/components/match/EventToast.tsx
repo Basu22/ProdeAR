@@ -81,8 +81,7 @@ export function EventToast({ event, onComplete }: EventToastProps) {
 						{event.playerName}
 					</p>
 					<p className="text-[10px] text-on-surface-variant">
-						{event.minute}'
-						{event.extra ? `+${event.extra}` : ""} ·{" "}
+						{event.minute}'{event.extra ? `+${event.extra}` : ""} ·{" "}
 						{event.team === "home" ? "Local" : "Visitante"}
 					</p>
 				</div>

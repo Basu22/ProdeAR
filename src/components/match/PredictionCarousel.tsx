@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuthStore } from "../../stores/authStore";
 import type { Match, Prediction, Tournament } from "../../lib/types";
+import { useAuthStore } from "../../stores/authStore";
 import { PredictionSlide } from "./PredictionSlide";
 
 export interface PredictionCarouselProps {
@@ -59,7 +59,9 @@ export function PredictionCarousel({
 
 	// Mapear cada tournament → su prediction (si existe)
 	const slides = tournaments.map((tournament) => {
-		const prediction = predictions.find((p) => p.tournamentId === tournament.id);
+		const prediction = predictions.find(
+			(p) => p.tournamentId === tournament.id,
+		);
 		return { tournament, prediction };
 	});
 
@@ -150,9 +152,7 @@ export function PredictionCarousel({
 								className="font-label-caps text-[10px] tracking-widest uppercase tabular-nums"
 								aria-live="polite"
 							>
-								<span className="text-white font-bold">
-									{activeIndex + 1}
-								</span>
+								<span className="text-white font-bold">{activeIndex + 1}</span>
 								<span className="text-on-surface-variant/60 mx-1">/</span>
 								<span className="text-on-surface-variant">
 									{tournaments.length}

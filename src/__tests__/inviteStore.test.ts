@@ -38,7 +38,11 @@ describe("inviteStore", () => {
 		});
 		expect(useInviteStore.getState().isLoadingPreview).toBe(true);
 
-		const preview = { name: "Test Tournament", code: "AR-TEST", memberCount: 5 };
+		const preview = {
+			name: "Test Tournament",
+			code: "AR-TEST",
+			memberCount: 5,
+		};
 		act(() => {
 			useInviteStore.getState().setTournamentPreview(preview);
 		});

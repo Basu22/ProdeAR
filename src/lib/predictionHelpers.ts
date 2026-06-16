@@ -153,7 +153,9 @@ export interface PotentialPoints {
  * Calcula los puntos potenciales (en juego) para un partido, según su stageMultiplier.
  * Sirve para mostrar "En juego: +10 exacto" en el MatchSheet.
  */
-export function getPotentialPoints(stageMultiplier: number = 1): PotentialPoints {
+export function getPotentialPoints(
+	stageMultiplier: number = 1,
+): PotentialPoints {
 	return {
 		exact: 10 * stageMultiplier,
 		goalDiff: 6 * stageMultiplier,
@@ -162,9 +164,9 @@ export function getPotentialPoints(stageMultiplier: number = 1): PotentialPoints
 	};
 }
 
+export type { ScoringResult };
 // Re-export de calculateScore para conveniencia
 export { calculateScore };
-export type { ScoringResult };
 
 /**
  * Helper que calcula el resultado de scoring para una predicción real vs un partido finished.

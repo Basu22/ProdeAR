@@ -123,8 +123,7 @@ export function PredictionSlide({
 	})();
 
 	const buttonClass = (() => {
-		if (viewMode !== "editable")
-			return ""; // No se renderiza
+		if (viewMode !== "editable") return ""; // No se renderiza
 		if (saveState === "saved")
 			return "bg-pitch-green/10 border border-pitch-green/30 text-pitch-green";
 		if (isDirty)
@@ -134,8 +133,7 @@ export function PredictionSlide({
 
 	// Card border según viewMode (S3 polish)
 	const cardBorderClass = (() => {
-		if (saveState === "saved")
-			return "slide-saved-burst border-pitch-green/50";
+		if (saveState === "saved") return "slide-saved-burst border-pitch-green/50";
 		if (viewMode === "editable")
 			return "border-primary/20 shadow-[0_0_20px_rgba(0,229,255,0.06)]";
 		return "border-white/5";
@@ -252,14 +250,20 @@ export function PredictionSlide({
 					<div className="flex items-center justify-center gap-3 text-[10px] font-label-caps uppercase tracking-widest pt-1 border-t border-white/5">
 						<span className="text-on-surface-variant">
 							Exacto{" "}
-							<span className="text-pitch-green font-bold">+{potential.exact}</span>
+							<span className="text-pitch-green font-bold">
+								+{potential.exact}
+							</span>
 						</span>
 						<span className="text-on-surface-variant">
 							Básico{" "}
-							<span className="text-pitch-green font-bold">+{potential.basic}</span>
+							<span className="text-pitch-green font-bold">
+								+{potential.basic}
+							</span>
 						</span>
 						{match.stageMultiplier > 1 && (
-							<span className="text-tertiary/80">(×{match.stageMultiplier})</span>
+							<span className="text-tertiary/80">
+								(×{match.stageMultiplier})
+							</span>
 						)}
 					</div>
 				) : null}
@@ -274,7 +278,9 @@ export function PredictionSlide({
 					>
 						{buttonLabel}
 					</button>
-				) : viewMode === "results" && finishedResult && finishedResult.points > 0 ? (
+				) : viewMode === "results" &&
+					finishedResult &&
+					finishedResult.points > 0 ? (
 					<div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-pitch-green/10 border border-pitch-green/30 animate-tab-enter">
 						<span
 							className="material-symbols-outlined text-pitch-green text-base"

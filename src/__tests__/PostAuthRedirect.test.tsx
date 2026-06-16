@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react";
-import React from "react";
+import type React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PostAuthRedirect } from "../components/auth/PostAuthRedirect";
@@ -61,7 +61,12 @@ describe("PostAuthRedirect", () => {
 
 	it("should not navigate when pendingInviteCode is null", () => {
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -89,7 +94,12 @@ describe("PostAuthRedirect", () => {
 		vi.mocked(tournamentsApi.joinTournament).mockResolvedValue(mockTournament);
 
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -102,7 +112,9 @@ describe("PostAuthRedirect", () => {
 		});
 
 		await waitFor(() => {
-			expect(mockNavigate).toHaveBeenCalledWith("/torneo/t-1", { replace: true });
+			expect(mockNavigate).toHaveBeenCalledWith("/torneo/t-1", {
+				replace: true,
+			});
 		});
 	});
 
@@ -112,7 +124,12 @@ describe("PostAuthRedirect", () => {
 		);
 
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -125,7 +142,9 @@ describe("PostAuthRedirect", () => {
 		});
 
 		await waitFor(() => {
-			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+			expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+				replace: true,
+			});
 		});
 	});
 
@@ -134,10 +153,17 @@ describe("PostAuthRedirect", () => {
 		const joinPromise = new Promise((resolve) => {
 			resolveJoin = resolve;
 		});
-		vi.mocked(tournamentsApi.joinTournament).mockReturnValue(joinPromise as Promise<never>);
+		vi.mocked(tournamentsApi.joinTournament).mockReturnValue(
+			joinPromise as Promise<never>,
+		);
 
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -189,7 +215,12 @@ describe("PostAuthRedirect", () => {
 		vi.mocked(tournamentsApi.joinTournament).mockResolvedValue(mockTournament);
 
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -203,7 +234,12 @@ describe("PostAuthRedirect", () => {
 
 		// Simulate user state change (e.g., token refresh)
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test Updated", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test Updated",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -235,7 +271,12 @@ describe("PostAuthRedirect", () => {
 
 		// First invite - user logs in
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});
@@ -253,7 +294,12 @@ describe("PostAuthRedirect", () => {
 		// Second invite - user logs in again
 		useInviteStore.getState().setPendingInvite("AR-SECOND");
 		useAuthStore.setState({
-			user: { id: "u1", email: "test@test.com", displayName: "Test", avatarUrl: null },
+			user: {
+				id: "u1",
+				email: "test@test.com",
+				displayName: "Test",
+				avatarUrl: null,
+			},
 			isLoading: false,
 			error: null,
 		});

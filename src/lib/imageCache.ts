@@ -65,8 +65,7 @@ async function evictIfNeeded(cache: Cache) {
 	const sortedKeys = keys
 		.map((req) => ({
 			req,
-			timestamp:
-				parseInt(req.headers.get("x-cached-at") ?? "0", 10) || 0,
+			timestamp: parseInt(req.headers.get("x-cached-at") ?? "0", 10) || 0,
 		}))
 		.sort((a, b) => a.timestamp - b.timestamp);
 	for (let i = 0; i < toDelete; i++) {

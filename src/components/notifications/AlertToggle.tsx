@@ -115,11 +115,7 @@ export function AlertToggle({
 								<span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-primary" />
 							</span>
 						)}
-						{isOn
-							? "Activo"
-							: isBlocked
-								? "Bloqueado por el navegador"
-								: ""}
+						{isOn ? "Activo" : isBlocked ? "Bloqueado por el navegador" : ""}
 					</span>
 				</div>
 			</div>

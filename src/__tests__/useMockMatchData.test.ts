@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import type { Match } from "../lib/types";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useMockMatchData } from "../hooks/useMockMatchData";
+import type { Match } from "../lib/types";
 
 function makeMatch(overrides: Partial<Match> = {}): Match {
 	return {
@@ -43,15 +43,11 @@ describe("useMockMatchData", () => {
 			stats: [
 				{
 					team: { id: 1, name: "Boca", logo: "" },
-					statistics: [
-						{ type: "Ball Possession", value: "55%" },
-					],
+					statistics: [{ type: "Ball Possession", value: "55%" }],
 				},
 				{
 					team: { id: 2, name: "River", logo: "" },
-					statistics: [
-						{ type: "Ball Possession", value: "45%" },
-					],
+					statistics: [{ type: "Ball Possession", value: "45%" }],
 				},
 			],
 			lineups: [

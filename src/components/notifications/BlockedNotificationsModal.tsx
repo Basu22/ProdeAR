@@ -13,7 +13,11 @@ interface BlockedNotificationsModalProps {
  * cambiar la decisión desde la UI; el usuario debe hacerlo en
  * Safari → Preferences → Websites → Notifications.
  */
-function getBrowserHelp(): { name: string; steps: string[]; deepLink?: string } {
+function getBrowserHelp(): {
+	name: string;
+	steps: string[];
+	deepLink?: string;
+} {
 	const ua = navigator.userAgent.toLowerCase();
 
 	// Edge (antes que Chrome porque contiene "chrome" en el UA)

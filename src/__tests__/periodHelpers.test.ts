@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { MatchEvent } from "../lib/types";
 import {
 	getEventPeriod,
 	getPeriodLabel,
 	groupEventsByPeriod,
 } from "../lib/periodHelpers";
+import type { MatchEvent } from "../lib/types";
 
 function makeEvent(overrides: Partial<MatchEvent> = {}): MatchEvent {
 	return {

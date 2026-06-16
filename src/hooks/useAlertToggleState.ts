@@ -1,5 +1,5 @@
-import { useNotificationStore } from "../stores/notificationStore";
 import type { AlertToggleState } from "../components/notifications/AlertToggle";
+import { useNotificationStore } from "../stores/notificationStore";
 
 /**
  * Hook derivador: convierte los "facts" crudos del notificationStore

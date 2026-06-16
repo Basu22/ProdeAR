@@ -7,7 +7,7 @@ import {
 	normalizePlayerName,
 	resolvePlayerPhoto,
 } from "../lib/playerHelpers";
-import type { PlayerPhoto, TeamLineup, TacticalPlayerInfo } from "../lib/types";
+import type { PlayerPhoto, TacticalPlayerInfo, TeamLineup } from "../lib/types";
 
 describe("buildPhotoMap", () => {
 	it("retorna Map vacío con null", () => {
@@ -84,10 +84,7 @@ describe("enrichLineupsWithPhotos", () => {
 		};
 	}
 
-	function makeLineup(
-		teamName: string,
-		home: boolean,
-	): TeamLineup {
+	function makeLineup(teamName: string, home: boolean): TeamLineup {
 		return {
 			team: { id: home ? 1 : 2, name: teamName, logo: "" },
 			formation: "4-3-3",
@@ -154,9 +151,7 @@ describe("enrichLineupsWithPhotos", () => {
 		];
 		const result = enrichLineupsWithPhotos(lineups, []);
 		// No hay fotos nuevas, pero el lineup tiene una photo existente → se preserva
-		expect(result?.[0].startXI[0].player.photo).toBe(
-			"https://existing/1.png",
-		);
+		expect(result?.[0].startXI[0].player.photo).toBe("https://existing/1.png");
 	});
 
 	it("no muta el input (inmutabilidad)", () => {
@@ -222,9 +217,7 @@ describe("getPlayerInitials", () => {
 	});
 
 	it("Cristiano Ronaldo dos Santos Aveiro → CA (primera + última)", () => {
-		expect(getPlayerInitials("Cristiano Ronaldo dos Santos Aveiro")).toBe(
-			"CA",
-		);
+		expect(getPlayerInitials("Cristiano Ronaldo dos Santos Aveiro")).toBe("CA");
 	});
 
 	it("lowercase se capitaliza", () => {
@@ -290,7 +283,13 @@ describe("resolvePlayerPhoto", () => {
 		],
 		substitutes: [
 			{
-				player: { id: 200, name: "Julián Álvarez", number: 19, pos: "F", grid: null },
+				player: {
+					id: 200,
+					name: "Julián Álvarez",
+					number: 19,
+					pos: "F",
+					grid: null,
+				},
 			},
 		],
 		coach: { id: 999, name: "DT", photo: null },
@@ -301,10 +300,22 @@ describe("resolvePlayerPhoto", () => {
 		formation: "4-4-2",
 		startXI: [
 			{
-				player: { id: 300, name: "Mohamed Naceur", number: 7, pos: "F", grid: "4:1" },
+				player: {
+					id: 300,
+					name: "Mohamed Naceur",
+					number: 7,
+					pos: "F",
+					grid: "4:1",
+				},
 			},
 			{
-				player: { id: 301, name: "A. Martial", number: 9, pos: "F", grid: "4:2" },
+				player: {
+					id: 301,
+					name: "A. Martial",
+					number: 9,
+					pos: "F",
+					grid: "4:2",
+				},
 			},
 		],
 		substitutes: [],

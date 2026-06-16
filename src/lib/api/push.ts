@@ -9,7 +9,11 @@ const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
  * Vital para evitar "spinners eternos" cuando el SW no se activa o
  * el push service del browser está colgado.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> {
+function withTimeout<T>(
+	promise: Promise<T>,
+	ms: number,
+	errorMessage: string,
+): Promise<T> {
 	return Promise.race([
 		promise,
 		new Promise<T>((_, reject) =>
@@ -137,7 +141,8 @@ export const pushApi = {
 
 		// Cast a BufferSource: TS 6 es estricto con ArrayBufferLike vs ArrayBuffer
 		// en la firma de PushManager.subscribe. En runtime es indistinto.
-		const applicationServerKeyBuffer = applicationServerKey as unknown as BufferSource;
+		const applicationServerKeyBuffer =
+			applicationServerKey as unknown as BufferSource;
 
 		// Solicitar permisos de notificación.
 		// Si ya está "granted" (porque el usuario aceptó antes), retorna
@@ -166,7 +171,8 @@ export const pushApi = {
 			);
 
 			// Idempotencia: si ya hay suscripción activa, no la duplicamos.
-			const existingSubscription = await registration.pushManager.getSubscription();
+			const existingSubscription =
+				await registration.pushManager.getSubscription();
 			if (existingSubscription) {
 				const { endpoint, keys } = existingSubscription.toJSON();
 				if (endpoint && keys?.p256dh && keys?.auth) {
@@ -217,7 +223,10 @@ export const pushApi = {
 			return { success: true };
 		} catch (err) {
 			console.error("Error subscribing to Push Service:", err);
-			return { success: false, error: formatError(err, "Error desconocido al suscribirse.") };
+			return {
+				success: false,
+				error: formatError(err, "Error desconocido al suscribirse."),
+			};
 		}
 	},
 
@@ -252,7 +261,10 @@ export const pushApi = {
 			return { success: true };
 		} catch (err) {
 			console.error("Error unsubscribing from Push Service:", err);
-			return { success: false, error: formatError(err, "Error desconocido al desuscribirse.") };
+			return {
+				success: false,
+				error: formatError(err, "Error desconocido al desuscribirse."),
+			};
 		}
 	},
 };
@@ -266,10 +278,19 @@ function formatError(err: unknown, fallback: string): string {
 	if (typeof err === "string") return err;
 	if (err && typeof err === "object") {
 		// PostgrestError / DOMException / objetos con .message
-		if ("message" in err && typeof (err as { message: unknown }).message === "string") {
+		if (
+			"message" in err &&
+			typeof (err as { message: unknown }).message === "string"
+		) {
 			const message = (err as { message: string }).message;
-			const code = "code" in err ? ` (code: ${String((err as { code: unknown }).code)})` : "";
-			const details = "details" in err ? ` — ${String((err as { details: unknown }).details)}` : "";
+			const code =
+				"code" in err
+					? ` (code: ${String((err as { code: unknown }).code)})`
+					: "";
+			const details =
+				"details" in err
+					? ` — ${String((err as { details: unknown }).details)}`
+					: "";
 			return `${message}${code}${details}`;
 		}
 		try {

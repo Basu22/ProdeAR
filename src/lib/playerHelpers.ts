@@ -1,4 +1,4 @@
-import type { PlayerPhoto, TeamLineup, TacticalPlayerInfo } from "./types";
+import type { PlayerPhoto, TacticalPlayerInfo, TeamLineup } from "./types";
 
 /**
  * Construye un Map<player_id, photo_url> para lookups O(1).
@@ -92,9 +92,7 @@ export function getPlayerInitials(name: string): string {
  * - Trim + colapsa whitespace múltiple a 1 espacio
  * - null/undefined/"" → ""
  */
-export function normalizePlayerName(
-	name: string | null | undefined,
-): string {
+export function normalizePlayerName(name: string | null | undefined): string {
 	if (!name) return "";
 	return name
 		.toLowerCase()
@@ -143,9 +141,9 @@ export function resolvePlayerPhoto(
 	const allPlayers = [...lineup.startXI, ...lineup.substitutes];
 
 	// Paso 1: match exacto (normalizado)
-	let matched: TacticalPlayerInfo | null = allPlayers.find(
-		(p) => normalizePlayerName(p.player.name) === normalized,
-	) ?? null;
+	let matched: TacticalPlayerInfo | null =
+		allPlayers.find((p) => normalizePlayerName(p.player.name) === normalized) ??
+		null;
 
 	// Paso 1b: fallback fuzzy (Levenshtein ≤ 2) para nombres con
 	// abreviaciones o typos de la API. Acepta hasta 2 caracteres de diferencia.

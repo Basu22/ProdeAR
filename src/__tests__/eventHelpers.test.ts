@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { MatchEvent } from "../lib/types";
 import {
 	countEventsByType,
 	getEventSummary,
 	isSubPair,
 	pairSubstitutions,
 } from "../lib/eventHelpers";
+import type { MatchEvent } from "../lib/types";
 
 function makeEvent(overrides: Partial<MatchEvent> = {}): MatchEvent {
 	return {
@@ -92,9 +92,7 @@ describe("getEventSummary", () => {
 	});
 
 	it("usa label singular/plural correcto en español", () => {
-		expect(getEventSummary([makeEvent({ type: "goal" })])[0].label).toBe(
-			"gol",
-		);
+		expect(getEventSummary([makeEvent({ type: "goal" })])[0].label).toBe("gol");
 		expect(
 			getEventSummary([
 				makeEvent({ type: "goal" }),

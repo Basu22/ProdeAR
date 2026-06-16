@@ -1,5 +1,5 @@
-import { PredictionCarousel } from "../PredictionCarousel";
 import type { Match, Prediction, Tournament } from "../../../lib/types";
+import { PredictionCarousel } from "../PredictionCarousel";
 
 interface PronosticosTabProps {
 	match: Match;

@@ -198,9 +198,7 @@ export function pairSubstitutions(
 ): TimelineItem[] {
 	if (!events || events.length === 0) return [];
 
-	const sorted = [...events].sort(
-		(a, b) => realMinute(a) - realMinute(b),
-	);
+	const sorted = [...events].sort((a, b) => realMinute(a) - realMinute(b));
 	const result: TimelineItem[] = [];
 	const consumed = new Set<string>();
 
