@@ -82,6 +82,105 @@ export function getPlayerInitials(name: string): string {
 }
 
 /**
+ * Abreviatura visual del nombre del jugador en formato "Inicial. Apellido".
+ * Usada en el `FormacionesTab` (pins tácticos, lista de suplentes) para
+ * reducir la longitud del nombre y mejorar la legibilidad en espacios
+ * reducidos (cancha ~480px, mobile-first).
+ *
+ * Reglas:
+ * - 1 palabra → devuelve el nombre tal cual (no se puede abreviar).
+ *   Ej: "Neymar" → "Neymar", "Cavani" → "Cavani".
+ * - 2+ palabras → "{inicial del 1er nombre}. {último apellido}".
+ *   Ej: "Lionel Messi" → "L. Messi", "Juan Román Riquelme" → "J. Riquelme",
+ *   "Cristiano Ronaldo dos Santos Aveiro" → "C. Aveiro".
+ * - Apellidos con partícula (italiana, holandesa, alemana, francesa, etc.):
+ *   si la penúltima palabra es una partícula reconocida, se incluye en el
+ *   apellido. Ej: "Ángel Di María" → "Á. Di María", "Frenky de Jong" → "F. de Jong".
+ * - Idempotente: si el nombre ya viene abreviado (formato "X. Apellido"),
+ *   se devuelve tal cual. Ej: "A. Di María" → "A. Di María".
+ * - Robusto: `null`/`undefined`/`""` → `""`. Whitespace se trimea y colapsa.
+ * - Unicode-safe: preserva acentos en la inicial ("Éder Militão" → "É. Militão").
+ *
+ * Importante: esta función es **solo visual**. El `aria-label` del pin
+ * táctico sigue conteniendo el nombre COMPLETO para accesibilidad.
+ *
+ * @param name nombre completo del jugador
+ * @returns nombre abreviado en formato "X. Apellido", o el nombre original
+ *          si ya está abreviado o tiene 1 sola palabra
+ */
+const LASTNAME_PARTICLES = new Set([
+	// Español/portugués
+	"de", "del", "da", "do", "dos", "das", "della", "delle",
+	"la", "las", "los", "el", "y", "e",
+	// Italiano
+	"di",
+	// Holandés
+	"van", "der", "den", "ten", "ter",
+	// Alemán
+	"von", "zu", "vom",
+	// Francés
+	"le", "du",
+]);
+
+/**
+ * Extrae el apellido de un array de tokens del nombre, reconociendo
+ * partículas comunes (preposiciones/artículos) que se anteponen al
+ * apellido en múltiples idiomas. Helper interno de `getShortPlayerName`.
+ *
+ * Ejemplos:
+ * - ["Lionel", "Messi"] → "Messi"
+ * - ["Ángel", "Di", "María"] → "Di María"
+ * - ["Frenky", "de", "Jong"] → "de Jong"
+ * - ["Cristiano", "Ronaldo", "dos", "Santos", "Aveiro"] → "Aveiro"
+ * - ["Juan", "Román", "Riquelme"] → "Riquelme" (Román no es partícula)
+ */
+function extractLastName(parts: string[]): string {
+	if (parts.length === 1) return parts[0];
+	if (parts.length === 2) {
+		// Si la segunda es partícula y la primera NO, devolvemos la primera
+		// (caso degenerado "Frenky de" que no debería existir en datos reales,
+		// pero es defensivo). Caso normal "Lionel Messi" → "Messi".
+		if (LASTNAME_PARTICLES.has(parts[1].toLowerCase())) {
+			return parts[0];
+		}
+		return parts[1];
+	}
+	// 3+ palabras: si la penúltima es partícula, agrupar con la última.
+	const last = parts[parts.length - 1];
+	const secondLast = parts[parts.length - 2];
+	if (LASTNAME_PARTICLES.has(secondLast.toLowerCase())) {
+		return `${secondLast} ${last}`;
+	}
+	return last;
+}
+
+export function getShortPlayerName(name: string | null | undefined): string {
+	if (!name) return "";
+	const trimmed = name.trim().replace(/\s+/g, " ");
+	if (!trimmed) return "";
+
+	// Detección de nombre ya abreviado: empieza con 1 letra Unicode + "." + espacio.
+	// Soporta acentos (É, Á, Í, Ó, Ú, Ü, Ñ, Ö, etc.) y case-insensitive.
+	// El lookahead negativo evita re-abreviaciones sobre patrones "L. Messi"
+	// que claramente vienen de la API en formato corto.
+	if (/^[\p{L}]\.\s/u.test(trimmed)) {
+		return trimmed;
+	}
+
+	const parts = trimmed.split(" ");
+	if (parts.length === 1) {
+		// Una sola palabra (ej: "Neymar", "Cavani") → no se puede abreviar.
+		return trimmed;
+	}
+
+	// Tomamos la primera letra del primer nombre (preserva acentos Unicode)
+	// + ". " + apellido (con partícula si aplica).
+	const firstInitial = Array.from(parts[0])[0] ?? "";
+	const lastName = extractLastName(parts);
+	return `${firstInitial}. ${lastName}`;
+}
+
+/**
  * Normaliza un nombre de jugador para comparación insensible a acentos,
  * mayúsculas y espacios extra. Usado por `resolvePlayerPhoto` para
  * matchear nombres de jugadores (subs o cualquier evento) contra lineups

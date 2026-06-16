@@ -4,6 +4,7 @@ import {
 	enrichLineupsWithPhotos,
 	getPlayerInitials,
 	getPlayerPhoto,
+	getShortPlayerName,
 	normalizePlayerName,
 	resolvePlayerPhoto,
 } from "../lib/playerHelpers";
@@ -222,6 +223,107 @@ describe("getPlayerInitials", () => {
 
 	it("lowercase se capitaliza", () => {
 		expect(getPlayerInitials("juan pérez")).toBe("JP");
+	});
+});
+
+describe("getShortPlayerName", () => {
+	// === Happy paths P0 ===
+	it("Lionel Messi → L. Messi (caso estándar de 2 palabras)", () => {
+		expect(getShortPlayerName("Lionel Messi")).toBe("L. Messi");
+	});
+
+	it("Lautaro Martínez → L. Martínez (acento en apellido se preserva)", () => {
+		expect(getShortPlayerName("Lautaro Martínez")).toBe("L. Martínez");
+	});
+
+	it("Éder Militão → É. Militão (acento en inicial Y apellido)", () => {
+		expect(getShortPlayerName("Éder Militão")).toBe("É. Militão");
+	});
+
+	it("3 palabras: Juan Román Riquelme → J. Riquelme (1er nombre + último apellido)", () => {
+		expect(getShortPlayerName("Juan Román Riquelme")).toBe("J. Riquelme");
+	});
+
+	it("4+ palabras: Cristiano Ronaldo dos Santos Aveiro → C. Aveiro", () => {
+		expect(getShortPlayerName("Cristiano Ronaldo dos Santos Aveiro")).toBe(
+			"C. Aveiro",
+		);
+	});
+
+	// === Edge cases P0: 1 palabra / vacío / nullish ===
+	it("Neymar → Neymar (1 palabra: no se puede abreviar)", () => {
+		expect(getShortPlayerName("Neymar")).toBe("Neymar");
+	});
+
+	it("Cavani → Cavani (1 palabra, mock real de ProdeAR)", () => {
+		expect(getShortPlayerName("Cavani")).toBe("Cavani");
+	});
+
+	it("Gómez → Gómez (1 palabra con acento)", () => {
+		expect(getShortPlayerName("Gómez")).toBe("Gómez");
+	});
+
+	it('"" → "" (string vacío)', () => {
+		expect(getShortPlayerName("")).toBe("");
+	});
+
+	it("null → '' (robustez)", () => {
+		expect(getShortPlayerName(null)).toBe("");
+	});
+
+	it("undefined → '' (robustez)", () => {
+		expect(getShortPlayerName(undefined)).toBe("");
+	});
+
+	it("whitespace puro '   ' → ''", () => {
+		expect(getShortPlayerName("   ")).toBe("");
+	});
+
+	// === Edge cases P1: trim + colapso de espacios ===
+	it("whitespace se trimea: '  Lionel  Messi  ' → 'L. Messi'", () => {
+		expect(getShortPlayerName("  Lionel  Messi  ")).toBe("L. Messi");
+	});
+
+	it("múltiples espacios internos se colapsan: 'Juan  Román  Riquelme' → 'J. Riquelme'", () => {
+		expect(getShortPlayerName("Juan  Román  Riquelme")).toBe("J. Riquelme");
+	});
+
+	// === Edge cases P1: idempotencia (nombres ya abreviados) ===
+	it("A. Di María → A. Di María (ya abreviado, se respeta)", () => {
+		expect(getShortPlayerName("A. Di María")).toBe("A. Di María");
+	});
+
+	it("L. Suárez → L. Suárez (ya abreviado, no se re-abrevia)", () => {
+		expect(getShortPlayerName("L. Suárez")).toBe("L. Suárez");
+	});
+
+	it("D. Sánchez → D. Sánchez (ya abreviado con acento)", () => {
+		expect(getShortPlayerName("D. Sánchez")).toBe("D. Sánchez");
+	});
+
+	// === Edge cases P1: Unicode (umlauts, cirílico-friendly) ===
+	it("Mesut Özil → M. Özil (umlaut preservado)", () => {
+		expect(getShortPlayerName("Mesut Özil")).toBe("M. Özil");
+	});
+
+	it("Ángel Di María → Á. Di María (acento en inicial, apellido compuesto)", () => {
+		expect(getShortPlayerName("Ángel Di María")).toBe("Á. Di María");
+	});
+
+	// === Edge cases P2: partículas en apellido ===
+	it("Frenky de Jong → F. de Jong (partícula 'de' se preserva)", () => {
+		expect(getShortPlayerName("Frenky de Jong")).toBe("F. de Jong");
+	});
+
+	it("Maravilla Martínez → M. Martínez (mock real de Racing Club)", () => {
+		expect(getShortPlayerName("Maravilla Martínez")).toBe("M. Martínez");
+	});
+
+	// === Edge case P2: lowercase no afecta (no se capitaliza, se respeta casing original) ===
+	it("'juan pérez' → 'j. pérez' (no fuerza mayúsculas en la inicial)", () => {
+		// getShortPlayerName NO es un capitalizador: respeta el casing del input.
+		// La capitalización visual la hace la clase CSS `font-label-caps` (uppercase).
+		expect(getShortPlayerName("juan pérez")).toBe("j. pérez");
 	});
 });
 

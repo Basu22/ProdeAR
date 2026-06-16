@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
 import { useCachedImage } from "../../../lib/imageCache";
-import { getPlayerInitials } from "../../../lib/playerHelpers";
+import { getPlayerInitials, getShortPlayerName } from "../../../lib/playerHelpers";
 import type { Match, TacticalPlayerInfo, TeamLineup } from "../../../lib/types";
 
 interface FormacionesTabProps {
@@ -80,8 +80,11 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 									photo={s.player.photo ?? null}
 									isHome={true}
 								/>
-								<span className="text-[10px] text-white leading-tight min-w-0 flex-1">
-									{s.player.name}
+								<span
+									className="text-[10px] text-white leading-tight min-w-0 flex-1"
+									title={s.player.name}
+								>
+									{getShortPlayerName(s.player.name)}
 								</span>
 							</li>
 						))}
@@ -122,8 +125,11 @@ export function FormacionesTab({ match }: FormacionesTabProps) {
 									photo={s.player.photo ?? null}
 									isHome={false}
 								/>
-								<span className="text-[10px] text-white leading-tight min-w-0 flex-1">
-									{s.player.name}
+								<span
+									className="text-[10px] text-white leading-tight min-w-0 flex-1"
+									title={s.player.name}
+								>
+									{getShortPlayerName(s.player.name)}
 								</span>
 							</li>
 						))}
@@ -358,9 +364,13 @@ function TacticalPlayerPin({
 				</div>
 			</div>
 
-			{/* Nombre del jugador (debajo del pin) */}
-			<span className="font-label-caps text-[11px] text-white/95 bg-black/60 px-1 py-0.5 rounded border border-white/5 mt-1 max-w-[80px] truncate">
-				{name}
+			{/* Nombre del jugador (debajo del pin) — abreviado a "X. Apellido".
+			    El `title` muestra el nombre completo al hover/tap largo como tooltip nativo. */}
+			<span
+				className="font-label-caps text-[11px] text-white/95 bg-black/60 px-1 py-0.5 rounded border border-white/5 mt-1 max-w-[80px] truncate cursor-help"
+				title={name}
+			>
+				{getShortPlayerName(name)}
 			</span>
 		</div>
 	);

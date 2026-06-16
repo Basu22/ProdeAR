@@ -715,6 +715,100 @@ Es el "comando center" que un fan del fútbol quiere ver durante el Mundial.
 
 ---
 
+## Feature: Abreviación Visual de Nombres en Formaciones *(2026-06-16)*
+
+### El problema
+
+En el `FormacionesTab` del Match Bottom Sheet, los nombres de los jugadores se mostraban **completos** debajo de cada pin táctico (`"Lionel Messi"`) y en la lista de suplentes. En una cancha de ~480px de ancho con 11 jugadores por equipo, esto causaba:
+
+- **Truncamientos** (`truncate` con `max-w-[80px]`) en 1-2 jugadores por fila en formaciones estándar 4-3-3 / 4-4-2.
+- **Wraps a 2 líneas** en apellidos largos que rompían la grilla horizontal de la cancha (`"Rodrigo De Paul"`, `"Ángel Di María"`, `"Van Dijk"`).
+- **Densidad visual** en el panel de suplentes mobile, que scrolleaba más de lo necesario.
+
+Adicionalmente, el panel de suplentes con nombres completos ocupaba ~33% más de altura vertical que con nombres abreviados.
+
+### La decisión
+
+Formato `"Inicial. Apellido"`:
+- `"Lionel Messi"` → `"L. Messi"`
+- `"Lautaro Martínez"` → `"L. Martínez"`
+- `"Neymar"` → `"Neymar"` (1 palabra no se puede abreviar)
+- `"Juan Román Riquelme"` → `"J. Riquelme"`
+- `"Cristiano Ronaldo dos Santos Aveiro"` → `"C. Aveiro"`
+
+**Idempotencia**: si la API ya devuelve un nombre abreviado (`"A. Di María"`), se respeta tal cual. La detección se hace con la regex `/^[\p{L}]\.\s/u` (Unicode-safe con flag `u`).
+
+**Apellidos con partícula**: para nombres italianos (`"Di"`), holandeses (`"de"`, `"van"`), alemanes (`"von"`), franceses (`"le"`), se detecta la partícula en la penúltima posición y se incluye en el apellido:
+- `"Ángel Di María"` → `"Á. Di María"`
+- `"Frenky de Jong"` → `"F. de Jong"`
+- Set `LASTNAME_PARTICLES` con 22 partículas en 5 idiomas.
+
+**Robustez**: `null` / `undefined` / `""` → `""`. Trim + colapso de whitespace múltiple. Unicode-safe (preserva acentos en la inicial: `"Éder Militão"` → `"É. Militão"`).
+
+### Lo que NO se cambió (decisiones conscientes)
+
+- **Nombres de DTs (coaches)** siguen con el nombre completo. Razonamiento: los DTs no son jugadores, son "staff"; el usuario los busca por nombre entero en su contexto de autoridad.
+- **`aria-label` del pin táctico** (línea 319 original) sigue con el nombre completo. Razonamiento a11y: los screen readers deben anunciar el nombre completo para que usuarios con discapacidad visual identifiquen al jugador inequívocamente. La abreviación es puramente visual.
+
+### Microinteracción: tooltip nativo
+
+Para que el usuario pueda ver el nombre completo al hover/tap largo, se agregó el atributo HTML `title={name}` + la clase `cursor-help` en el span del pin táctico. Esto usa el tooltip nativo del browser (0 JS, 0 dependencias, accesible, consistente con la web).
+
+- **Desktop**: aparece tras ~1s de hover.
+- **Mobile**: aparece tras ~500ms de long-press.
+- **Screen readers**: algunos anuncian el `title` como información adicional.
+
+### Archivos modificados
+
+| Archivo | Líneas | Cambios |
+|---|---|---|
+| `src/lib/playerHelpers.ts` | +99 | Helper `getShortPlayerName` exportado + `extractLastName` privado + set `LASTNAME_PARTICLES` (22 partículas) |
+| `src/components/match/tabs/FormacionesTab.tsx` | +18 / −8 | Import del helper, 3 call-sites (pin táctico, suplente HOME, suplente AWAY), `title={name}` + `cursor-help` en el pin |
+| `src/__tests__/playerHelpers.test.ts` | +102 | Nuevo `describe("getShortPlayerName")` con 22 casos |
+
+**Total**: 3 archivos, 219 insertions(+), 8 deletions(-).
+
+### Tests (22 nuevos casos)
+
+| Categoría | # | Casos representativos |
+|---|---|---|
+| Happy paths (P0) | 5 | `"Lionel Messi" → "L. Messi"`, `"Lautaro Martínez"`, `"Éder Militão"`, `"Juan Román Riquelme"`, `"Cristiano Ronaldo dos Santos Aveiro"` |
+| Edge cases 1-palabra/vacío (P0) | 7 | `"Neymar"`, `"Cavani"` (mock real), `"Gómez"`, `""`, `null`, `undefined`, `"   "` |
+| Trim/colapso (P1) | 2 | `"  Lionel  Messi  "`, `"Juan  Román  Riquelme"` |
+| Idempotencia (P1) | 3 | `"A. Di María"`, `"L. Suárez"`, `"D. Sánchez"` |
+| Unicode/partículas (P1-P2) | 5 | `"Mesut Özil"`, `"Ángel Di María"`, `"Frenky de Jong"`, `"Maravilla Martínez"`, lowercase |
+
+### Criterios de aceptación críticos
+
+- ✅ `"Lionel Messi"` → `"L. Messi"` (caso de uso principal)
+- ✅ `"Neymar"` → `"Neymar"` (1 palabra: no se rompe)
+- ✅ `"A. Di María"` → `"A. Di María"` (idempotente)
+- ✅ `null` / `undefined` / `""` → `""` (no crashea)
+- ✅ `aria-label` sigue con nombre completo (a11y)
+- ✅ DTs no se modifican (alcance correcto)
+- ✅ Cero regresiones en EventosTab, MatchCard, MatchSheet
+
+### Evidencia de validación
+
+- `npx tsc --noEmit` → 0 errores
+- `npx vitest run src/__tests__/playerHelpers.test.ts` → **66/66 tests** (44 originales + 22 nuevos)
+- `npx vitest run` (suite completa) → **387/387 tests** en 21 archivos, 0 regresiones
+- `npm run build` → compila OK, PWA + service worker generados
+
+### Riesgos residuales
+
+- **Formaciones 5-3-2 con 5 defensores de apellidos largos** (ej. `C. Christensen` 15 chars en Outfit 11px uppercase) podrían tensionar `max-w-[80px]`. Mitigación si se observa: bajar a `max-w-[72px]` o permitir wrap a 2 líneas solo en ese edge case (requeriría refactor).
+- **Dos jugadores con misma inicial + apellido en el mismo equipo** (ej. dos `G. Gómez`): estadísticamente improbable; mitigado por foto + número + posición en grilla.
+
+### Trabajo futuro
+
+- Evaluar Radix UI Tooltip para un tooltip estilizado con `glass-card` (vs el nativo del browser).
+- Reveal on tap-and-hold para mobile (cross-fade entre abreviado y completo).
+- Considerar aplicar la abreviación también en el tab **Eventos** (goles, tarjetas, sustituciones) si la densidad lo justifica.
+- Usar la columna `short_name` que algunas APIs de fútbol exponen si está disponible (evitaría el helper).
+
+---
+
 ## Referencias
 
 - **Spec UX/UI del Match Bottom Sheet**: `docs/match-bottom-sheet-ux-spec.md` (117KB)

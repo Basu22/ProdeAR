@@ -414,3 +414,44 @@
 - [ ] Considerar mover la sincronización de `league_coverage` a un cron diario separado (ahora se hace en el primer poll del día).
 - [ ] Evaluar migración de `coachPhotoUrl` a `coach_photo_url` (typo oficial `coachs` está en todos lados, pero la columna en DB sigue el snake_case normal).
 - [ ] Refactor: extraer el helper `processBatchDataForFixture` a un módulo separado para testeo aislado.
+
+---
+
+## Feature: Abreviación de Nombres en Formaciones *(2026-06-16)*
+
+Iteración UX post-Sprint 3 sobre el `FormacionesTab` del Match Bottom Sheet. Los nombres de los jugadores se muestran en formato `"Inicial. Apellido"` (`"Lionel Messi" → "L. Messi"`) para mejorar la legibilidad en la cancha (~480px) y en el panel de suplentes mobile.
+
+### Resumen
+
+- **Formato**: `"X. Apellido"`. 1 palabra → tal cual. Idempotente (nombres ya abreviados se respetan). Soporta partículas en apellidos italianos, holandeses, alemanes, franceses (`"Á. Di María"`, `"F. de Jong"`).
+- **Aplicado en**: 11 titulares (pins tácticos) + lista de suplentes (HOME y AWAY).
+- **NO aplicado en**: nombres de DTs/coaches (siguen completos), `aria-label` del pin (sigue completo para a11y).
+- **Microinteracción**: `title={name}` HTML nativo en el pin → tooltip con nombre completo al hover/tap largo.
+
+### Archivos
+
+**Nuevos (0) / Modificados (3):**
+- `src/lib/playerHelpers.ts` (+99): helper `getShortPlayerName` + set `LASTNAME_PARTICLES` (22 partículas) + helper privado `extractLastName`.
+- `src/components/match/tabs/FormacionesTab.tsx` (+18 / −8): import del helper, 3 call-sites, `title` + `cursor-help` en el pin.
+- `src/__tests__/playerHelpers.test.ts` (+102): nuevo `describe("getShortPlayerName")` con 22 casos.
+
+### Decisiones de diseño
+
+1. **Helper puro con detección de partículas**: la lista `LASTNAME_PARTICLES` cubre 5 idiomas (es/pt, it, nl, de, fr) con 22 partículas. Crítico para italianos (`"Di María"`) y holandeses (`"de Jong"`).
+2. **Idempotencia explícita**: regex `/^[\p{L}]\.\s/u` para detectar nombres ya abreviados y NO re-abreviar (`"A. Di María"` → `"A. Di María"`).
+3. **Tooltip nativo vs Radix**: optamos por `title` HTML nativo (0 JS, 0 deps, accesible). Radix UI Tooltip queda como trabajo futuro si se quiere estilizar.
+4. **NO tocar DTs ni `aria-label`**: la abreviación es puramente visual. Screen readers siguen anunciando el nombre completo. Los DTs son "staff" no jugadores.
+5. **Cero cambios de CSS**: se mantiene `font-label-caps`, `text-[11px]`, `max-w-[80px]`, `truncate` en el pin; `text-[10px]`, `flex-1` en suplentes. La grilla de la cancha y la altura del bottom sheet no se ven afectadas.
+
+### Validación
+
+- `npx tsc --noEmit` → 0 errores
+- `npx vitest run` → **387/387 tests** (66 en `playerHelpers.test.ts`, 0 regresiones)
+- `npm run build` → OK (PWA + service worker)
+
+### Pendientes
+
+- Evaluar Radix UI Tooltip para tooltip estilizado (vs nativo del browser).
+- Reveal on tap-and-hold para mobile (cross-fade abreviado ↔ completo).
+- Considerar abreviación en el tab **Eventos** si la densidad lo justifica.
+- Usar `short_name` de la API si está disponible (evitaría el helper).

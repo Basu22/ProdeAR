@@ -1069,3 +1069,123 @@ El bloque `@media (prefers-reduced-motion: reduce)` en `index.css` deshabilita t
   - `src/components/tournament/LiveMiniScoreboard.tsx` (125 líneas)
   - `src/components/ui/PillTabs.tsx` (118 líneas, reutilizable)
 - **Edge Function modificada**: `supabase/functions/poll-scores/index.ts` (canonicalización server-side, ~140 líneas agregadas)
+
+---
+
+## §12. Iteración UX — Abreviación de Nombres en Formaciones (2026-06-16)
+
+Iteración post-Sprint 3 sobre el `FormacionesTab` del Match Bottom Sheet. Los nombres de los jugadores se muestran en formato `"Inicial. Apellido"` (`"Lionel Messi" → "L. Messi"`) para reducir truncamientos y wraps a 2 líneas en la cancha de ~480px y en el panel de suplentes mobile.
+
+### 12.1. Helper `getShortPlayerName`
+
+Función pura exportada en `src/lib/playerHelpers.ts`. Signature:
+
+```ts
+export function getShortPlayerName(
+  name: string | null | undefined,
+): string
+```
+
+**Reglas:**
+
+1. `null` / `undefined` / `""` → `""` (robustez, no crashea).
+2. Whitespace se trimea y colapsa: `"  Lionel  Messi  "` → `"L. Messi"`.
+3. Si el nombre ya viene abreviado (regex `/^[\p{L}]\.\s/u`), se respeta tal cual (idempotencia).
+4. 1 palabra → devuelve tal cual: `"Neymar"` → `"Neymar"`.
+5. 2+ palabras → `"X. Apellido"`, donde X es la primera letra del primer nombre (Unicode-safe, preserva acentos) y Apellido es el último token (o los últimos 2 si hay partícula, ver §12.2).
+
+**Ejemplos clave:**
+
+| Input | Output | Caso |
+|---|---|---|
+| `"Lionel Messi"` | `"L. Messi"` | Happy path estándar |
+| `"Lautaro Martínez"` | `"L. Martínez"` | Acento en apellido |
+| `"Éder Militão"` | `"É. Militão"` | Acento en inicial Y apellido |
+| `"Juan Román Riquelme"` | `"J. Riquelme"` | 3+ palabras |
+| `"Neymar"` | `"Neymar"` | 1 palabra: no se puede abreviar |
+| `"A. Di María"` | `"A. Di María"` | Ya abreviado: se respeta |
+| `""` / `null` / `undefined` | `""` | Robustez |
+
+### 12.2. Set `LASTNAME_PARTICLES` y helper `extractLastName`
+
+Para nombres italianos (`"Di"`), holandeses (`"de"`, `"van"`), alemanes (`"von"`), franceses (`"le"`), la partícula se antepone al apellido y debe preservarse. Sin esta lógica, `"Ángel Di María"` quedaría `"Á. María"` (pierde "Di") y `"Frenky de Jong"` quedaría `"F. Jong"` (pierde "de").
+
+**Set `LASTNAME_PARTICLES`** (22 partículas, 5 idiomas):
+
+```ts
+const LASTNAME_PARTICLES = new Set([
+  // Español/portugués
+  "de", "del", "da", "do", "dos", "das", "della", "delle",
+  "la", "las", "los", "el", "y", "e",
+  // Italiano
+  "di",
+  // Holandés
+  "van", "der", "den", "ten", "ter",
+  // Alemán
+  "von", "zu", "vom",
+  // Francés
+  "le", "du",
+]);
+```
+
+**Algoritmo `extractLastName(parts: string[]): string`** (helper privado):
+
+- 1 elemento → devuelve `parts[0]`.
+- 2 elementos → si la segunda es partícula y la primera NO (caso degenerado), devuelve la primera. Si no, devuelve la segunda.
+- 3+ elementos → si la penúltima es partícula, devuelve `"penultima ultima"`. Si no, devuelve la última.
+
+El algoritmo es **conservador**: prefiere no agrupar partículas en casos ambiguos. Esto evita falsos positivos como `"José María Giménez"` → `"J. María Giménez"` (incorrecto: "María" es parte del nombre, no apellido). Como "María" no está en el set, devuelve correctamente `"J. Giménez"`.
+
+### 12.3. Integración en `FormacionesTab`
+
+3 call-sites, **solo cambio de contenido** (ninguna clase CSS se modificó):
+
+| Línea (post-cambio) | Ubicación | Antes | Después |
+|---|---|---|---|
+| 87 | Suplente HOME (panel inferior izquierdo) | `{s.player.name}` | `{getShortPlayerName(s.player.name)}` + `title={s.player.name}` |
+| 132 | Suplente AWAY (panel inferior derecho) | `{s.player.name}` | `{getShortPlayerName(s.player.name)}` + `title={s.player.name}` |
+| 373 | Pin táctico (debajo de la foto en la cancha) | `{name}` | `{getShortPlayerName(name)}` + `title={name}` + `cursor-help` |
+
+**Decisión a11y crítica**: el `aria-label` del pin táctico (línea 325) **NO se modificó** — sigue conteniendo el nombre completo para screen readers. La abreviación es puramente visual.
+
+**Decisión de scope**: los nombres de los DTs (líneas 102 y 144) **NO se modificaron** — siguen con el nombre completo. Los DTs son "staff" no jugadores; el usuario los busca por nombre entero en su contexto de autoridad.
+
+### 12.4. Decisión: tooltip nativo vs Radix UI
+
+Se optó por el atributo HTML `title={name}` + clase `cursor-help` en el pin táctico:
+
+| Aspecto | Tooltip nativo (`title`) | Radix UI Tooltip |
+|---|---|---|
+| Costo | 0 JS, 0 deps | +1 dep, ~10KB |
+| Estilización | Controlada por el OS | Totalmente personalizable (`glass-card`, animaciones) |
+| Accesibilidad | Inconsistente entre SR (algunos lo anuncian) | API a11y completa (`aria-describedby`) |
+| Delay desktop | ~1s (browser default) | Configurable |
+| Mobile (tap largo) | ~500ms long-press | Configurable |
+
+**Decisión**: tooltip nativo para esta iteración por su costo/beneficio. Radix UI Tooltip queda como trabajo futuro si se quiere estilizar con el lenguaje glassmorphism del proyecto.
+
+### 12.5. Tests
+
+22 nuevos casos en `describe("getShortPlayerName")` dentro de `src/__tests__/playerHelpers.test.ts`, organizados en 5 categorías:
+
+| Categoría | # casos | Prioridad |
+|---|---|---|
+| Happy paths (estándar, con acento, 3+ palabras) | 5 | P0 |
+| Edge cases 1-palabra / vacío / nullish | 7 | P0 |
+| Trim + colapso de espacios | 2 | P1 |
+| Idempotencia (nombres ya abreviados) | 3 | P1 |
+| Unicode (umlauts, acentos, partículas) | 5 | P1-P2 |
+
+**Resultados de validación:**
+- `npx tsc --noEmit` → 0 errores
+- `npx vitest run` (suite completa) → **387/387 tests pasan** en 21 archivos, 0 regresiones
+- `npm run build` → compila OK, PWA + service worker generados
+
+### 12.6. Referencias cruzadas
+
+- **Walkthrough narrativo**: `walkthrough.md` → sección "Feature: Abreviación Visual de Nombres en Formaciones *(2026-06-16)*"
+- **Task board**: `task.md` → sección "Feature: Abreviación de Nombres en Formaciones"
+- **Source code**:
+  - `src/lib/playerHelpers.ts` (helper `getShortPlayerName` líneas 84-181, `extractLastName` 137-155, `LASTNAME_PARTICLES` 111-123)
+  - `src/components/match/tabs/FormacionesTab.tsx` (3 call-sites en líneas 87, 132, 373)
+  - `src/__tests__/playerHelpers.test.ts` (22 nuevos tests)
