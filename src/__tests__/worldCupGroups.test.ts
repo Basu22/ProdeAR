@@ -338,7 +338,7 @@ describe("getGroupTables", () => {
 		expect(corea?.dg).toBe(-1);
 	});
 
-	it("FIX BUG: counts LIVE matches in pj/gf/gc/dg but NOT pts/pg/pe/pp", () => {
+	it("counts LIVE matches with projected points (same as finished)", () => {
 		const matches: WorldCupMatch[] = [
 			makeMatch({
 				id: "m1",
@@ -355,16 +355,24 @@ describe("getGroupTables", () => {
 			.find((g) => g.groupName === "Grupo A")
 			?.standings.find((s) => s.teamName === "México");
 
-		expect(mexico?.pj).toBe(1); // ✅ PJ cuenta
-		expect(mexico?.gf).toBe(1); // ✅ GF cuenta
-		expect(mexico?.gc).toBe(0); // ✅ GC cuenta
-		expect(mexico?.dg).toBe(1); // ✅ DG cuenta
-		expect(mexico?.pts).toBe(0); // ❌ PTS NO cuenta (live)
-		expect(mexico?.pg).toBe(0); // ❌ PG NO cuenta (live)
-		expect(mexico?.isLive).toBe(true); // ✅ Marcado como en juego
+		expect(mexico?.pj).toBe(1);
+		expect(mexico?.gf).toBe(1);
+		expect(mexico?.gc).toBe(0);
+		expect(mexico?.dg).toBe(1);
+		expect(mexico?.pts).toBe(3);
+		expect(mexico?.pg).toBe(1);
+		expect(mexico?.isLive).toBe(true);
+
+		const corea = tables
+			.find((g) => g.groupName === "Grupo A")
+			?.standings.find((s) => s.teamName === "Corea del Sur");
+
+		expect(corea?.pts).toBe(0);
+		expect(corea?.pp).toBe(1);
+		expect(corea?.isLive).toBe(true);
 	});
 
-	it("LIVE match 0-0 shows pj=1, gf=0, gc=0, dg=0 (no división por cero)", () => {
+	it("LIVE match 0-0 assigns projected draw points (1 pt each)", () => {
 		const matches: WorldCupMatch[] = [
 			makeMatch({
 				id: "m1",
@@ -385,6 +393,8 @@ describe("getGroupTables", () => {
 		expect(mexico?.gf).toBe(0);
 		expect(mexico?.gc).toBe(0);
 		expect(mexico?.dg).toBe(0);
+		expect(mexico?.pts).toBe(1);
+		expect(mexico?.pe).toBe(1);
 		expect(mexico?.isLive).toBe(true);
 	});
 
@@ -415,10 +425,10 @@ describe("getGroupTables", () => {
 			.find((g) => g.groupName === "Grupo A")
 			?.standings.find((s) => s.teamName === "México");
 
-		// México: 1 finished (3 pts) + 1 live (0 pts) = 3 pts total
+		// México: 1 finished (3 pts) + 1 live winning (3 pts projected) = 6 pts total
 		expect(mexico?.pj).toBe(2);
-		expect(mexico?.pts).toBe(3);
-		expect(mexico?.pg).toBe(1);
+		expect(mexico?.pts).toBe(6);
+		expect(mexico?.pg).toBe(2);
 		expect(mexico?.gf).toBe(3); // 2 + 1
 		expect(mexico?.gc).toBe(1); // 1 + 0
 		expect(mexico?.dg).toBe(2);
