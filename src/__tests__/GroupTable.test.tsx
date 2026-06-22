@@ -95,29 +95,28 @@ describe("GroupTable", () => {
 	it("renderiza los 4 equipos con sus nombres", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
-		expect(screen.getByText("México")).toBeInTheDocument();
-		expect(screen.getByText("Corea del Sur")).toBeInTheDocument();
-		expect(screen.getByText("Sudáfrica")).toBeInTheDocument();
-		expect(screen.getByText("República Checa")).toBeInTheDocument();
+		expect(screen.getByText("MEX")).toBeInTheDocument();
+		expect(screen.getByText("KOR")).toBeInTheDocument();
+		expect(screen.getByText("RSA")).toBeInTheDocument();
+		expect(screen.getByText("CZE")).toBeInTheDocument();
 	});
 
-	it("renderiza los stats numéricos (PJ, PG, PE, PP, GF, GC, DG, PTS)", () => {
+	it("renderiza los stats numéricos (PTS, J, G, E, P, +/-)", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
-		// México: 6pts, 2PJ, 2PG, 0PE, 0PP, +4DG, 4GF, 0GC
-		const mexicoRow = screen.getByText("México").closest("tr");
+		// México: 6pts, 2J, 2G, 0E, 0P, 4-0 en +/-
+		const mexicoRow = screen.getByText("MEX").closest("tr");
 		expect(mexicoRow).toHaveTextContent("6"); // PTS
-		expect(mexicoRow).toHaveTextContent("2"); // PJ (multiple cells with 2, but at least one)
-		expect(mexicoRow).toHaveTextContent("4"); // GF
-		expect(mexicoRow).toHaveTextContent("+4"); // DG
+		expect(mexicoRow).toHaveTextContent("2"); // J
+		expect(mexicoRow).toHaveTextContent("4-0"); // +/-
 	});
 
 	it("asigna rank badge verde (clasifica) para posiciones 1-2", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
 		// México y Corea deberían tener rank badges verdes
-		const mexicoRow = screen.getByText("México").closest("tr");
-		const coreaRow = screen.getByText("Corea del Sur").closest("tr");
+		const mexicoRow = screen.getByText("MEX").closest("tr");
+		const coreaRow = screen.getByText("KOR").closest("tr");
 
 		// Buscar el badge de rank (1, 2) en cada fila
 		const mexicoRankBadge = mexicoRow?.querySelector("td:first-child > div");
@@ -130,7 +129,7 @@ describe("GroupTable", () => {
 	it("asigna rank badge ámbar (mejor 3°) para posición 3", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
-		const safRow = screen.getByText("Sudáfrica").closest("tr");
+		const safRow = screen.getByText("RSA").closest("tr");
 		const safRankBadge = safRow?.querySelector("td:first-child > div");
 
 		expect(safRankBadge).toHaveClass("bg-amber-500");
@@ -139,7 +138,7 @@ describe("GroupTable", () => {
 	it("asigna rank badge gris para posición 4", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
-		const czeRow = screen.getByText("República Checa").closest("tr");
+		const czeRow = screen.getByText("CZE").closest("tr");
 		const czeRankBadge = czeRow?.querySelector("td:first-child > div");
 
 		expect(czeRankBadge).toHaveClass("bg-white/10");
@@ -151,7 +150,7 @@ describe("GroupTable", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
 		// México tiene logo en flagcdn
-		const mexicoRow = screen.getByText("México").closest("tr");
+		const mexicoRow = screen.getByText("MEX").closest("tr");
 		const mexicoImg = mexicoRow?.querySelector("img");
 		expect(mexicoImg).toHaveAttribute("src", "https://flagcdn.com/w40/mx.png");
 	});
@@ -160,7 +159,7 @@ describe("GroupTable", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
 		// Sudáfrica tiene logo: null → debe haber un span con class "material-symbols-outlined"
-		const safRow = screen.getByText("Sudáfrica").closest("tr");
+		const safRow = screen.getByText("RSA").closest("tr");
 		const safIcon = safRow?.querySelector(".material-symbols-outlined");
 		expect(safIcon).toBeInTheDocument();
 	});
@@ -224,15 +223,12 @@ describe("GroupTable", () => {
 		});
 		render(<GroupTable group={group} positionChanges={noChanges} />);
 
-		// Los signos +/- son únicos en la tabla
-		expect(screen.getByText("+3")).toBeInTheDocument(); // A: dg positivo
-		expect(screen.getByText("-3")).toBeInTheDocument(); // C: dg negativo
-		// Para dg=0 no hay assertion específica (hay muchos "0" en la tabla:
-		// PTS, PJ, PG, PE, PP, GF, GC de los otros equipos), pero sabemos
-		// que el código renderiza `standing.dg` (sin signo) cuando es 0.
+		// Los formatos GF-GC son únicos en la tabla
+		expect(screen.getByText("3-0")).toBeInTheDocument(); // A: gf=3 gc=0
+		expect(screen.getByText("0-3")).toBeInTheDocument(); // C: gf=0 gc=3
 	});
 
-	it("aplica clase de color verde al DG positivo y rojo al negativo", () => {
+	it("aplica clase de color verde a + GF>GC y rojo a GF<GC", () => {
 		const group = makeGroup({
 			standings: [
 				{
@@ -292,13 +288,12 @@ describe("GroupTable", () => {
 		});
 		render(<GroupTable group={group} positionChanges={noChanges} />);
 
-		// El DG cell está en la columna "DG" (8va columna td)
-		// Buscar el texto +3 y -3 directamente
-		const dgPos = screen.getByText("+3");
-		const dgNeg = screen.getByText("-3");
+		// El +/- cell muestra el formato GF-GC
+		const gfHigh = screen.getByText("3-0");
+		const gfLow = screen.getByText("0-3");
 
-		expect(dgPos).toHaveClass("text-emerald-400");
-		expect(dgNeg).toHaveClass("text-red-400");
+		expect(gfHigh).toHaveClass("text-emerald-400");
+		expect(gfLow).toHaveClass("text-red-400");
 	});
 
 	it("muestra LiveBadge en el header cuando hay liveMatches", () => {
@@ -328,7 +323,7 @@ describe("GroupTable", () => {
 		]);
 		render(<GroupTable group={makeGroup()} positionChanges={changes} />);
 
-		const mexicoRow = screen.getByText("México").closest("tr");
+		const mexicoRow = screen.getByText("MEX").closest("tr");
 		expect(mexicoRow).toHaveClass("animate-rank-up");
 	});
 
@@ -338,14 +333,14 @@ describe("GroupTable", () => {
 		]);
 		render(<GroupTable group={makeGroup()} positionChanges={changes} />);
 
-		const coreaRow = screen.getByText("Corea del Sur").closest("tr");
+		const coreaRow = screen.getByText("KOR").closest("tr");
 		expect(coreaRow).toHaveClass("animate-rank-down");
 	});
 
 	it("NO aplica animación cuando positionChange es 'same' (default)", () => {
 		render(<GroupTable group={makeGroup()} positionChanges={noChanges} />);
 
-		const mexicoRow = screen.getByText("México").closest("tr");
+		const mexicoRow = screen.getByText("MEX").closest("tr");
 		expect(mexicoRow).not.toHaveClass("animate-rank-up");
 		expect(mexicoRow).not.toHaveClass("animate-rank-down");
 	});
@@ -357,7 +352,7 @@ describe("GroupTable", () => {
 		]);
 		render(<GroupTable group={makeGroup()} positionChanges={changes} />);
 
-		const mexicoRow = screen.getByText("México").closest("tr");
+		const mexicoRow = screen.getByText("MEX").closest("tr");
 		expect(mexicoRow).toHaveClass("animate-rank-up");
 	});
 });
