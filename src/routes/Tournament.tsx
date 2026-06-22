@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
 import { MatchSheet } from "../components/match/MatchSheet";
-import { PositionsView } from "../components/tournament/PositionsView";
+import { PositionsRedirectCard } from "../components/tournament/PositionsRedirectCard";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
 import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";
 import { GlassCard } from "../components/ui/GlassCard";
@@ -103,15 +103,16 @@ export function Tournament() {
 
 	const tabs = useMemo(() => {
 		const items = [{ id: "ranking", label: "RANKING TORNEO" }];
-		if (isWorldCup) {
-			items.push({ id: "posiciones", label: "POSICIONES" });
-		}
+		// FASE 1 (Sección Ligas): la tab "POSICIONES" aparece en TODOS los
+		// torneos (no solo en el Mundial). La redirect card funciona siempre
+		// porque el botón "Ir a Ligas" navega a /ligas?comp=<id>.
+		items.push({ id: "posiciones", label: "POSICIONES" });
 		items.push(
 			{ id: "pronosticos", label: "PRONOSTICOS" },
 			{ id: "chat", label: "CHAT" },
 		);
 		return items;
-	}, [isWorldCup]);
+	}, []);
 
 	const rounds = useMemo((): string[] => {
 		const filteredMatches = matches ?? [];
@@ -477,8 +478,10 @@ export function Tournament() {
 				</GlassCard>
 			)}
 
-			{/* POSICIONES (Grupos en vivo + Liga 3ros + 16vos) */}
-			{tab === "posiciones" && <PositionsView matches={matches ?? []} />}
+			{/* POSICIONES (Fase 1: redirect card hacia /ligas) */}
+			{tab === "posiciones" && (
+				<PositionsRedirectCard competitionId={tournament.competitionId} />
+			)}
 
 			{/* PRONÓSTICOS */}
 			{tab === "pronosticos" && (
