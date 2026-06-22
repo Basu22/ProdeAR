@@ -25,6 +25,7 @@
 
 import type { PositionChange } from "../../hooks/useGroupStandings";
 import type { GroupTable as GroupTableType } from "../../lib/worldCupGroups";
+import { getCountryCode } from "../../lib/worldCupGroups";
 import { GlassCard } from "../ui/GlassCard";
 import { LiveBadge } from "./LiveBadge";
 import { LiveMiniScoreboard } from "./LiveMiniScoreboard";
@@ -75,18 +76,22 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 				<table className="w-full text-left border-collapse text-xs">
 					<thead>
 						<tr className="border-b border-white/5 bg-white/[0.02] text-on-surface-variant font-bold font-label-caps tracking-wider">
-							<th className="py-2.5 px-3 text-center w-8">#</th>
-							<th className="py-2.5 px-2">EQUIPO</th>
-							<th className="py-2.5 px-2 text-center font-black text-white w-10">
-								PTS
+							<th className="py-2.5 px-2 text-center w-7">#</th>
+							<th className="py-2.5 px-1">EQUIPO</th>
+							<th className="py-2.5 px-1 text-center font-black text-white w-9">
+								Pts
 							</th>
-							<th className="py-2.5 px-2 text-center w-8">PJ</th>
-							<th className="py-2.5 px-2 text-center w-8">PG</th>
-							<th className="py-2.5 px-2 text-center w-8">PE</th>
-							<th className="py-2.5 px-2 text-center w-8">PP</th>
-							<th className="py-2.5 px-2 text-center w-10">DG</th>
-							<th className="py-2.5 px-2 text-center w-8">GF</th>
-							<th className="py-2.5 px-2 text-center w-8">GC</th>
+							<th className="py-2.5 px-1 text-center w-7">J</th>
+							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
+								G
+							</th>
+							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
+								E
+							</th>
+							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
+								P
+							</th>
+							<th className="py-2.5 px-1 text-center w-12">+/-</th>
 						</tr>
 					</thead>
 					<tbody className="divide-y divide-white/5 font-body-md">
@@ -95,6 +100,7 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 							const teamKey = `${group.groupLetter}:${standing.teamName}`;
 							const change = positionChanges.get(teamKey);
 							const animClass = getPositionAnimationClass(change);
+							const countryCode = getCountryCode(standing.teamName);
 
 							return (
 								<tr
@@ -104,7 +110,7 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 										${animClass}
 									`.trim()}
 								>
-									<td className="py-3 px-3 text-center">
+									<td className="py-3 px-2 text-center">
 										<div
 											className={`
 												w-5 h-5 flex items-center justify-center rounded-full
@@ -115,13 +121,13 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 											{rank}
 										</div>
 									</td>
-									<td className="py-3 px-2 font-bold text-white">
-										<div className="flex items-center gap-2">
+									<td className="py-3 px-1 font-bold text-white">
+										<div className="flex items-center gap-1.5">
 											{standing.logo ? (
 												<img
 													src={standing.logo}
 													alt=""
-													className="w-4 h-4 object-contain"
+													className="w-4 h-4 object-contain shrink-0"
 													loading="lazy"
 												/>
 											) : (
@@ -129,48 +135,45 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 													flag
 												</span>
 											)}
-											<span className="truncate max-w-[120px]">
-												{standing.teamName}
+											<span
+												className="font-stat-value text-xs font-black tracking-wider tabular-nums"
+												title={standing.teamName}
+											>
+												{countryCode}
 											</span>
 											{standing.isLive && (
 												<LiveBadge variant="compact" className="ml-1" />
 											)}
 										</div>
 									</td>
-									<td className="py-3 px-2 text-center font-black text-primary bg-primary/5 tabular-nums">
+									<td className="py-3 px-1 text-center font-black text-primary bg-primary/5 tabular-nums">
 										{standing.pts}
 									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums">
 										{standing.pj}
 									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
 										{standing.pg}
 									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
 										{standing.pe}
 									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant tabular-nums">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
 										{standing.pp}
 									</td>
 									<td
 										className={`
-											py-3 px-2 text-center font-bold tabular-nums
+											py-3 px-1 text-center font-bold tabular-nums text-[11px]
 											${
-												standing.dg > 0
+												standing.gf > standing.gc
 													? "text-emerald-400"
-													: standing.dg < 0
+													: standing.gf < standing.gc
 														? "text-red-400"
 														: "text-on-surface-variant"
 											}
 										`.trim()}
 									>
-										{standing.dg > 0 ? `+${standing.dg}` : standing.dg}
-									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant/80 tabular-nums">
-										{standing.gf}
-									</td>
-									<td className="py-3 px-2 text-center text-on-surface-variant/80 tabular-nums">
-										{standing.gc}
+										{standing.gf}-{standing.gc}
 									</td>
 								</tr>
 							);
