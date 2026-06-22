@@ -1,6 +1,11 @@
 /**
  * KnockoutBracket — Visualización de los 16 partidos de Dieciseisavos.
  *
+ * @deprecated Sprint 4: Reemplazado por `BracketTree` (árbol completo con
+ * 5 rondas + 3er puesto + SVG conectores). Este componente se mantiene
+ * como fallback cuando la feature flag `VITE_ENABLE_FULL_BRACKET=false`,
+ * pero no se usa en código nuevo. Usar `BracketTree` en su lugar.
+ *
  * ============================================================================
  * ALCANCE DE FASE 3 (Simplificado)
  * ============================================================================
@@ -78,7 +83,7 @@ function SlotDisplay({
 	if (!isResolved) {
 		// TBD slot
 		return (
-			<div className={baseClass} aria-label={`Slot ${position} pendiente`}>
+			<div className={baseClass}>
 				<span className="material-symbols-outlined text-[16px] text-on-surface-variant/40">
 					help
 				</span>
@@ -95,10 +100,7 @@ function SlotDisplay({
 	}
 
 	return (
-		<div
-			className={baseClass}
-			aria-label={`Slot ${position}: ${slot.teamName}`}
-		>
+		<div className={baseClass}>
 			{slot.teamLogo ? (
 				<img
 					src={slot.teamLogo}
@@ -148,7 +150,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
 					</span>
 					{!isComplete && (
 						<span
-							aria-label="Pendiente"
+							aria-hidden="true"
 							className="font-label-caps text-[8px] text-on-surface-variant/50 uppercase tracking-widest"
 						>
 							· Pendiente

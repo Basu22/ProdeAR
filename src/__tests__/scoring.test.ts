@@ -139,4 +139,41 @@ describe("calculateScore (ChampSheep Rules)", () => {
 		);
 		expect(exactResult.points).toBe(20); // 10 * 2
 	});
+
+	// Sprint "Full Bracket": multipliers para Octavos, Cuartos, Semis
+	it("apply stage multiplier x3 for Round of 16 (Octavos) — exact 30pts", () => {
+		const result = calculateScore(
+			{ predictedHome: 2, predictedAway: 1, predictedWinner: null },
+			2,
+			1,
+			null,
+			3, // ×3 para Octavos
+		);
+		expect(result.points).toBe(30); // 10 * 3
+		expect(result.breakdown.exactScore).toBe(true);
+	});
+
+	it("apply stage multiplier x4 for Quarter-finals (Cuartos) — exact 40pts", () => {
+		const result = calculateScore(
+			{ predictedHome: 1, predictedAway: 0, predictedWinner: null },
+			1,
+			0,
+			null,
+			4, // ×4 para Cuartos
+		);
+		expect(result.points).toBe(40); // 10 * 4
+		expect(result.breakdown.exactScore).toBe(true);
+	});
+
+	it("apply stage multiplier x5 for Semi-finals — exact 50pts", () => {
+		const result = calculateScore(
+			{ predictedHome: 3, predictedAway: 1, predictedWinner: null },
+			3,
+			1,
+			null,
+			5, // ×5 para Semifinal
+		);
+		expect(result.points).toBe(50); // 10 * 5
+		expect(result.breakdown.exactScore).toBe(true);
+	});
 });

@@ -6,21 +6,21 @@
  * ============================================================================
  * 1. Calcula las posiciones con `useGroupStandings(matches)`.
  * 2. Renderiza sub-pills (PillTabs) para navegar entre:
- *    - GRUPOS (vista principal, implementada en esta fase)
- *    - LIGA 3ROS (próximamente)
- *    - 16VOS (próximamente)
+ *    - GRUPOS (vista principal)
+ *    - LIGA 3ROS (tabla de los 12 mejores terceros)
+ *    - LLAVES (árbol completo de eliminatorias, R32 → F + 3er puesto)
  * 3. Muestra contador de partidos en vivo en el pill "GRUPOS".
  * 4. Renderiza grid de GroupTable (12 grupos) o un placeholder elegante
  *    para las vistas no implementadas.
  *
  * ============================================================================
- * SUB-PILLS
+ * SPRINT 4 — FULL BRACKET
  * ============================================================================
- * - "GRUPOS" → habilitado, muestra los 12 grupos
- * - "LIGA 3ROS" → disabled, "Próximamente" (próxima fase)
- * - "16VOS" → disabled, "Próximamente" (próxima fase)
+ * El sub-pill "16VOS" se renombra a "LLAVES" y ahora renderiza
+ * `BracketTree` (árbol completo con 5 rondas + 3er puesto + SVG conectores).
+ * El cálculo se hace con `getFullBracket` (función pura de bracketEngine).
  *
- * Las pills se renderizan con `PillTabs` (reutilizable, accesible).
+ * El sub-pill "LIGA 3ROS" muestra `BestThirdsTable` (sin cambios).
  *
  * ============================================================================
  * UX: ANIMACIONES DE CAMBIO DE POSICIÓN
@@ -37,23 +37,19 @@
  * estado vacío con un ícono de pelota y mensaje claro.
  */
 
-import { useState } from "react";
-import { useGroupStandings } from "../../hooks/useGroupStandings";
-import type { Match } from "../../lib/types";
-import {
-	calculateBestThirds,
-	resolveKnockoutMatchups,
-} from "../../lib/worldCupGroups";
+import { useMemo, useState } from "react";
+import { getFullBracket } from "../../lib/bracketEngine";
+import { calculateBestThirds } from "../../lib/worldCupGroups";
 import { GlassCard } from "../ui/GlassCard";
 import { PillTabs } from "../ui/PillTabs";
 import { BestThirdsTable } from "./BestThirdsTable";
+import { BracketTree } from "./BracketTree";
 import { GroupTable } from "./GroupTable";
-import { KnockoutBracket } from "./KnockoutBracket";
 
-type PositionsSubTab = "grupos" | "mejores3ros" | "dieciseisavos";
+type PositionsSubTab = "grupos" | "mejores3ros" | "llaves";
 
 interface PositionsViewProps {
-	matches: Match[];
+	matches: import("../../lib/types").Match[];
 }
 
 function ComingSoonPlaceholder({
@@ -88,11 +84,18 @@ export function PositionsView({ matches }: PositionsViewProps) {
 	const { groupTables, liveMatchesCount, positionChanges } =
 		useGroupStandings(matches);
 
-	// Calculamos los mejores terceros y el bracket en cada render.
-	// El costo es bajo (~12 items, 16 matches), pero si crece podemos
-	// envolver en useMemo.
-	const bestThirds = calculateBestThirds(groupTables);
-	const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+	// Sprint 4: pre-calcular bestThirds y bracket con useMemo.
+	// (Antes se calculaban en cada render sin memoización — ahora memoizados
+	// para evitar re-cálculos innecesarios en live updates.)
+	const { bestThirds, bracket } = useMemo(() => {
+		const bestThirdsResult = calculateBestThirds(groupTables);
+		const bracketResult = getFullBracket(
+			matches,
+			groupTables,
+			bestThirdsResult,
+		);
+		return { bestThirds: bestThirdsResult, bracket: bracketResult };
+	}, [matches, groupTables]);
 
 	return (
 		<div className="max-w-4xl mx-auto space-y-6 animate-enter">
@@ -107,7 +110,7 @@ export function PositionsView({ matches }: PositionsViewProps) {
 						badge: liveMatchesCount > 0 ? liveMatchesCount : undefined,
 					},
 					{ id: "mejores3ros", label: "LIGA 3ROS" },
-					{ id: "dieciseisavos", label: "16VOS" },
+					{ id: "llaves", label: "LLAVES" },
 				]}
 			/>
 
@@ -150,7 +153,12 @@ export function PositionsView({ matches }: PositionsViewProps) {
 
 			{subTab === "mejores3ros" && <BestThirdsTable bestThirds={bestThirds} />}
 
-			{subTab === "dieciseisavos" && <KnockoutBracket bracket={bracket} />}
+			{subTab === "llaves" && <BracketTree bracket={bracket} />}
 		</div>
 	);
 }
+
+// Re-import useGroupStandings from local hook to keep the file self-contained
+// (the original used a top-level import, but for clarity with the new
+// Sprint 4 architecture we re-import here)
+import { useGroupStandings } from "../../hooks/useGroupStandings";

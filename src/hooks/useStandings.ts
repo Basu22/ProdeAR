@@ -10,16 +10,16 @@
  * - Si `format === 'league'` (LPF, etc.): usa `useMatches` + la lógica pura
  *   `calculateLeagueStandings` (calcula una tabla única ordenada).
  *
- * Ambos casos retornan un `StandingsResult` discriminado que la UI
- * (`Ligas.tsx`) puede renderizar condicionalmente sin type assertions.
+ * ============================================================================
+ * FEATURE: FULL BRACKET (Sprint 4)
+ * ============================================================================
+ * Para `format === 'groups'`, el hook ahora pre-calcula:
+ * - `bestThirds`: tabla de los 12 mejores terceros (top 8 clasifica a 16vos)
+ * - `bracket`: árbol completo de eliminatorias (5 rondas + 3er puesto)
  *
- * ============================================================================
- * FASES FUTURAS
- * ============================================================================
- * - Fase 2: se agrega un segundo `useQuery` que lee de la tabla
- *   `league_standings` (sincronizada por `poll-standings`). El componente
- *   mostrará un toggle "Calculada" / "Oficial API".
- * - Fase 3: se agrega `favoriteTeam` prop para highlight de "Mi tabla".
+ * Ambos se calculan con `useMemo` para evitar re-cálculos en cada render.
+ * El cálculo se desactiva si la feature flag `VITE_ENABLE_FULL_BRACKET` no
+ * está habilitada (rollback seguro).
  *
  * ============================================================================
  * USO
@@ -29,18 +29,28 @@
  *
  * if (result?.format === 'groups') {
  *   result.groupTables.map(...)
- * } else if (result?.format === 'league') {
- *   result.standings.map(...)
+ *   result.bestThirds && <WorldCupBestThirdsSection ... />
+ *   result.bracket && <WorldCupKnockoutSection ... />
  * }
  * ```
  */
 
 import { useMemo } from "react";
+import { getFullBracket } from "../lib/bracketEngine";
+import type { FullBracket } from "../lib/bracketTypes";
 import { calculateLeagueStandings } from "../lib/leagueStandings";
 import type { CompetitionFormat, LeagueStanding } from "../lib/types";
-import type { GroupTable } from "../lib/worldCupGroups";
+import type { BestThirdsTable, GroupTable } from "../lib/worldCupGroups";
+import { calculateBestThirds } from "../lib/worldCupGroups";
 import { type PositionChange, useGroupStandings } from "./useGroupStandings";
 import { useMatches } from "./useMatches";
+
+/**
+ * Feature flag: VITE_ENABLE_FULL_BRACKET
+ * Si está `true`, el hook pre-calcula `bestThirds` y `bracket`.
+ * Si está `false` o no está definida, retorna `null` (rollback a legacy).
+ */
+const ENABLE_FULL_BRACKET = import.meta.env.VITE_ENABLE_FULL_BRACKET === "true";
 
 /**
  * Resultado discriminado por formato. Usar `result.format` para narrowing.
@@ -52,11 +62,17 @@ export type StandingsResult =
 			liveMatchesCount: number;
 			liveGroupsCount: number;
 			positionChanges: Map<string, PositionChange>;
+			/** BestThirds pre-calculado (null si flag desactivada) */
+			bestThirds: BestThirdsTable | null;
+			/** FullBracket pre-calculado (null si flag desactivada) */
+			bracket: FullBracket | null;
 	  }
 	| {
 			format: "league";
 			standings: LeagueStanding[];
 			liveMatchesCount: number;
+			bestThirds: null;
+			bracket: null;
 	  };
 
 export interface UseStandingsResult {
@@ -86,6 +102,21 @@ export function useStandings(
 		positionChanges,
 	} = useGroupStandings(format === "groups" ? matches : undefined);
 
+	// Sprint 4: pre-calcular bestThirds y bracket (si feature flag está activa).
+	// useMemo para evitar re-cálculos en cada render.
+	// El cálculo es O(n) con n=12 grupos (~1ms) — no es problema de performance.
+	const fullBracketData = useMemo(() => {
+		if (!ENABLE_FULL_BRACKET) return { bestThirds: null, bracket: null };
+		if (format !== "groups") return { bestThirds: null, bracket: null };
+		if (!matches || groupTables.length === 0) {
+			return { bestThirds: null, bracket: null };
+		}
+
+		const bestThirds = calculateBestThirds(groupTables);
+		const bracket = getFullBracket(matches, groupTables, bestThirds);
+		return { bestThirds, bracket };
+	}, [format, matches, groupTables]);
+
 	// Cálculo de league standings (memoizado)
 	const leagueResult = useMemo(() => {
 		if (format !== "league" || !matches) return null;
@@ -105,6 +136,8 @@ export function useStandings(
 				liveMatchesCount: groupsLiveMatchesCount,
 				liveGroupsCount,
 				positionChanges,
+				bestThirds: fullBracketData.bestThirds,
+				bracket: fullBracketData.bracket,
 			};
 		}
 
@@ -113,6 +146,8 @@ export function useStandings(
 			format: "league",
 			standings: leagueResult.standings,
 			liveMatchesCount: leagueResult.liveMatchesCount,
+			bestThirds: null,
+			bracket: null,
 		};
 	}, [
 		format,
@@ -121,6 +156,7 @@ export function useStandings(
 		liveGroupsCount,
 		positionChanges,
 		leagueResult,
+		fullBracketData,
 	]);
 
 	return {

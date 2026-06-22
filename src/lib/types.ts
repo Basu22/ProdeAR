@@ -163,6 +163,16 @@ export interface Match {
 	groupLetter?: string | null;
 	homeTeamCanonical?: string | null;
 	awayTeamCanonical?: string | null;
+	/**
+	 * Sprint "Full Bracket" (migration 0006): posición del partido en el
+	 * árbol eliminatorio. Ejemplos: "R32-1", "R16-3", "QF-2", "SF-1", "F-1",
+	 * "3RD-1". `null` para partidos de fase de grupos.
+	 *
+	 * Lo popula `poll-scores` server-side basándose en `stageName` + orden
+	 * cronológico. Permite cruzar un `Match` de Supabase con su slot en el
+	 * bracket visual sin depender del `stageName` (free-text de la API).
+	 */
+	bracketPosition?: string | null;
 }
 
 export type MatchStatus =

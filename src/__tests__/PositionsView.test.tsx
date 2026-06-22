@@ -3,12 +3,12 @@
  *
  * PositionsView es el wrapper principal del tab POSICIONES del Mundial.
  * Renderiza:
- * - 3 sub-pills (GRUPOS, LIGA 3ROS, 16VOS) — todos habilitados post-Sprint 3
+ * - 3 sub-pills (GRUPOS, LIGA 3ROS, LLAVES) — todos habilitados post-Sprint 3
  * - Badge contador de partidos en vivo en el pill GRUPOS
  * - Contenido según la pill activa:
  *   - GRUPOS: grid de 12 GroupTable
  *   - LIGA 3ROS: BestThirdsTable
- *   - 16VOS: KnockoutBracket
+ *   - LLAVES: BracketTree (Sprint 4 — árbol completo de eliminatorias)
  * - Empty state cuando no hay grupos
  *
  * ESTRATEGIA DE MOCKING:
@@ -138,12 +138,12 @@ describe("PositionsView", () => {
 		mockedUseGroupStandings.mockReturnValue(makeHookReturn());
 	});
 
-	it("renderiza las 3 sub-pills (GRUPOS, LIGA 3ROS, 16VOS)", () => {
+	it("renderiza las 3 sub-pills (GRUPOS, LIGA 3ROS, LLAVES)", () => {
 		render(<PositionsView matches={makeMatches()} />);
 
 		expect(screen.getByRole("tab", { name: /GRUPOS/i })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: /LIGA 3ROS/i })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: /16VOS/i })).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: /LLAVES/i })).toBeInTheDocument();
 	});
 
 	it("empieza con el sub-pill 'GRUPOS' activo por default", () => {
@@ -183,16 +183,16 @@ describe("PositionsView", () => {
 		);
 	});
 
-	it("cambia al contenido de 16VOS al hacer click en el pill", async () => {
+	it("cambia al contenido de LLAVES al hacer click en el pill", async () => {
 		const user = userEvent.setup();
 		render(<PositionsView matches={makeMatches()} />);
 
-		await user.click(screen.getByRole("tab", { name: /16VOS/i }));
+		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
 
-		// El header "Dieciseisavos de final" debe aparecer
-		expect(screen.getByText("Dieciseisavos de final")).toBeInTheDocument();
-		// El pill 16VOS ahora es el activo
-		expect(screen.getByRole("tab", { name: /16VOS/i })).toHaveAttribute(
+		// El header "Camino a la Final" del BracketTree debe aparecer
+		expect(screen.getByText("Camino a la Final")).toBeInTheDocument();
+		// El pill LLAVES ahora es el activo
+		expect(screen.getByRole("tab", { name: /LLAVES/i })).toHaveAttribute(
 			"aria-selected",
 			"true",
 		);
@@ -202,17 +202,15 @@ describe("PositionsView", () => {
 		const user = userEvent.setup();
 		render(<PositionsView matches={makeMatches()} />);
 
-		// 1. Click en 16VOS
-		await user.click(screen.getByRole("tab", { name: /16VOS/i }));
-		expect(screen.getByText("Dieciseisavos de final")).toBeInTheDocument();
+		// 1. Click en LLAVES
+		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
+		expect(screen.getByText("Camino a la Final")).toBeInTheDocument();
 
 		// 2. Click en GRUPOS
 		await user.click(screen.getByRole("tab", { name: /GRUPOS/i }));
 		expect(screen.getByText("Grupo A")).toBeInTheDocument();
-		// El header de KnockoutBracket ya NO debe estar
-		expect(
-			screen.queryByText("Dieciseisavos de final"),
-		).not.toBeInTheDocument();
+		// El header del BracketTree ya NO debe estar
+		expect(screen.queryByText("Camino a la Final")).not.toBeInTheDocument();
 	});
 
 	it("muestra badge con contador de partidos en vivo en el pill GRUPOS", () => {
@@ -296,11 +294,11 @@ describe("PositionsView", () => {
 
 		const grupos = screen.getByRole("tab", { name: /GRUPOS/i });
 		const mejores3ros = screen.getByRole("tab", { name: /LIGA 3ROS/i });
-		const dieciseisavos = screen.getByRole("tab", { name: /16VOS/i });
+		const llaves = screen.getByRole("tab", { name: /LLAVES/i });
 
 		expect(grupos).not.toBeDisabled();
 		expect(mejores3ros).not.toBeDisabled();
-		expect(dieciseisavos).not.toBeDisabled();
+		expect(llaves).not.toBeDisabled();
 	});
 
 	it("acepta Match[] vacío sin errores", () => {

@@ -265,6 +265,16 @@ describe("isKnockoutMatch", () => {
 		);
 	});
 
+	// Sprint "Full Bracket": partido por el 3er puesto
+	it("returns true for 'Third Place' (English)", () => {
+		expect(isKnockoutMatch(makeMatch({ stageName: "Third Place" }))).toBe(true);
+	});
+
+	it("returns true for 'Tercer Puesto' (Spanish, case-insensitive)", () => {
+		expect(isKnockoutMatch(makeMatch({ stageName: "Tercer Puesto" }))).toBe(true);
+		expect(isKnockoutMatch(makeMatch({ stageName: "tercer puesto" }))).toBe(true);
+	});
+
 	it("handles empty stageName", () => {
 		expect(isKnockoutMatch(makeMatch({ stageName: "" }))).toBe(false);
 	});

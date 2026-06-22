@@ -15,10 +15,13 @@
  * 2. Tabla de posiciones:
  *    - format='groups' (Mundial) → grid de GroupTable existentes
  *    - format='league' (LPF) → LeagueTable
- * 3. Acordeones de partidos:
+ * 3. Sprint 4 (Mundial): secciones adicionales
+ *    - WorldCupBestThirdsSection → tabla de 12 mejores terceros
+ *    - WorldCupKnockoutSection → árbol completo de eliminatorias
+ * 4. Acordeones de partidos:
  *    - format='groups' → un acordeón por grupo (12)
  *    - format='league' → un acordeón por fecha
- * 4. MatchSheet — al hacer click en un partido
+ * 5. MatchSheet — al hacer click en un partido
  *
  * ============================================================================
  * DEEP-LINKING
@@ -42,6 +45,8 @@ import {
 } from "../components/ligas/CompetitionSelector";
 import { GroupMatchesAccordion } from "../components/ligas/GroupMatchesAccordion";
 import { LeagueTable } from "../components/ligas/LeagueTable";
+import { WorldCupBestThirdsSection } from "../components/ligas/WorldCupBestThirdsSection";
+import { WorldCupKnockoutSection } from "../components/ligas/WorldCupKnockoutSection";
 import { MatchSheet } from "../components/match/MatchSheet";
 import { GroupTable } from "../components/tournament/GroupTable";
 import { GlassCard } from "../components/ui/GlassCard";
@@ -170,43 +175,60 @@ export function Ligas() {
 
 			{/* Tabla + Acordeones según formato */}
 			{!isLoadingStandings && result?.format === "groups" && (
-				<div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
-					{result.groupTables.map((group) => {
-						// Filtrar partidos del grupo (los live ya vienen en group.liveMatches;
-						// necesitamos todos los del grupo para el acordeón)
-						const groupMatches = (allMatches ?? []).filter(
-							(m) => m.groupLetter === group.groupLetter,
-						);
-						// Determinar si este acordeón debe estar abierto:
-						// 1. Deep-link (?group=A)
-						// 2. Siempre: NO (lo deja cerrado, el usuario lo abre)
-						const isDeepLinked = deepLinkGroup === group.groupLetter;
-						return (
-							<div key={group.groupName} className="space-y-3">
-								<GroupTable
-									group={group}
-									positionChanges={result.positionChanges}
-								/>
-								<GroupMatchesAccordion
-									title={group.groupName}
-									subtitle={
-										groupMatches.length > 0
-											? `${groupMatches.length} partidos`
-											: undefined
-									}
-									matches={groupMatches}
-									liveCount={group.liveMatches.length}
-									onOpenDetails={setSelectedMatchId}
-									// Solo pasar isOpen si hay deep-link (modo controlado).
-									// Sin deep-link, dejar no controlado (defaultOpen=false).
-									{...(isDeepLinked ? { isOpen: true } : {})}
-									highlightForTour={group.groupLetter === "A"}
-									tourMatchId={groupMatches[0]?.id}
-								/>
-							</div>
-						);
-					})}
-				</div>
+				<>
+					{/* Grupos (vista principal) */}
+					<div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
+						{result.groupTables.map((group) => {
+							// Filtrar partidos del grupo (los live ya vienen en group.liveMatches;
+							// necesitamos todos los del grupo para el acordeón)
+							const groupMatches = (allMatches ?? []).filter(
+								(m) => m.groupLetter === group.groupLetter,
+							);
+							// Determinar si este acordeón debe estar abierto:
+							// 1. Deep-link (?group=A)
+							// 2. Siempre: NO (lo deja cerrado, el usuario lo abre)
+							const isDeepLinked = deepLinkGroup === group.groupLetter;
+							return (
+								<div key={group.groupName} className="space-y-3">
+									<GroupTable
+										group={group}
+										positionChanges={result.positionChanges}
+									/>
+									<GroupMatchesAccordion
+										title={group.groupName}
+										subtitle={
+											groupMatches.length > 0
+												? `${groupMatches.length} partidos`
+												: undefined
+										}
+										matches={groupMatches}
+										liveCount={group.liveMatches.length}
+										onOpenDetails={setSelectedMatchId}
+										{...(isDeepLinked ? { isOpen: true } : {})}
+										highlightForTour={group.groupLetter === "A"}
+										tourMatchId={groupMatches[0]?.id}
+									/>
+								</div>
+							);
+						})}
+					</div>
+
+					{/* Sprint 4: Liga de Mejores Terceros (solo si hay datos) */}
+					{result.bestThirds && (
+						<WorldCupBestThirdsSection
+							bestThirds={result.bestThirds}
+							matches={allMatches ?? []}
+						/>
+					)}
+
+					{/* Sprint 4: Llaves Eliminatorias (solo si hay datos) */}
+					{result.bracket && (
+						<WorldCupKnockoutSection
+							bracket={result.bracket}
+							onOpenDetails={setSelectedMatchId}
+						/>
+					)}
+				</>
 			)}
 
 			{!isLoadingStandings && result?.format === "league" && (

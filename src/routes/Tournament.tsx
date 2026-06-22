@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
 import { MatchSheet } from "../components/match/MatchSheet";
+import { BracketTree } from "../components/tournament/BracketTree";
 import { PositionsRedirectCard } from "../components/tournament/PositionsRedirectCard";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
 import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";
@@ -19,8 +20,13 @@ import {
 	useTournaments,
 	useUpdateTournament,
 } from "../hooks/useTournament";
+import { getFullBracket } from "../lib/bracketEngine";
 import type { Match } from "../lib/types";
-import { isKnockoutMatch } from "../lib/worldCupGroups";
+import {
+	calculateBestThirds,
+	getGroupTables,
+	isKnockoutMatch,
+} from "../lib/worldCupGroups";
 import { useAuthStore } from "../stores/authStore";
 
 export function Tournament() {
@@ -91,6 +97,18 @@ export function Tournament() {
 				m.competitionName?.toLowerCase().includes("copa del mundo") ||
 				m.competitionName?.toLowerCase().includes("world cup"),
 		);
+
+	// Sprint 4: Bracket completo del Mundial (5 rondas + 3er puesto).
+	// useMemo para evitar re-cálculo en cada render. Solo se calcula si
+	// es Mundial y estamos en el subtab "llaves" (cuando el usuario navega
+	// a otro subtab, el cálculo se descarta).
+	const worldCupBracket = useMemo(() => {
+		if (!isWorldCup || !matches) return null;
+		const groupTables = getGroupTables(matches);
+		if (groupTables.length === 0) return null;
+		const bestThirds = calculateBestThirds(groupTables);
+		return getFullBracket(matches, groupTables, bestThirds);
+	}, [isWorldCup, matches]);
 
 	const handleCopyCode = () => {
 		if (!tournament) return;
@@ -589,6 +607,35 @@ export function Tournament() {
 					)}
 
 					{(() => {
+						// Sprint 4: Si es Mundial + subtab "llaves", renderizar el
+						// BracketTree completo (árbol visual con las 5 rondas + 3RD).
+						// Ya no se filtra por selectedRound: el árbol muestra TODO.
+						if (isWorldCup && pronosticosSubTab === "llaves") {
+							if (!worldCupBracket) {
+								return (
+									<div className="text-center py-16 glass-card rounded-2xl border-white/5 bg-surface-container-low/50">
+										<span className="material-symbols-outlined text-primary text-5xl mb-3 stadium-glow-celeste">
+											sports_soccer
+										</span>
+										<p className="font-headline-md text-base text-white uppercase tracking-tight">
+											EL ÁRBOL SE COMPLETARÁ PRONTO
+										</p>
+										<p className="font-body-md text-sm text-on-surface-variant max-w-xs mx-auto mt-2">
+											Los cruces de eliminatorias se definen cuando termina la
+											fase de grupos.
+										</p>
+									</div>
+								);
+							}
+							return (
+								<BracketTree
+									bracket={worldCupBracket}
+									onOpenDetails={setSelectedMatchId}
+									interactive
+								/>
+							);
+						}
+
 						const filteredMatches = matches ?? [];
 
 						// 1. Filtrar por ronda/fase seleccionada

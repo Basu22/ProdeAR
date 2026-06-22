@@ -809,6 +809,10 @@ export function getGroupLetterFromStage(
  * Usa el campo `stageMultiplier` (1 = grupo, >1 = eliminatoria) como señal
  * principal, y verifica strings específicos como fallback para compat con
  * datos viejos que puedan no tener el multiplier.
+ *
+ * Sprint "Full Bracket": también reconoce el partido por el 3er puesto
+ * ("Third Place" / "Tercer Puesto") como eliminatoria, ya que es un partido
+ * único de la fase final que se rige por las mismas reglas (penales, etc).
  */
 export function isKnockoutMatch(match: Match): boolean {
 	if (match.stageMultiplier > 1) return true;
@@ -825,7 +829,9 @@ export function isKnockoutMatch(match: Match): boolean {
 		stage.includes("cuartos") ||
 		stage.includes("16vos") ||
 		stage.includes("8vos") ||
-		stage.includes("4tos")
+		stage.includes("4tos") ||
+		stage.includes("third place") ||
+		stage.includes("tercer")
 	);
 }
 
