@@ -18,7 +18,7 @@ const mockCompetitions: Competition[] = [
 	},
 	{
 		id: "comp-2",
-		name: "Liga Profesional Argentina",
+		name: "Liga Argentina",
 		country: "Argentina",
 		logoUrl: "",
 		season: "2026",
