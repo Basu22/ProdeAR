@@ -6,7 +6,7 @@ const links = [
 	{ to: "/dashboard", icon: "home", label: "Inicio" },
 	{ to: "/torneos", icon: "emoji_events", label: "Torneos" },
 	{ to: "/ranking", icon: "military_tech", label: "Ranking" },
-	// { to: "/liga/comp-2", icon: "leaderboard", label: "Posiciones" }, // ← oculto temporalmente (pendiente de redefinición con @brainstormer)
+	{ to: "/ligas", icon: "leaderboard", label: "Ligas" },
 ];
 
 export function NavSidebar() {
@@ -39,6 +39,7 @@ export function NavSidebar() {
 							<NavLink
 								key={link.to}
 								to={link.to}
+								data-tour={link.to === "/ligas" ? "bottomnav-ligas" : undefined}
 								className={({ isActive }) =>
 									`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.98] group ${
 										isActive
