@@ -62,7 +62,10 @@ export function MatchStatusBar({
 			aria-label="Formación titular disponible"
 			title="Formación titular disponible — tocá para ver"
 		>
-			<span className="material-symbols-outlined text-[10px]" aria-hidden="true">
+			<span
+				className="material-symbols-outlined text-[10px]"
+				aria-hidden="true"
+			>
 				groups
 			</span>
 			<span className="font-label-caps text-[8px] tracking-widest font-bold">

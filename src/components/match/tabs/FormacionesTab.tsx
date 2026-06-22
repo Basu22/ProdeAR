@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { useCountdown } from "../../../hooks/useCountdown";
 import { useMockMatchData } from "../../../hooks/useMockMatchData";
 import { useCachedImage } from "../../../lib/imageCache";
-import { getPlayerInitials, getShortPlayerName } from "../../../lib/playerHelpers";
+import {
+	getPlayerInitials,
+	getShortPlayerName,
+} from "../../../lib/playerHelpers";
 import type { Match, TacticalPlayerInfo, TeamLineup } from "../../../lib/types";
 
 interface FormacionesTabProps {
@@ -553,7 +556,9 @@ function LineupHeader({
 				<DemoTag />
 			) : publishedAt ? (
 				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pitch-green/10 border border-pitch-green/30 text-pitch-green">
-					<span className="material-symbols-outlined text-[10px]">verified</span>
+					<span className="material-symbols-outlined text-[10px]">
+						verified
+					</span>
 					<span className="font-label-caps text-[8px] tracking-widest font-bold uppercase">
 						Formación confirmada
 					</span>

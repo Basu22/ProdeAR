@@ -30,7 +30,11 @@ export type LineupDecisionReason =
 	| "no_window"
 	| "cancelled_or_postponed";
 
-export type MatchStatusForLineups = "live" | "finished" | "cancelled" | "scheduled";
+export type MatchStatusForLineups =
+	| "live"
+	| "finished"
+	| "cancelled"
+	| "scheduled";
 
 /** Ventana de tiempo antes del kickoff para empezar a consultar lineups.
  *  API-Football publica lineups T-20-40min; con polls cada 10 min, una

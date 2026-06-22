@@ -182,11 +182,13 @@ export function MatchSheet({
 			: []),
 		// Formaciones: solo si hay lineups O si el partido es live/finished
 		...(isLive || isFinished || hasLineupsAvailable
-			? [{
-					id: "lineups" as const,
-					label: lineupsTabLabel,
-					icon: lineupsTabIcon,
-				}]
+			? [
+					{
+						id: "lineups" as const,
+						label: lineupsTabLabel,
+						icon: lineupsTabIcon,
+					},
+				]
 			: []),
 	];
 

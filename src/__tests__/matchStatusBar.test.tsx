@@ -61,7 +61,11 @@ describe("MatchStatusBar — formations badge (Sprint v1.1)", () => {
 		// o de "isFullyPredicted" o del counter. En live, el componente
 		// retorna antes, así que el badge nunca se renderiza.
 		render(
-			<MatchStatusBar state="live" kickOff={FUTURE_KICKOFF} hasLineupsUpcoming />,
+			<MatchStatusBar
+				state="live"
+				kickOff={FUTURE_KICKOFF}
+				hasLineupsUpcoming
+			/>,
 		);
 		expect(
 			screen.queryByLabelText("Formación titular disponible"),

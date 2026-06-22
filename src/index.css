@@ -649,6 +649,18 @@
 		z-index: 5;
 	}
 
+	/* === Update Banner === */
+	@keyframes slideDown {
+		from {
+			opacity: 0;
+			transform: translateY(-100%);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
 	/* === Broadcast Lower-Third (Sprint 4) === */
 	/* Sweep cyan que cruza el banner en hover (broadcast TV metaphor) */
 	@keyframes broadcastSweep {
@@ -819,6 +831,9 @@
 		}
 		[class*="liveBadgeHighlight"] {
 			animation: none !important;
+		}
+		[role="status"] {
+			animation-duration: 0.01ms !important;
 		}
 	}
 }

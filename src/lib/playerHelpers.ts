@@ -110,16 +110,35 @@ export function getPlayerInitials(name: string): string {
  */
 const LASTNAME_PARTICLES = new Set([
 	// Español/portugués
-	"de", "del", "da", "do", "dos", "das", "della", "delle",
-	"la", "las", "los", "el", "y", "e",
+	"de",
+	"del",
+	"da",
+	"do",
+	"dos",
+	"das",
+	"della",
+	"delle",
+	"la",
+	"las",
+	"los",
+	"el",
+	"y",
+	"e",
 	// Italiano
 	"di",
 	// Holandés
-	"van", "der", "den", "ten", "ter",
+	"van",
+	"der",
+	"den",
+	"ten",
+	"ter",
 	// Alemán
-	"von", "zu", "vom",
+	"von",
+	"zu",
+	"vom",
 	// Francés
-	"le", "du",
+	"le",
+	"du",
 ]);
 
 /**

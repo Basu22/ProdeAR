@@ -82,15 +82,9 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 								Pts
 							</th>
 							<th className="py-2.5 px-1 text-center w-7">J</th>
-							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
-								G
-							</th>
-							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
-								E
-							</th>
-							<th className="py-2.5 px-1 text-center w-7 hidden sm:table-cell">
-								P
-							</th>
+							<th className="py-2.5 px-1 text-center w-7">G</th>
+							<th className="py-2.5 px-1 text-center w-7">E</th>
+							<th className="py-2.5 px-1 text-center w-7">P</th>
 							<th className="py-2.5 px-1 text-center w-12">+/-</th>
 						</tr>
 					</thead>
@@ -152,13 +146,13 @@ export function GroupTable({ group, positionChanges }: GroupTableProps) {
 									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums">
 										{standing.pj}
 									</td>
-									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums">
 										{standing.pg}
 									</td>
-									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums">
 										{standing.pe}
 									</td>
-									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums hidden sm:table-cell">
+									<td className="py-3 px-1 text-center text-on-surface-variant tabular-nums">
 										{standing.pp}
 									</td>
 									<td

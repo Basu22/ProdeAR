@@ -71,9 +71,7 @@ function mapDbMatchToFrontend(m: any): Match {
 		lineups: m.lineups
 			? (() => {
 					const parsed =
-						typeof m.lineups === "string"
-							? JSON.parse(m.lineups)
-							: m.lineups;
+						typeof m.lineups === "string" ? JSON.parse(m.lineups) : m.lineups;
 					// Sprint "Habilitar formations upcoming": inyectar
 					// `publishedAt` en cada lineup desde el timestamp del match.
 					// Lo hacemos acá (no en el backend) para no duplicar data
