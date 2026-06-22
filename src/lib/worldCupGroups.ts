@@ -120,6 +120,74 @@ export const WORLD_CUP_GROUPS_DEF: Record<string, string[]> = {
 };
 
 /**
+ * Mapeo de nombre canónico → código FIFA de 3 letras.
+ * Se usa en las tablas de posiciones para mostrar "ARG" en vez de "Argentina",
+ * evitando scroll horizontal en mobile. Estándar FIFA oficial.
+ *
+ * 48 entradas (una por equipo del Mundial 2026).
+ */
+export const COUNTRY_CODES: Record<string, string> = {
+	México: "MEX",
+	"Corea del Sur": "KOR",
+	Sudáfrica: "RSA",
+	"República Checa": "CZE",
+	Canadá: "CAN",
+	Suiza: "SUI",
+	Catar: "QAT",
+	"Bosnia y Herzegovina": "BIH",
+	Brasil: "BRA",
+	Marruecos: "MAR",
+	Escocia: "SCO",
+	Haití: "HAI",
+	"Estados Unidos": "USA",
+	Paraguay: "PAR",
+	Australia: "AUS",
+	Turquía: "TUR",
+	Alemania: "GER",
+	Ecuador: "ECU",
+	"Costa de Marfil": "CIV",
+	Curaçao: "CUW",
+	"Países Bajos": "NED",
+	Japón: "JPN",
+	Túnez: "TUN",
+	Suecia: "SWE",
+	Bélgica: "BEL",
+	Egipto: "EGY",
+	Irán: "IRN",
+	"Nueva Zelanda": "NZL",
+	España: "ESP",
+	Uruguay: "URU",
+	"Arabia Saudita": "KSA",
+	"Cabo Verde": "CPV",
+	Francia: "FRA",
+	Senegal: "SEN",
+	Irak: "IRQ",
+	Noruega: "NOR",
+	Argentina: "ARG",
+	Argelia: "ALG",
+	Austria: "AUT",
+	Jordania: "JOR",
+	Portugal: "POR",
+	Colombia: "COL",
+	Uzbekistán: "UZB",
+	"RD Congo": "COD",
+	Inglaterra: "ENG",
+	Croacia: "CRO",
+	Ghana: "GHA",
+	Panamá: "PAN",
+};
+
+/**
+ * Resuelve el código FIFA de 3 letras de un equipo a partir de su nombre
+ * canónico. Si no hay match exacto, devuelve las primeras 3 letras del
+ * nombre en mayúsculas como fallback.
+ */
+export function getCountryCode(canonicalName: string): string {
+	if (!canonicalName) return "???";
+	return COUNTRY_CODES[canonicalName] ?? canonicalName.slice(0, 3).toUpperCase();
+}
+
+/**
  * Mapeo de nombre canónico → código de país para `flagcdn.com`.
  * 48 entradas (una por equipo del Mundial).
  */
@@ -1280,24 +1348,22 @@ export function getGroupTables(matches: WorldCupMatch[]): GroupTable[] {
 			homeStanding.dg = homeStanding.gf - homeStanding.gc;
 			awayStanding.dg = awayStanding.gf - awayStanding.gc;
 
-			if (match.status === "finished") {
-				// Solo finished: PG/PE/PP, Pts
-				if (hs > as) {
-					homeStanding.pg += 1;
-					homeStanding.pts += 3;
-					awayStanding.pp += 1;
-				} else if (hs < as) {
-					awayStanding.pg += 1;
-					awayStanding.pts += 3;
-					homeStanding.pp += 1;
-				} else {
-					homeStanding.pe += 1;
-					awayStanding.pe += 1;
-					homeStanding.pts += 1;
-					awayStanding.pts += 1;
-				}
+			if (hs > as) {
+				homeStanding.pg += 1;
+				homeStanding.pts += 3;
+				awayStanding.pp += 1;
+			} else if (hs < as) {
+				awayStanding.pg += 1;
+				awayStanding.pts += 3;
+				homeStanding.pp += 1;
 			} else {
-				// Solo live: marcar como en juego + agregar a liveMatches
+				homeStanding.pe += 1;
+				awayStanding.pe += 1;
+				homeStanding.pts += 1;
+				awayStanding.pts += 1;
+			}
+
+			if (match.status === "live") {
 				homeStanding.isLive = true;
 				awayStanding.isLive = true;
 				liveMatchesByGroup[groupName].push(match);
