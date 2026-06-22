@@ -1,0 +1,7 @@
+{
+	"version": "0.1.0",
+	"buildTime": "2026-06-19T16:30:00Z",
+	"minSupportedVersion": "0.1.0",
+	"forceUpdate": false,
+	"changelog": "Sección Ligas rediseñada con códigos FIFA, formato +/- GF-GC, y tour de onboarding."
+}

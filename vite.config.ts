@@ -1,18 +1,77 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 
+const pkg = JSON.parse(
+	readFileSync(resolve(__dirname, "package.json"), "utf-8"),
+);
+
+/**
+ * Plugin que genera `version.json` con metadata del build en `public/`.
+ * El frontend (`useAppVersion`) hace polling a este archivo para detectar
+ * nuevas versiones y mostrar el update prompt.
+ *
+ * Formato compatible con `VersionInfo` en `src/lib/versionCheck.ts`.
+ */
+function versionJsonPlugin(): Plugin {
+	return {
+		name: "prodear-version-json",
+		apply: "build",
+		generateBundle() {
+			const versionData = {
+				version: pkg.version,
+				buildTime: new Date().toISOString(),
+				minSupportedVersion: pkg.version,
+				forceUpdate: false,
+				changelog: "Nueva versión con mejoras.",
+			};
+			this.emitFile({
+				type: "asset",
+				fileName: "version.json",
+				source: JSON.stringify(versionData, null, 2),
+			});
+		},
+		writeBundle() {
+			// También escribimos a dist/ (por si el plugin no se ejecuta por algún motivo)
+			const distDir = resolve(__dirname, "dist");
+			try {
+				mkdirSync(distDir, { recursive: true });
+				const versionData = {
+					version: pkg.version,
+					buildTime: new Date().toISOString(),
+					minSupportedVersion: pkg.version,
+					forceUpdate: false,
+					changelog: "Nueva versión con mejoras.",
+				};
+				writeFileSync(
+					resolve(distDir, "version.json"),
+					JSON.stringify(versionData, null, 2),
+				);
+			} catch {
+				// dist/ no existe en dev, no es problema
+			}
+		},
+	};
+}
+
 export default defineConfig({
+	define: {
+		"import.meta.env.VITE_APP_VERSION": JSON.stringify(pkg.version),
+	},
 	plugins: [
 		react(),
 		tailwindcss(),
+		versionJsonPlugin(),
 		VitePWA({
 			strategies: "injectManifest",
 			srcDir: "src",
 			filename: "service-worker.ts",
 			selfDestroying: false,
-			registerType: "autoUpdate",
+			registerType: "prompt",
 			includeAssets: ["favicon.ico", "robots.txt", "gol_sound.mp3"],
 			devOptions: {
 				// Service Worker DESHABILITADO en dev. Por default vite-plugin-pwa
