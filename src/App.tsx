@@ -6,10 +6,12 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { NotificationToast } from "./components/ui/NotificationToast";
+import { UpdatePrompt } from "./components/update/UpdatePrompt";
 import { Dashboard } from "./routes/Dashboard";
 import { JoinTournament } from "./routes/JoinTournament";
 import { Landing } from "./routes/Landing";
 import { League } from "./routes/League";
+import { Ligas } from "./routes/Ligas";
 import { Rankings } from "./routes/Rankings";
 import { Tournament } from "./routes/Tournament";
 import { TournamentsRedirect } from "./routes/TournamentsRedirect";
@@ -88,6 +90,7 @@ function AppContent() {
 						<Route path="/dashboard" element={<Dashboard />} />
 						<Route path="/torneos" element={<TournamentsRedirect />} />
 						<Route path="/ranking" element={<Rankings />} />
+						<Route path="/ligas" element={<Ligas />} />
 						<Route path="/liga/:id" element={<League />} />
 						<Route path="/torneo/:id" element={<Tournament />} />
 						<Route path="/join" element={<JoinTournament />} />
@@ -95,6 +98,7 @@ function AppContent() {
 				</Route>
 			</Routes>
 			<NotificationToast />
+			<UpdatePrompt />
 		</>
 	);
 }
