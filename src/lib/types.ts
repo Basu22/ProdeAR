@@ -11,7 +11,26 @@ export interface Competition {
 	country: string;
 	logoUrl: string;
 	season: string;
+	/**
+	 * FASE 1 (Sección Ligas): filtra competiciones visibles en el selector
+	 * de la ruta /ligas. Si es false, no aparece en el dropdown.
+	 * Default: true.
+	 */
+	active?: boolean;
+	/**
+	 * FASE 1 (Sección Ligas): determina cómo se renderizan las posiciones.
+	 * - 'groups': fase de grupos (Mundial 2026 → 12 grupos de 4).
+	 * - 'league': todos contra todos (LPF → tabla única).
+	 * Default: 'league'.
+	 */
+	format?: CompetitionFormat;
 }
+
+/**
+ * FASE 1 (Sección Ligas): formato de la competición.
+ * Determina qué tabla de posiciones se renderiza en /ligas.
+ */
+export type CompetitionFormat = "groups" | "league";
 
 export interface Tournament {
 	id: string;
@@ -188,4 +207,76 @@ export interface SheetTabDef {
 	id: SheetTabId;
 	label: string;
 	icon: string; // Material Symbol name
+}
+
+/* === FASE 1: Sección "Ligas" (MVP) === */
+
+/**
+ * FASE 1: Standing de un equipo en formato liga (todos contra todos).
+ *
+ * Análogo a `GroupTeamStanding` (Mundial) pero sin `groupLetter` (no hay
+ * grupos en formato liga) y con `position` ya calculado. Es el resultado
+ * final que consume `LeagueTable.tsx` para renderizar las filas.
+ *
+ * `isLive` indica que el equipo tiene un partido en curso (status === "live"
+ * con score parcial). La UI muestra un badge "EN JUEGO" en la fila.
+ *
+ * `zone` es opcional y se usa en Fase 2 para colorear las filas según
+ * clasificación/descenso. En Fase 1 siempre es undefined.
+ */
+export interface LeagueStanding {
+	/** Nombre del equipo (canónico o crudo, según fuente) */
+	teamName: string;
+	/** URL del logo (puede ser null si no hay logo disponible) */
+	logo: string | null;
+	/** Partidos jugados (incluye live y finished) */
+	pj: number;
+	/** Partidos ganados */
+	pg: number;
+	/** Partidos empatados */
+	pe: number;
+	/** Partidos perdidos */
+	pp: number;
+	/** Goles a favor */
+	gf: number;
+	/** Goles en contra */
+	gc: number;
+	/** Diferencia de gol (gf - gc) */
+	dg: number;
+	/** Puntos (3 por victoria, 1 por empate, 0 por derrota) */
+	pts: number;
+	/** Si el equipo tiene un partido en curso */
+	isLive: boolean;
+	/** Posición en la tabla (1-based, calculada por el sort) */
+	position: number;
+	/**
+	 * Zona cualitativa (Fase 2): "libertadores" | "sudamericana" |
+	 * "descenso" | undefined. En Fase 1 no se usa.
+	 */
+	zone?: "libertadores" | "sudamericana" | "descenso";
+}
+
+/**
+ * FASE 1: Broadcaster (canal de TV/streaming) asociado a un partido.
+ *
+ * Mapea 1:1 con la tabla `match_broadcasters` (migration 0005).
+ * Un partido puede tener varios broadcasters (TV abierta + cable + stream).
+ *
+ * En Fase 1 seguimos usando el campo `match.tvChannel` (string) para
+ * mantener compatibilidad con los datos ya cargados. Esta interfaz queda
+ * lista para Fase 2 cuando se popule `match_broadcasters`.
+ */
+export interface MatchBroadcaster {
+	id: string;
+	matchId: string;
+	/** Nombre del canal/plataforma. ej. "TyC Sports", "ESPN Premium", "Star+" */
+	broadcasterName: string;
+	/** Tipo: tv (abierta/cable), streaming, radio */
+	broadcasterType: "tv" | "streaming" | "radio";
+	/** País de la señal (ej. "AR", "BR", "ES"). Default: "AR" */
+	country: string;
+	/** Link al stream (si aplica). Null si no hay URL. */
+	url: string | null;
+	/** Si es el canal principal del partido (se muestra primero) */
+	isPrimary: boolean;
 }
