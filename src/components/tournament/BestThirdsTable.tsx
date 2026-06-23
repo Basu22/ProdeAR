@@ -5,10 +5,22 @@
  * FUNCIONALIDAD
  * ============================================================================
  * - Renderiza los 12 terceros ordenados del mejor (rank 1) al peor (rank 12).
- * - Top 8 (clasifican a 16vos) en VERDE con badge "CLASIFICA".
+ * - Top 8 (clasifican a 16vos) en VERDE.
  * - Bottom 4 (eliminados) en ROJO con opacidad reducida.
  * - Línea de CORTE visual entre el 8° y 9° puesto (la "línea roja" del Mundial).
  * - Cada fila muestra: rank, grupo (letra), equipo, pts, DG, GF.
+ *
+ * ============================================================================
+ * NOTA DE DISEÑO (Sprint 5)
+ * ============================================================================
+ * Se removió la columna "ESTADO" (badge "Clasifica" / "Fuera") y la leyenda
+ * al pie. El clasificado/eliminado se comunica exclusivamente por:
+ *   1. Color verde (hover) en las filas 1-8.
+ *   2. Color rojo (hover) en las filas 9-12.
+ *   3. Opacidad reducida (opacity-60) en filas 9-12.
+ *   4. Línea roja (`border-b-2 border-b-error`) en la fila 8 (corte).
+ * El texto del subtítulo ("Los 8 mejores clasifican a 16vos") sigue
+ * presente para usuarios de screen reader.
  *
  * ============================================================================
  * LIVE BEHAVIOR
@@ -23,7 +35,8 @@
  * ============================================================================
  * - Tabla semántica con thead/tbody
  * - aria-label descriptivo
- * - Colores de qualified/eliminated también se distinguen por texto (no solo color)
+ * - Estados (clasificado/eliminado) distinguidos por color + opacidad + línea
+ *   de corte. El subtítulo del header comunica la regla en texto plano.
  */
 
 import type { BestThirdsTable as BestThirdsTableType } from "../../lib/worldCupGroups";
@@ -94,9 +107,6 @@ export function BestThirdsTable({ bestThirds }: BestThirdsTableProps) {
 								</th>
 								<th className="py-3 px-2 text-center w-10" scope="col">
 									GF
-								</th>
-								<th className="py-3 px-3 text-center w-16" scope="col">
-									ESTADO
 								</th>
 							</tr>
 						</thead>
@@ -181,29 +191,6 @@ export function BestThirdsTable({ bestThirds }: BestThirdsTableProps) {
 										<td className="py-3 px-2 text-center text-on-surface-variant/80 tabular-nums">
 											{standing.gf}
 										</td>
-										<td className="py-3 px-3 text-center">
-											{isQualified ? (
-												<span
-													aria-label="Clasifica a 16vos"
-													className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pitch-green/15 border border-pitch-green/40 text-pitch-green font-label-caps text-[9px] font-black tracking-widest uppercase"
-												>
-													<span className="material-symbols-outlined text-[10px]">
-														check
-													</span>
-													Clasifica
-												</span>
-											) : (
-												<span
-													aria-label="Eliminado"
-													className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/10 border border-error/30 text-error/70 font-label-caps text-[9px] font-black tracking-widest uppercase"
-												>
-													<span className="material-symbols-outlined text-[10px]">
-														close
-													</span>
-													Fuera
-												</span>
-											)}
-										</td>
 									</tr>
 								);
 							})}
@@ -212,17 +199,8 @@ export function BestThirdsTable({ bestThirds }: BestThirdsTableProps) {
 				</div>
 			</div>
 
-			{/* Leyenda */}
-			<div className="flex items-center justify-center gap-6 pt-2 pb-4 text-xs text-on-surface-variant font-bold font-label-caps select-none">
-				<div className="flex items-center gap-2">
-					<div className="w-2.5 h-2.5 rounded-full bg-pitch-green shadow-[0_0_8px_rgba(0,255,65,0.5)]" />
-					<span>Clasifica a 16vos</span>
-				</div>
-				<div className="flex items-center gap-2">
-					<div className="w-2.5 h-2.5 rounded-full bg-error/60" />
-					<span>Eliminado</span>
-				</div>
-			</div>
+			{/* Leyenda removida en Sprint 5: los colores + la línea roja de corte */}
+			{/* comunican clasificado/eliminado sin necesidad de badges adicionales. */}
 		</div>
 	);
 }

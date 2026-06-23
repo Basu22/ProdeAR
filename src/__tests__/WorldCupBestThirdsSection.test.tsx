@@ -121,7 +121,7 @@ describe("WorldCupBestThirdsSection", () => {
 		expect(screen.queryByText(/8 mejores/i)).not.toBeInTheDocument();
 	});
 
-	it("passes bestThirds data correctly to the table (top 8 marked as Clasifica)", () => {
+	it("passes bestThirds data correctly to the table (top 8 marked as qualified)", () => {
 		const finishedMatches: Match[] = [
 			makeMatch({
 				id: "m-1",
@@ -131,21 +131,33 @@ describe("WorldCupBestThirdsSection", () => {
 			}),
 		];
 
-		render(
+		const { container } = render(
 			<WorldCupBestThirdsSection
 				bestThirds={makeBestThirds()}
 				matches={finishedMatches}
 			/>,
 		);
 
-		// Verificar que los primeros 8 standings aparecen como "Clasifica"
-		// BestThirdsTable usa aria-label="Clasifica a 16vos" para los calificados
-		const clasificaBadges = screen.getAllByLabelText(/clasifica a 16vos/i);
-		expect(clasificaBadges.length).toBe(8);
+		// Sprint 5: ya no hay badges "Clasifica" / "Fuera" en la tabla.
+		// El clasificado/eliminado se comunica por:
+		//   1. Sin opacidad (opacity-60) en filas 1-8 → clasificadas
+		//   2. Con opacidad (opacity-60) en filas 9-12 → eliminadas
+		const tbody = container.querySelector("tbody");
+		if (!tbody) throw new Error("No tbody found");
+		const rows = tbody.querySelectorAll("tr");
 
-		// Los 4 restantes deben aparecer como "Fuera"
-		const fueraBadges = screen.getAllByLabelText(/eliminado/i);
-		expect(fueraBadges.length).toBe(4);
+		// Filas 1-8 NO deben tener opacity-60
+		for (let i = 0; i < 8; i++) {
+			expect(rows[i]).not.toHaveClass("opacity-60");
+		}
+		// Filas 9-12 SÍ deben tener opacity-60
+		for (let i = 8; i < 12; i++) {
+			expect(rows[i]).toHaveClass("opacity-60");
+		}
+
+		// La línea de corte (border-b-error) debe estar en la fila 8
+		expect(rows[7]).toHaveClass("border-b-2");
+		expect(rows[7]).toHaveClass("border-b-error");
 	});
 
 	it("ignores knockout matches when determining visibility (only group finished matches count)", () => {
