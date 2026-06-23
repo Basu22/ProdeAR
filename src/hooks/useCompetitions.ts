@@ -4,20 +4,23 @@
  * ============================================================================
  * RESPONSABILIDADES
  * ============================================================================
- * 1. Wrapper de React Query sobre `tournamentsApi.getCompetitions()` (que ya
- *    existía en el codebase para el selector de "crear torneo").
- * 2. Enriquece cada competition con el campo `format` (Fase 1 hardcodeado,
- *    Fase 2 desde DB).
- * 3. Filtra solo las competiciones activas (`active === true` o undefined).
+ * 1. Wrapper de React Query sobre `tournamentsApi.getCompetitions()`.
+ * 2. Enriquece cada competition con `format` (desde DB o fallback hardcodeado).
+ * 3. **Sprint 5**: filtra amistosos (`is_friendly = true`) y competiciones sin
+ *    formato definido. Solo ligas reales se exponen al usuario.
  *
  * ============================================================================
- * FORMAT HARDCODED (Fase 1)
+ * FILTRO DE AMISTOSOS (Sprint 5)
  * ============================================================================
- * El campo `format` no está en la DB todavía (se agrega en migration 0005
- * pero aún no consumido). Mapeamos en cliente:
- *   - competitionId === "1"  → "groups"  (Mundial 2026)
- *   - competitionId === "2"  → "league"  (Liga Profesional)
- *   - default                → "league"
+ * Reglas (en orden):
+ * 1. `c.is_friendly === true` → excluido (marcado explícitamente en DB).
+ * 2. `c.format == null` → excluido (sin formato = no es liga, fallback defensivo).
+ * 3. `c.active === false` → excluido (legacy: oculto por owner).
+ * 4. Lo demás → incluido.
+ *
+ * El criterio de filtrado vive en DB (columna `is_friendly` poblada por
+ * migration 0007 con backfill por nombre). Esto es más performante y
+ * testeable que filtrar por heurística en cliente.
  *
  * ============================================================================
  * USO
@@ -33,8 +36,10 @@ import { tournamentsApi } from "../lib/api/tournaments";
 import type { Competition, CompetitionFormat } from "../lib/types";
 
 /**
- * Mapeo hardcodeado de competitionId → format (Fase 1).
- * En Fase 2 este mapa se elimina y se lee desde `competitions.format` en DB.
+ * Mapeo hardcodeado de competitionId → format (Fase 1, fallback).
+ * En Fase 2+ este mapa se elimina y se lee siempre desde `competitions.format`.
+ * Hoy sigue siendo útil para el fallback de LocalStorage (mockCompetitions)
+ * y como safety net si la columna `format` no se populó correctamente.
  */
 const FORMAT_BY_COMPETITION_ID: Record<string, CompetitionFormat> = {
 	"1": "groups", // Copa del Mundo 2026
@@ -60,7 +65,11 @@ export function useCompetitions(): UseCompetitionsResult {
 		staleTime: 1000 * 60 * 30, // 30 minutos
 	});
 
-	// Enriquecer con format y filtrar activas
+	// Sprint 5: pipeline de enriquecimiento + filtrado en 3 pasos:
+	//   1. Enriquecer con format (DB si está, sino inferFormat)
+	//   2. Excluir amistosos explícitos (is_friendly = true)
+	//   3. Excluir competiciones sin formato definido (defensivo)
+	//   4. Excluir inactivas (legacy: active = false)
 	const competitions = (data ?? [])
 		.map(
 			(c): Competition => ({
@@ -69,7 +78,9 @@ export function useCompetitions(): UseCompetitionsResult {
 				format: c.format ?? inferFormat(c.id),
 			}),
 		)
-		.filter((c) => c.active === true);
+		.filter((c) => c.is_friendly !== true) // excluye amistosos marcados en DB
+		.filter((c) => c.format != null) // excluye sin formato (defensivo)
+		.filter((c) => c.active === true); // excluye inactivas (legacy)
 
 	return {
 		competitions,

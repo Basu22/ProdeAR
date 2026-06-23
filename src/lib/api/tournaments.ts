@@ -15,6 +15,8 @@ const mockCompetitions: Competition[] = [
 		country: "Internacional",
 		logoUrl: "",
 		season: "2026",
+		active: true,
+		format: "groups",
 	},
 	{
 		id: "comp-2",
@@ -22,6 +24,18 @@ const mockCompetitions: Competition[] = [
 		country: "Argentina",
 		logoUrl: "",
 		season: "2026",
+		active: true,
+		format: "league",
+	},
+	{
+		id: "comp-3",
+		name: "Amistoso Internacional Argentina 2026",
+		country: "Internacional",
+		logoUrl: "",
+		season: "2026",
+		active: true,
+		format: null,
+		is_friendly: true,
 	},
 ];
 
@@ -166,12 +180,17 @@ export const tournamentsApi = {
 		if (isSupabaseConfigured) {
 			const { data, error } = await supabase.from("competitions").select("*");
 			if (error) throw error;
+			// Sprint 5 FIX (QA GAP CRÍTICO #1): mapear `is_friendly` y `format`
+			// desde DB. Antes se descartaban silenciosamente en el mapping.
 			return data.map((c) => ({
 				id: String(c.id),
 				name: c.name,
 				country: c.country,
 				logoUrl: c.logo_url || "",
 				season: c.season,
+				active: c.active ?? true,
+				format: c.format ?? null,
+				is_friendly: c.is_friendly ?? false,
 			}));
 		}
 		return getLocalCompetitions();
