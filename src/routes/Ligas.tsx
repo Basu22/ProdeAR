@@ -1,4 +1,10 @@
 /**
+ * Tipo de sub-tab para /ligas cuando se selecciona el Mundial (format='groups').
+ * Sprint 5B: pills separadas en lugar de scroll vertical.
+ */
+type LigasSubTab = "grupos" | "mejores3ros" | "llaves";
+
+/**
  * Ligas — Sección independiente de posiciones y partidos por competición.
  *
  * ============================================================================
@@ -50,6 +56,7 @@ import { WorldCupKnockoutSection } from "../components/ligas/WorldCupKnockoutSec
 import { MatchSheet } from "../components/match/MatchSheet";
 import { GroupTable } from "../components/tournament/GroupTable";
 import { GlassCard } from "../components/ui/GlassCard";
+import { PillTabs } from "../components/ui/PillTabs";
 import { useCompetitions } from "../hooks/useCompetitions";
 import { useMatches } from "../hooks/useMatches";
 import { useOnboardingTour } from "../hooks/useOnboardingTour";
@@ -102,6 +109,11 @@ export function Ligas() {
 		() => allMatches?.find((m) => m.id === selectedMatchId) ?? null,
 		[allMatches, selectedMatchId],
 	);
+
+	// Sprint 5B: pills de navegación en /ligas → Mundial.
+	// Reemplazan el scroll vertical gigante (Grupos + Liga 3ros + Llaves)
+	// por 3 sub-pills navegables. Mismo patrón que PositionsView.
+	const [ligasSubTab, setLigasSubTab] = useState<LigasSubTab>("grupos");
 
 	// ── Disparar tour en primer ingreso (solo mobile) ──
 	useOnboardingTour("onboarding-ligas");
@@ -176,53 +188,82 @@ export function Ligas() {
 			{/* Tabla + Acordeones según formato */}
 			{!isLoadingStandings && result?.format === "groups" && (
 				<>
-					{/* Grupos (vista principal) */}
-					<div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
-						{result.groupTables.map((group) => {
-							// Filtrar partidos del grupo (los live ya vienen en group.liveMatches;
-							// necesitamos todos los del grupo para el acordeón)
-							const groupMatches = (allMatches ?? []).filter(
-								(m) => m.groupLetter === group.groupLetter,
-							);
-							// Determinar si este acordeón debe estar abierto:
-							// 1. Deep-link (?group=A)
-							// 2. Siempre: NO (lo deja cerrado, el usuario lo abre)
-							const isDeepLinked = deepLinkGroup === group.groupLetter;
-							return (
-								<div key={group.groupName} className="space-y-3">
-									<GroupTable
-										group={group}
-										positionChanges={result.positionChanges}
-									/>
-									<GroupMatchesAccordion
-										title={group.groupName}
-										subtitle={
-											groupMatches.length > 0
-												? `${groupMatches.length} partidos`
-												: undefined
-										}
-										matches={groupMatches}
-										liveCount={group.liveMatches.length}
-										onOpenDetails={setSelectedMatchId}
-										{...(isDeepLinked ? { isOpen: true } : {})}
-										highlightForTour={group.groupLetter === "A"}
-										tourMatchId={groupMatches[0]?.id}
-									/>
-								</div>
-							);
-						})}
-					</div>
+					{/* Sprint 5B: pills de navegación GRUPOS | LIGA 3ROS | LLAVES */}
+					{(() => {
+						const tercerosCount = result.bestThirds
+							? result.bestThirds.standings.filter((s) => s.qualifies).length
+							: 0;
+						const crucesCount = result.bracket
+							? result.bracket.rounds[0]?.completedCount ?? 0
+							: 0;
+						return (
+							<PillTabs<LigasSubTab>
+								active={ligasSubTab}
+								onChange={setLigasSubTab}
+								options={[
+									{
+										id: "grupos",
+										label: "GRUPOS",
+										badge: result.liveMatchesCount > 0 ? result.liveMatchesCount : undefined,
+									},
+									{
+										id: "mejores3ros",
+										label: `LIGA 3ROS (${tercerosCount}/12)`,
+										disabled: !result.bestThirds,
+									},
+									{
+										id: "llaves",
+										label: `LLAVES (${crucesCount}/16)`,
+										disabled: !result.bracket,
+									},
+								]}
+							/>
+						);
+					})()}
 
-					{/* Sprint 4: Liga de Mejores Terceros (solo si hay datos) */}
-					{result.bestThirds && (
+					{/* Contenido según la pill activa */}
+					{ligasSubTab === "grupos" && (
+						<div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
+							{result.groupTables.map((group) => {
+								// Filtrar partidos del grupo
+								const groupMatches = (allMatches ?? []).filter(
+									(m) => m.groupLetter === group.groupLetter,
+								);
+								const isDeepLinked = deepLinkGroup === group.groupLetter;
+								return (
+									<div key={group.groupName} className="space-y-3">
+										<GroupTable
+											group={group}
+											positionChanges={result.positionChanges}
+										/>
+										<GroupMatchesAccordion
+											title={group.groupName}
+											subtitle={
+												groupMatches.length > 0
+													? `${groupMatches.length} partidos`
+													: undefined
+											}
+											matches={groupMatches}
+											liveCount={group.liveMatches.length}
+											onOpenDetails={setSelectedMatchId}
+											{...(isDeepLinked ? { isOpen: true } : {})}
+											highlightForTour={group.groupLetter === "A"}
+											tourMatchId={groupMatches[0]?.id}
+										/>
+									</div>
+								);
+							})}
+						</div>
+					)}
+
+					{ligasSubTab === "mejores3ros" && result.bestThirds && (
 						<WorldCupBestThirdsSection
 							bestThirds={result.bestThirds}
 							matches={allMatches ?? []}
 						/>
 					)}
 
-					{/* Sprint 4: Llaves Eliminatorias (solo si hay datos) */}
-					{result.bracket && (
+					{ligasSubTab === "llaves" && result.bracket && (
 						<WorldCupKnockoutSection
 							bracket={result.bracket}
 							onOpenDetails={setSelectedMatchId}
