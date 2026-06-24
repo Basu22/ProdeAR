@@ -74,6 +74,39 @@ function buildAriaLabel(
 }
 
 /**
+ * Construye el label para un slot TBD a partir de su `sourceMatchId`.
+ * Convierte IDs como "R32-1", "R16-3", "SF-1" en labels legibles
+ * como "Ganador de 16vos 1", "Ganador de 8vos 3", "Perdedor de Semis 1".
+ *
+ * - `R32-N` → "Ganador de 16vos N" (slots de R16 dependen de ganadores R32)
+ * - `R16-N` → "Ganador de 8vos N"  (slots de QF dependen de ganadores R16)
+ * - `QF-N`  → "Ganador de 4tos N"  (slots de SF dependen de ganadores QF)
+ * - `SF-N`  → "Perdedor de Semis N" (slots de 3RD dependen de perdedores SF)
+ *
+ * Si el `sourceMatchId` no matchea el patrón esperado, retorna
+ * `"Por definir"` como fallback.
+ */
+function buildTbdLabel(sourceMatchId: string | null): string {
+	if (!sourceMatchId) return "Por definir";
+	const m = sourceMatchId.match(/^([A-Z0-9]+)-(\d+)$/);
+	if (!m) return "Por definir";
+	const [, abbr, pos] = m;
+	// Mapeo: abreviatura → nombre legible de la ronda
+	const ROUND_LABELS: Record<string, string> = {
+		R32: "16vos",
+		R16: "8vos",
+		QF: "4tos",
+		SF: "Semis",
+		F: "Final",
+		"3RD": "3er Puesto",
+	};
+	const label = ROUND_LABELS[abbr] ?? abbr;
+	// SF es el origen del 3RD (perdedores), no ganador
+	const prefix = abbr === "SF" ? "Perdedor de" : "Ganador de";
+	return `${prefix} ${label} ${pos}`;
+}
+
+/**
  * Sizing map por variante.
  * Cada variante define sus propias clases de padding, font-size, etc.
  * Mantener este objeto como single-source-of-truth para consistencia visual.
@@ -120,6 +153,8 @@ interface SlotProps {
 	score: number | null;
 	variant: "compact" | "default" | "hero";
 	showPenalties: boolean;
+	/** Label personalizado para slots TBD. Default: "Por definir" */
+	tbdLabel?: string;
 }
 
 function Slot({
@@ -130,6 +165,7 @@ function Slot({
 	score,
 	variant,
 	showPenalties,
+	tbdLabel,
 }: SlotProps) {
 	const styles = VARIANT_STYLES[variant];
 
@@ -146,9 +182,9 @@ function Slot({
 					help
 				</span>
 				<span
-					className={`${styles.teamText} text-on-surface-variant/40 italic font-medium`}
+					className={`${styles.teamText} text-on-surface-variant/40 italic font-medium truncate`}
 				>
-					Por definir
+					{tbdLabel ?? "Por definir"}
 				</span>
 			</div>
 		);
@@ -353,6 +389,7 @@ export function BracketMatchCard({
 				isWinner={winnerName !== null && winnerName === match.slotA.teamName}
 				score={hasScore && match.score ? match.score.home : null}
 				variant={variant}
+				tbdLabel={buildTbdLabel(match.slotA.sourceMatchId)}
 				showPenalties={
 					match.decidedByPenalties &&
 					hasScore &&
@@ -378,6 +415,7 @@ export function BracketMatchCard({
 				isWinner={winnerName !== null && winnerName === match.slotB.teamName}
 				score={hasScore && match.score ? match.score.away : null}
 				variant={variant}
+				tbdLabel={buildTbdLabel(match.slotB.sourceMatchId)}
 				showPenalties={
 					match.decidedByPenalties &&
 					hasScore &&
@@ -413,6 +451,11 @@ export function BracketMatchCard({
 // Comparador shallow: si match.id, dbMatchId, score y winner no cambiaron,
 // no re-renderiza. Esto reduce ~32 re-renders a solo los cards afectados
 // en cada live update. (Fix QA #2 — Performance ALTO)
+//
+// Sprint 5D: agregamos `sourceMatchId` al comparador para que cuando un
+// slot TBD se resuelva (cambia el `sourceMatchId` o el `teamName`), el
+// card re-renderice con el label correcto ("Ganador de 16vos 1" vs
+// "Por definir" vs nombre del equipo).
 export const MemoizedBracketMatchCard = React.memo(
 	BracketMatchCard,
 	(prevProps, nextProps) => {
@@ -428,9 +471,11 @@ export const MemoizedBracketMatchCard = React.memo(
 			prev.slotA.teamName === next.slotA.teamName &&
 			prev.slotA.teamLogo === next.slotA.teamLogo &&
 			prev.slotA.isLive === next.slotA.isLive &&
+			prev.slotA.sourceMatchId === next.slotA.sourceMatchId &&
 			prev.slotB.teamName === next.slotB.teamName &&
 			prev.slotB.teamLogo === next.slotB.teamLogo &&
 			prev.slotB.isLive === next.slotB.isLive &&
+			prev.slotB.sourceMatchId === next.slotB.sourceMatchId &&
 			prevProps.variant === nextProps.variant &&
 			prevProps.onOpenDetails === nextProps.onOpenDetails
 		);
