@@ -291,47 +291,31 @@ function MatchLogistics({ stadium, kickOff, variant }: MatchLogisticsProps) {
 	return (
 		<div
 			className="
-				flex flex-col justify-center
+				flex flex-col justify-center gap-0.5
 				pl-2.5 ml-0.5
 				border-l border-white/10
 				text-right
 				min-w-0
 			"
 		>
-			{/* Estadio */}
+			{/* Estadio (sin icono, solo texto) */}
 			<span
 				className={`
-					${styles.logisticsText} font-medium text-white/85
-					flex items-center justify-end gap-1 truncate
+					${styles.logisticsText} font-medium text-white/85 truncate
 				`.trim()}
 				title={stadiumText}
 			>
-				<span
-					className={`material-symbols-outlined text-white/40 flex-shrink-0 ${styles.iconSize}`}
-					aria-hidden="true"
-				>
-					stadium
-				</span>
-				<span className="truncate">{stadiumText}</span>
+				{stadiumText}
 			</span>
 
-			{/* Fecha + hora */}
+			{/* Fecha + hora (sin icono, solo texto) */}
 			<span
 				className={`
 					${styles.logisticsDateText} font-bold uppercase tracking-wider
-					text-on-surface-variant tabular-nums
-					flex items-center justify-end gap-1 mt-0.5
+					text-on-surface-variant tabular-nums whitespace-pre
 				`.trim()}
 			>
-				<span
-					className={`material-symbols-outlined text-on-surface-variant/60 flex-shrink-0 ${styles.iconSize}`}
-					aria-hidden="true"
-				>
-					schedule
-				</span>
-				<span className="whitespace-pre">
-					{dateText}  {timeText}
-				</span>
+				{dateText}  {timeText}
 			</span>
 		</div>
 	);
