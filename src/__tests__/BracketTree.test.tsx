@@ -20,6 +20,7 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { BracketTree } from "../components/tournament/BracketTree";
 import { getFullBracket } from "../lib/bracketEngine";
@@ -146,10 +147,18 @@ function makeMatchTBD(position: number, id: string): ExtendedBracketMatch {
 // TESTS
 // ============================================================================
 
+/**
+ * Helper: renderiza el BracketTree dentro de un MemoryRouter porque
+ * usa useSearchParams (Sprint 5C: URL params `?round=`).
+ */
+function renderWithRouter(ui: React.ReactNode) {
+	return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 describe("BracketTree", () => {
 	it("renders all 5 rounds (R32, R16, QF, SF, F)", () => {
 		const bracket = makeEmptyBracket();
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// Verificar que los 5 headers de ronda están presentes
 		// Usamos queries específicos por role+aria-label para evitar colisiones
@@ -174,7 +183,7 @@ describe("BracketTree", () => {
 
 	it("renders third place match below the final", () => {
 		const bracket = makeEmptyBracket();
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// El section del 3er puesto debe estar presente
 		expect(
@@ -188,7 +197,7 @@ describe("BracketTree", () => {
 
 	it("shows TBD slots for unresolved matches (initial state)", () => {
 		const bracket = makeEmptyBracket();
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// En R32 los slots tienen teamName desde grupos, pero R16+ están TBD
 		// Verificamos que hay al menos 16 elementos "TBD" / "Por definir" en R16
@@ -198,7 +207,7 @@ describe("BracketTree", () => {
 
 	it("shows team names for resolved R32 matches", () => {
 		const bracket = makeEmptyBracket();
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// Los 1° y 2° de cada grupo deben aparecer en los slots de R32
 		// Buscamos algunos específicos (1°A, 2°A, 1°B, 2°B, etc.)
@@ -222,7 +231,9 @@ describe("BracketTree", () => {
 		if (!firstMatch) return;
 
 		const onOpenDetails = vi.fn();
-		render(<BracketTree bracket={bracket} onOpenDetails={onOpenDetails} />);
+		renderWithRouter(
+			<BracketTree bracket={bracket} onOpenDetails={onOpenDetails} />,
+		);
 
 		// Buscar el botón por aria-label (que incluye el nombre del equipo)
 		const matchButton = screen.getByRole("button", {
@@ -243,7 +254,7 @@ describe("BracketTree", () => {
 			firstR32.slotB.isLive = true;
 		}
 
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// Debe haber un badge "En vivo" o un LiveBadge compact
 		const liveBadges = screen.getAllByLabelText(/en vivo/i);
@@ -268,7 +279,7 @@ describe("BracketTree", () => {
 			bracket.champion = "Argentina";
 		}
 
-		render(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />);
 
 		// El banner del campeón tiene role="status" y aria-label con el nombre
 		const championBanner = screen.getByRole("status", {
@@ -289,7 +300,7 @@ describe("BracketTree", () => {
 			thirdPlace: null,
 		};
 
-		render(<BracketTree bracket={emptyBracket} />);
+		renderWithRouter(<BracketTree bracket={emptyBracket} />);
 
 		// Debe mostrar un mensaje de empty state
 		// Usamos getAllByText y verificamos que el header está presente

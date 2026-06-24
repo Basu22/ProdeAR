@@ -42,6 +42,7 @@
  */
 
 import { useId } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { FullBracket } from "../../lib/bracketTypes";
 import { BracketMatchCard } from "./BracketMatchCard";
 import { BracketRound } from "./BracketRound";
@@ -195,6 +196,23 @@ export function BracketTree({
 	// useId: genera un ID único para el gradiente SVG (Fix QA #4 — HTML válido)
 	const gradientId = useId();
 
+	// Sprint 5C: URL params para navegación de rondas.
+	// Si la URL tiene `?round=r32` (o r16, qf, sf, f, 3rd), se renderiza
+	// SOLO esa ronda + el navegador. Si no, se renderizan las 5 rondas
+	// apiladas (backward compat con tests existentes).
+	const [searchParams, setSearchParams] = useSearchParams();
+	const roundParam = searchParams.get("round");
+	const currentRound: RoundAbbreviation | null = roundParam
+		? (normalizeRoundName(roundParam) as RoundAbbreviation)
+		: null;
+	const isSingleRoundView = currentRound !== null;
+
+	const handleNavigate = (round: RoundAbbreviation) => {
+		const next = new URLSearchParams(searchParams);
+		next.set("round", round);
+		setSearchParams(next, { replace: true });
+	};
+
 	// Estado vacío: no hay rondas
 	if (rounds.length === 0) {
 		return (
@@ -208,9 +226,6 @@ export function BracketTree({
 	}
 
 	// Helper para decidir variante según la abreviación de la ronda (Fix QA #3)
-	// Antes usaba índice positional, lo que causaba bugs si el bracket tenía
-	// menos de 5 rondas (ej: durante el mundial, cuando solo R32+R16 están
-	// definidos). Ahora es data-driven por meta.abbr.
 	const variantForRound = (abbr: string): "compact" | "default" | "hero" => {
 		if (abbr === "R32" || abbr === "R16") return "compact";
 		if (abbr === "QF" || abbr === "SF") return "default";
@@ -219,6 +234,75 @@ export function BracketTree({
 
 	// Si onOpenDetails no se pasa pero interactive es true, no-op silencioso
 	const handleOpen = interactive ? onOpenDetails : undefined;
+
+	// ── VISTA DE RONDA ÚNICA (con URL param) ──
+	if (isSingleRoundView && currentRound) {
+		// 3RD: renderizar el thirdPlaceMatch
+		if (currentRound === "3RD") {
+			return (
+				<section
+					aria-label="Árbol de eliminatorias del Mundial 2026"
+					className="max-w-4xl mx-auto space-y-1"
+				>
+					{/* Breadcrumb */}
+					<header className="text-center space-y-1 pt-2 pb-4">
+						<p className="font-label-caps text-[10px] text-tertiary tracking-widest font-bold bg-tertiary/10 border border-tertiary/25 px-3 py-1 rounded-full uppercase select-none inline-block">
+							🏆 Eliminatorias · 3er Puesto
+						</p>
+					</header>
+					{/* Navegador */}
+					<div className="flex justify-center py-2">
+						<RoundNavigator current="3RD" onNavigate={handleNavigate} />
+					</div>
+					{/* 3RD card (hero variant) */}
+					<div className="max-w-md mx-auto pt-2">
+						<BracketMatchCard
+							match={thirdPlaceMatch}
+							variant="hero"
+							onOpenDetails={handleOpen}
+						/>
+					</div>
+				</section>
+			);
+		}
+
+		// Rondas R32/R16/QF/SF/F: renderizar la ronda correspondiente
+		const round = rounds.find((r) => r.meta.abbr === currentRound);
+		if (!round) {
+			// Si el param apunta a una ronda que no existe, fallback a la primera
+			const firstRound = rounds[0];
+			if (firstRound) {
+				const next = new URLSearchParams(searchParams);
+				next.set("round", firstRound.meta.abbr);
+				setSearchParams(next, { replace: true });
+			}
+			return null;
+		}
+		return (
+			<section
+				aria-label="Árbol de eliminatorias del Mundial 2026"
+				className="max-w-4xl mx-auto space-y-1"
+			>
+				{/* Breadcrumb */}
+				<header className="text-center space-y-1 pt-2 pb-4">
+					<p className="font-label-caps text-[10px] text-tertiary tracking-widest font-bold bg-tertiary/10 border border-tertiary/25 px-3 py-1 rounded-full uppercase select-none inline-block">
+						🏆 Eliminatorias · {getRoundLabel(currentRound)}
+					</p>
+				</header>
+				{/* Navegador */}
+				<div className="flex justify-center py-2">
+					<RoundNavigator current={currentRound} onNavigate={handleNavigate} />
+				</div>
+				{/* Una sola ronda */}
+				<BracketRound
+					round={round}
+					cardVariant={variantForRound(round.meta.abbr)}
+					onOpenDetails={handleOpen}
+					isFirst={true}
+				/>
+			</section>
+		);
+	}
 
 	return (
 		<section

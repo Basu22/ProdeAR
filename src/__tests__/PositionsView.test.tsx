@@ -18,6 +18,7 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Match } from "../lib/types";
 import type { GroupTable, WorldCupMatch } from "../lib/worldCupGroups";
@@ -139,7 +140,11 @@ describe("PositionsView", () => {
 	});
 
 	it("renderiza las 3 sub-pills (GRUPOS, LIGA 3ROS, LLAVES)", () => {
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByRole("tab", { name: /GRUPOS/i })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: /LIGA 3ROS/i })).toBeInTheDocument();
@@ -147,14 +152,22 @@ describe("PositionsView", () => {
 	});
 
 	it("empieza con el sub-pill 'GRUPOS' activo por default", () => {
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		const grupos = screen.getByRole("tab", { name: /GRUPOS/i });
 		expect(grupos).toHaveAttribute("aria-selected", "true");
 	});
 
 	it("renderiza las 12 GroupTable cuando GRUPOS está activo", () => {
-		const { container } = render(<PositionsView matches={makeMatches()} />);
+		const { container } = render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		// 12 GroupTable = 12 cards con nombre "Grupo X"
 		for (let i = 0; i < 12; i++) {
@@ -170,7 +183,11 @@ describe("PositionsView", () => {
 
 	it("cambia al contenido de LIGA 3ROS al hacer click en el pill", async () => {
 		const user = userEvent.setup();
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		await user.click(screen.getByRole("tab", { name: /LIGA 3ROS/i }));
 
@@ -185,7 +202,11 @@ describe("PositionsView", () => {
 
 	it("cambia al contenido de LLAVES al hacer click en el pill", async () => {
 		const user = userEvent.setup();
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
 
@@ -200,7 +221,11 @@ describe("PositionsView", () => {
 
 	it("vuelve a GRUPOS al hacer click en el pill GRUPOS desde otra vista", async () => {
 		const user = userEvent.setup();
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		// 1. Click en LLAVES
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
@@ -218,7 +243,11 @@ describe("PositionsView", () => {
 			makeHookReturn({ liveMatchesCount: 3 }),
 		);
 
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		const gruposTab = screen.getByRole("tab", { name: /GRUPOS/i });
 		expect(gruposTab).toHaveTextContent("3");
@@ -231,7 +260,11 @@ describe("PositionsView", () => {
 			makeHookReturn({ liveMatchesCount: 0 }),
 		);
 
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		const gruposTab = screen.getByRole("tab", { name: /GRUPOS/i });
 		// El texto "en vivo" no debería estar presente
@@ -243,7 +276,11 @@ describe("PositionsView", () => {
 			makeHookReturn({ groupTables: [] }),
 		);
 
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("No hay grupos disponibles")).toBeInTheDocument();
 		expect(
@@ -252,7 +289,11 @@ describe("PositionsView", () => {
 	});
 
 	it("renderiza la leyenda en la vista GRUPOS (Clasifica, Posible)", () => {
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("Clasifica a 16vos")).toBeInTheDocument();
 		expect(
@@ -262,7 +303,11 @@ describe("PositionsView", () => {
 
 	it("pasa los matches al hook useGroupStandings", () => {
 		const matches = makeMatches(5);
-		render(<PositionsView matches={matches} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={matches} />
+			</MemoryRouter>,
+		);
 
 		// El hook debe haber sido llamado con los matches que le pasamos
 		expect(mockedUseGroupStandings).toHaveBeenCalledWith(matches);
@@ -273,7 +318,11 @@ describe("PositionsView", () => {
 			makeHookReturn({ liveMatchesCount: 0 }),
 		);
 
-		const { rerender } = render(<PositionsView matches={makeMatches()} />);
+		const { rerender } = render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		// Inicialmente: sin badge
 		const gruposTab = screen.getByRole("tab", { name: /GRUPOS/i });
@@ -283,14 +332,22 @@ describe("PositionsView", () => {
 		mockedUseGroupStandings.mockReturnValue(
 			makeHookReturn({ liveMatchesCount: 2 }),
 		);
-		rerender(<PositionsView matches={makeMatches()} />);
+		rerender(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		const gruposTab2 = screen.getByRole("tab", { name: /GRUPOS/i });
 		expect(gruposTab2).toHaveAccessibleName(/2 en vivo/i);
 	});
 
 	it("los 3 pills están habilitados (no disabled) post-Sprint 3", () => {
-		render(<PositionsView matches={makeMatches()} />);
+		render(
+			<MemoryRouter>
+				<PositionsView matches={makeMatches()} />
+			</MemoryRouter>,
+		);
 
 		const grupos = screen.getByRole("tab", { name: /GRUPOS/i });
 		const mejores3ros = screen.getByRole("tab", { name: /LIGA 3ROS/i });
@@ -302,13 +359,25 @@ describe("PositionsView", () => {
 	});
 
 	it("acepta Match[] vacío sin errores", () => {
-		expect(() => render(<PositionsView matches={[]} />)).not.toThrow();
+		expect(() =>
+			render(
+				<MemoryRouter>
+					<PositionsView matches={[]} />
+				</MemoryRouter>,
+			),
+		).not.toThrow();
 	});
 
 	it("preserva el tipo de matches: acepta Match[] (no solo WorldCupMatch)", () => {
 		// El componente se declara con `matches: Match[]`, no `WorldCupMatch[]`.
 		// Esto verifica que la firma es correcta.
 		const matches: Match[] = makeMatches(3) as Match[];
-		expect(() => render(<PositionsView matches={matches} />)).not.toThrow();
+		expect(() =>
+			render(
+				<MemoryRouter>
+					<PositionsView matches={matches} />
+				</MemoryRouter>,
+			),
+		).not.toThrow();
 	});
 });
