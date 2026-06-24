@@ -239,12 +239,11 @@ export function BracketQuadro({
 		}
 	}, []);
 
-	// ── Detectar columna activa via IntersectionObserver ──
-	const activeRound = useActiveRound(
-		scrollRef,
-		ROUND_ORDER,
-		isProgrammaticScroll,
-	);
+	// ── Detectar columna activa + leaving + scrollDirection ──
+	// Sprint 5D+: useActiveRound ahora retorna 3 valores para soportar
+	// el efecto visual del árbol de eliminatorias con líneas conectoras.
+	const { active: activeRound, leaving: leavingRound, scrollDirection } =
+		useActiveRound(scrollRef, ROUND_ORDER, isProgrammaticScroll);
 
 	// ── Effect: URL → scroll (cuando cambia ?round=) ──
 	useEffect(() => {

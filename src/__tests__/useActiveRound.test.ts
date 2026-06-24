@@ -66,7 +66,7 @@ describe("useActiveRound", () => {
 		}
 	});
 
-	it("retorna null en primer render (antes de que el observer dispare)", () => {
+	it("retorna {active: null, leaving: null, scrollDirection: 'none'} en primer render", () => {
 		const { result } = renderHook(() => {
 			const ref = useRef<HTMLDivElement>(container);
 			const isProgrammaticScroll = useRef(false);
@@ -77,8 +77,10 @@ describe("useActiveRound", () => {
 			);
 		});
 
-		// El hook inicializa con null porque el observer aún no ha disparado
-		expect(result.current).toBeNull();
+		// El hook inicializa con valores por defecto
+		expect(result.current.active).toBeNull();
+		expect(result.current.leaving).toBeNull();
+		expect(result.current.scrollDirection).toBe("none");
 	});
 
 	it("retorna la ronda con mayor intersectionRatio cuando el observer dispara", () => {
@@ -92,10 +94,7 @@ describe("useActiveRound", () => {
 			);
 		});
 
-		// Obtener el observer creado por el hook
 		const observer = MockIntersectionObserver.latest;
-
-		// Simular entradas de intersección: R32 con ratio 0.3, R16 con ratio 0.8
 		const colR32 = columns.get("R32")!;
 		const colR16 = columns.get("R16")!;
 
@@ -106,17 +105,15 @@ describe("useActiveRound", () => {
 			]);
 		});
 
-		// Debe retornar R16 porque tiene el mayor intersectionRatio
-		expect(result.current).toBe("R16");
+		// R16 porque tiene el mayor intersectionRatio
+		expect(result.current.active).toBe("R16");
 	});
 
 	it("ignora entradas cuando isProgrammaticScroll.current === true", () => {
-		// Crear un ref mutable que podemos modificar desde fuera del hook
 		const programmaticRef = { current: true };
 
 		const { result } = renderHook(() => {
 			const ref = useRef<HTMLDivElement>(container);
-			// Usar el ref externo directamente
 			return useActiveRound(
 				ref,
 				["R32", "R16", "QF", "SF", "F"],
@@ -124,10 +121,7 @@ describe("useActiveRound", () => {
 			);
 		});
 
-		// Obtener el observer creado por el hook
 		const observer = MockIntersectionObserver.latest;
-
-		// Simular entradas de intersección con ratio alto
 		const colR32 = columns.get("R32")!;
 
 		act(() => {
@@ -136,8 +130,36 @@ describe("useActiveRound", () => {
 			]);
 		});
 
-		// Debe seguir siendo null porque isProgrammaticScroll es true
-		expect(result.current).toBeNull();
+		// Sigue siendo null porque isProgrammaticScroll es true
+		expect(result.current.active).toBeNull();
+	});
+
+	it("detecta la ronda 'leaving' como la adyacente con menor ratio", () => {
+		const { result } = renderHook(() => {
+			const ref = useRef<HTMLDivElement>(container);
+			const isProgrammaticScroll = useRef(false);
+			return useActiveRound(
+				ref,
+				["R32", "R16", "QF", "SF", "F"],
+				isProgrammaticScroll,
+			);
+		});
+
+		const observer = MockIntersectionObserver.latest;
+		const colR32 = columns.get("R32")!;
+		const colR16 = columns.get("R16")!;
+
+		act(() => {
+			// R16 con ratio alto (focus), R32 con ratio bajo (leaving)
+			observer.trigger([
+				{ target: colR32, isIntersecting: true, intersectionRatio: 0.1 },
+				{ target: colR16, isIntersecting: true, intersectionRatio: 0.9 },
+			]);
+		});
+
+		// R16 es active, R32 es leaving (adyacente con menor ratio)
+		expect(result.current.active).toBe("R16");
+		expect(result.current.leaving).toBe("R32");
 	});
 
 	it("desconecta el observer en unmount", () => {
