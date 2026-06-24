@@ -194,7 +194,7 @@ export function Ligas() {
 							? result.bestThirds.standings.filter((s) => s.qualifies).length
 							: 0;
 						const crucesCount = result.bracket
-							? result.bracket.rounds[0]?.completedCount ?? 0
+							? (result.bracket.rounds[0]?.completedCount ?? 0)
 							: 0;
 						return (
 							<PillTabs<LigasSubTab>
@@ -204,7 +204,10 @@ export function Ligas() {
 									{
 										id: "grupos",
 										label: "GRUPOS",
-										badge: result.liveMatchesCount > 0 ? result.liveMatchesCount : undefined,
+										badge:
+											result.liveMatchesCount > 0
+												? result.liveMatchesCount
+												: undefined,
 									},
 									{
 										id: "mejores3ros",

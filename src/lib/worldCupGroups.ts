@@ -184,7 +184,9 @@ export const COUNTRY_CODES: Record<string, string> = {
  */
 export function getCountryCode(canonicalName: string): string {
 	if (!canonicalName) return "???";
-	return COUNTRY_CODES[canonicalName] ?? canonicalName.slice(0, 3).toUpperCase();
+	return (
+		COUNTRY_CODES[canonicalName] ?? canonicalName.slice(0, 3).toUpperCase()
+	);
 }
 
 /**

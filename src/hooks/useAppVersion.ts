@@ -88,7 +88,11 @@ export function useAppVersion() {
 
 				// Incluso updates forzados respetan un cooldown mínimo (1h) para evitar spam
 				const forcedCooldownMs = 60 * 60 * 1000;
-				const canShowForced = shouldResurface(lastDismissedAt, Date.now(), forcedCooldownMs);
+				const canShowForced = shouldResurface(
+					lastDismissedAt,
+					Date.now(),
+					forcedCooldownMs,
+				);
 
 				if (isForced && canShowForced) {
 					setAvailable(serverInfo, currentVersion);

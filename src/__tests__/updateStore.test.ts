@@ -40,7 +40,9 @@ describe("updateStore", () => {
 			});
 
 			expect(useUpdateStore.getState().status).toBe("available");
-			expect(useUpdateStore.getState().serverVersion).toEqual(mockServerVersion);
+			expect(useUpdateStore.getState().serverVersion).toEqual(
+				mockServerVersion,
+			);
 			expect(useUpdateStore.getState().clientVersion).toBe("1.0.0");
 			expect(useUpdateStore.getState().errorMessage).toBeNull();
 		});

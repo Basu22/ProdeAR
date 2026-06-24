@@ -271,8 +271,12 @@ describe("isKnockoutMatch", () => {
 	});
 
 	it("returns true for 'Tercer Puesto' (Spanish, case-insensitive)", () => {
-		expect(isKnockoutMatch(makeMatch({ stageName: "Tercer Puesto" }))).toBe(true);
-		expect(isKnockoutMatch(makeMatch({ stageName: "tercer puesto" }))).toBe(true);
+		expect(isKnockoutMatch(makeMatch({ stageName: "Tercer Puesto" }))).toBe(
+			true,
+		);
+		expect(isKnockoutMatch(makeMatch({ stageName: "tercer puesto" }))).toBe(
+			true,
+		);
 	});
 
 	it("handles empty stageName", () => {

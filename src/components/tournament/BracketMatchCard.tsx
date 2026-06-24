@@ -34,10 +34,9 @@
  * - active:scale-[0.96] para feedback táctil (regla make-interfaces-feel-better)
  */
 
+import React from "react";
 import type { ExtendedBracketMatch } from "../../lib/bracketTypes";
 import { LiveBadge } from "./LiveBadge";
-
-import React from "react";
 
 // ============================================================================
 // PROPS
