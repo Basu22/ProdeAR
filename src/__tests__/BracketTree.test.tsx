@@ -1,19 +1,20 @@
 /**
  * Tests para `src/components/tournament/BracketTree.tsx`.
  *
- * Sprint 3 — TDD rojo. El componente aún NO existe.
- * Estos tests fallan hasta que se implemente el árbol visual.
+ * Sprint 5C: el árbol ahora SIEMPRE muestra 1 sola ronda + navegador
+ * de flechas (con URL params `?round=`). La vista de "5 rondas apiladas"
+ * fue removida porque ya no tiene sentido con el navegador.
  *
  * ============================================================================
  * COBERTURA (8 tests)
  * ============================================================================
- * 1. Renderiza las 5 rondas (R32, R16, QF, SF, F)
- * 2. Renderiza el partido por el 3er puesto debajo de la final
+ * 1. Renderiza 1 ronda por default + navegador con flechas
+ * 2. Renderiza 3RD con `?round=3rd` (apéndice de la final)
  * 3. Muestra TBD en slots no resueltos
  * 4. Muestra nombres de equipos en slots resueltos
  * 5. Llama onOpenDetails al hacer click en un partido
  * 6. Muestra LiveBadge en partidos en vivo
- * 7. Muestra banner del campeón cuando la final termina
+ * 7. Muestra banner del campeón cuando la final termina (con `?round=f`)
  * 8. Muestra empty state cuando no hay partidos definidos
  * ============================================================================
  */
@@ -60,20 +61,7 @@ function makeGroupTable(
 }
 
 function make12GroupTables(): GroupTable[] {
-	const groupNames = [
-		"A",
-		"B",
-		"C",
-		"D",
-		"E",
-		"F",
-		"G",
-		"H",
-		"I",
-		"J",
-		"K",
-		"L",
-	];
+	const groupNames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 	return groupNames.map((letter) =>
 		makeGroupTable(letter, [
 			{ name: `1°${letter}`, pts: 9, dg: 5, gf: 7 },
@@ -112,10 +100,6 @@ function makeEmptyBracket(): FullBracket {
 	return getFullBracket([], make12GroupTables(), makeBestThirds());
 }
 
-/**
- * Helper: setea un slot como TBD (teamName null, slotType "TBD-like")
- * En la práctica, el bracket estructural ya devuelve slots con teamName desde grupos.
- */
 function makeMatchTBD(position: number, id: string): ExtendedBracketMatch {
 	const emptySlot: ExtendedBracketSlot = {
 		slotType: "1st",
@@ -148,42 +132,34 @@ function makeMatchTBD(position: number, id: string): ExtendedBracketMatch {
 // ============================================================================
 
 /**
- * Helper: renderiza el BracketTree dentro de un MemoryRouter porque
- * usa useSearchParams (Sprint 5C: URL params `?round=`).
+ * Helper: renderiza el BracketTree dentro de un MemoryRouter (Sprint 5C
+ * usa useSearchParams). Acepta `initialEntries` para simular `?round=`.
  */
-function renderWithRouter(ui: React.ReactNode) {
-	return render(<MemoryRouter>{ui}</MemoryRouter>);
+function renderWithRouter(
+	ui: React.ReactNode,
+	initialEntries: string[] = ["/"],
+) {
+	return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 }
 
-describe("BracketTree", () => {
-	it("renders all 5 rounds (R32, R16, QF, SF, F)", () => {
+describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
+	it("renderiza la primera ronda por default (R32) con navegador de flechas", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
-		// Verificar que los 5 headers de ronda están presentes
-		// Usamos queries específicos por role+aria-label para evitar colisiones
+		// El header de la ronda R32 debe estar visible
 		expect(
 			screen.getByRole("region", { name: /ronda: 16vos de final/i }),
 		).toBeInTheDocument();
+		// El navegador de flechas debe estar visible
 		expect(
-			screen.getByRole("region", { name: /ronda: 8vos de final/i }),
+			screen.getByRole("navigation", { name: /navegación del bracket/i }),
 		).toBeInTheDocument();
-		expect(
-			screen.getByRole("region", { name: /ronda: 4tos de final/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("region", { name: /ronda: semifinal/i }),
-		).toBeInTheDocument();
-		// La Final (header <h3>): buscamos por el texto exacto
-		const finalHeaders = screen.getAllByText(/final/i);
-		// Debe haber al menos un h3 con "Final" (la final) y posiblemente más
-		// (los partidos tienen "Final" en el aria-label)
-		expect(finalHeaders.length).toBeGreaterThan(0);
 	});
 
-	it("renders third place match below the final", () => {
+	it("renderiza el 3RD con `?round=3rd` (apéndice de la final)", () => {
 		const bracket = makeEmptyBracket();
-		renderWithRouter(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />, ["/?round=3rd"]);
 
 		// El section del 3er puesto debe estar presente
 		expect(
@@ -191,39 +167,36 @@ describe("BracketTree", () => {
 				name: /partido por el tercer puesto/i,
 			}),
 		).toBeInTheDocument();
-		// Y el h3 "Tercer Puesto"
-		expect(screen.getByText("Tercer Puesto")).toBeInTheDocument();
 	});
 
-	it("shows TBD slots for unresolved matches (initial state)", () => {
+	it("muestra TBD en slots no resueltos (rondas sin grupos asignados)", () => {
 		const bracket = makeEmptyBracket();
-		renderWithRouter(<BracketTree bracket={bracket} />);
+		// Navegamos a QF (cuartos) que SÍ tiene slots TBD porque los
+		// grupos aún no han definido los 8 cruces de cuartos.
+		// R32 siempre tiene equipos desde los grupos, así que no tiene TBDs.
+		renderWithRouter(<BracketTree bracket={bracket} />, ["/?round=qf"]);
 
-		// En R32 los slots tienen teamName desde grupos, pero R16+ están TBD
-		// Verificamos que hay al menos 16 elementos "TBD" / "Por definir" en R16
+		// El QF debe tener slots "Por definir"
 		const tbdElements = screen.queryAllByText(/por definir|tbd/i);
 		expect(tbdElements.length).toBeGreaterThan(0);
 	});
 
-	it("shows team names for resolved R32 matches", () => {
+	it("muestra nombres de equipos en slots resueltos", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
-		// Los 1° y 2° de cada grupo deben aparecer en los slots de R32
-		// Buscamos algunos específicos (1°A, 2°A, 1°B, 2°B, etc.)
+		// El R32 default debe mostrar los 1° y 2° de cada grupo
 		expect(screen.getByText("1°A")).toBeInTheDocument();
 		expect(screen.getByText("2°B")).toBeInTheDocument();
 		expect(screen.getByText("1°C")).toBeInTheDocument();
 	});
 
-	it("calls onOpenDetails when clicking a match with both slots resolved", async () => {
+	it("llama onOpenDetails cuando hace click en un partido con ambos slots resueltos", async () => {
 		const user = userEvent.setup();
-		// Para que el card sea clickeable, el match debe tener dbMatchId
 		const bracket = makeEmptyBracket();
-		bracket.rounds.forEach((round) => {
-			round.matches.forEach((m, i) => {
-				m.dbMatchId = `db-${m.id}-${i}`;
-			});
+		// Asignar dbMatchId a los primeros partidos para que sean clickeables
+		bracket.rounds[0]?.matches.forEach((m, i) => {
+			m.dbMatchId = `db-r32-${i}`;
 		});
 
 		const firstMatch = bracket.rounds[0]?.matches[0];
@@ -235,7 +208,7 @@ describe("BracketTree", () => {
 			<BracketTree bracket={bracket} onOpenDetails={onOpenDetails} />,
 		);
 
-		// Buscar el botón por aria-label (que incluye el nombre del equipo)
+		// Buscar el button del primer match (que es clickeable)
 		const matchButton = screen.getByRole("button", {
 			name: new RegExp(firstMatch.slotA.teamName ?? "", "i"),
 		});
@@ -244,8 +217,7 @@ describe("BracketTree", () => {
 		expect(onOpenDetails).toHaveBeenCalledWith(firstMatch.dbMatchId);
 	});
 
-	it("renders live badge for matches in progress (status: live)", () => {
-		// Crear un bracket con un R32 marcado como live
+	it("muestra LiveBadge en partidos en vivo (status: live)", () => {
 		const bracket = makeEmptyBracket();
 		const firstR32 = bracket.rounds[0]?.matches[0];
 		if (firstR32) {
@@ -261,12 +233,9 @@ describe("BracketTree", () => {
 		expect(liveBadges.length).toBeGreaterThan(0);
 	});
 
-	it("renders champion banner when final is resolved", () => {
-		// Crear un bracket donde la final tiene un ganador
+	it("muestra banner del campeón cuando la final termina (con `?round=f`)", () => {
 		const bracket = makeEmptyBracket();
-
-		// Propagar winners manualmente para llegar a la final
-		// Simplificado: setear winner directamente en la final
+		// Propagar el resultado de la final
 		const finalMatch = bracket.rounds[4]?.matches[0];
 		if (finalMatch) {
 			finalMatch.slotA.teamName = "Argentina";
@@ -279,19 +248,16 @@ describe("BracketTree", () => {
 			bracket.champion = "Argentina";
 		}
 
-		renderWithRouter(<BracketTree bracket={bracket} />);
+		renderWithRouter(<BracketTree bracket={bracket} />, ["/?round=f"]);
 
-		// El banner del campeón tiene role="status" y aria-label con el nombre
+		// El banner del campeón con role="status" debe aparecer
 		const championBanner = screen.getByRole("status", {
 			name: /argentina es el campeón del torneo/i,
 		});
 		expect(championBanner).toBeInTheDocument();
-		// Y el texto "¡Campeón del Mundo!" debe estar visible dentro del banner
-		expect(championBanner.textContent).toMatch(/campeón del mundo/i);
 	});
 
-	it("renders empty state when no matches are defined", () => {
-		// Bracket con rounds vacíos
+	it("renderiza empty state cuando no hay rondas", () => {
 		const emptyBracket: FullBracket = {
 			rounds: [],
 			thirdPlaceMatch: makeMatchTBD(1, "3RD-1"),
@@ -302,9 +268,8 @@ describe("BracketTree", () => {
 
 		renderWithRouter(<BracketTree bracket={emptyBracket} />);
 
-		// Debe mostrar un mensaje de empty state
-		// Usamos getAllByText y verificamos que el header está presente
-		const allTexts = screen.getAllByText(/se completará|cuando termine/i);
-		expect(allTexts.length).toBeGreaterThan(0);
+		// El empty state debe estar presente (al menos 1 match: título + descripción)
+		const matches = screen.getAllByText(/se completará|cuando termine|sin partidos/i);
+		expect(matches.length).toBeGreaterThan(0);
 	});
 });

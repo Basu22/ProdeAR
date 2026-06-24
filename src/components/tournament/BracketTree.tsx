@@ -44,8 +44,10 @@
 import { useId } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FullBracket } from "../../lib/bracketTypes";
+import { getRoundLabel, parseRoundParam } from "../../lib/bracketNavigation";
 import { BracketMatchCard } from "./BracketMatchCard";
 import { BracketRound } from "./BracketRound";
+import { RoundNavigator } from "./RoundNavigator";
 
 // ============================================================================
 // PROPS
@@ -198,14 +200,17 @@ export function BracketTree({
 
 	// Sprint 5C: URL params para navegación de rondas.
 	// Si la URL tiene `?round=r32` (o r16, qf, sf, f, 3rd), se renderiza
-	// SOLO esa ronda + el navegador. Si no, se renderizan las 5 rondas
-	// apiladas (backward compat con tests existentes).
+	// esa ronda. Si NO tiene, se usa la primera ronda disponible como default
+	// (R32 si existe, si no la siguiente) y se renderiza SIEMPRE la vista
+	// de 1 ronda + navegador (sin fallback a "5 rondas apiladas" que era
+	// el comportamiento pre-Sprint 5C).
 	const [searchParams, setSearchParams] = useSearchParams();
 	const roundParam = searchParams.get("round");
-	const currentRound: RoundAbbreviation | null = roundParam
-		? (normalizeRoundName(roundParam) as RoundAbbreviation)
-		: null;
-	const isSingleRoundView = currentRound !== null;
+	const normalizedParam = parseRoundParam(roundParam);
+
+	// Determinar la ronda actual: URL param, o default a la primera disponible
+	const defaultRound: RoundAbbreviation = rounds[0]?.meta.abbr ?? "R32";
+	const currentRound: RoundAbbreviation = normalizedParam ?? defaultRound;
 
 	const handleNavigate = (round: RoundAbbreviation) => {
 		const next = new URLSearchParams(searchParams);
@@ -235,13 +240,16 @@ export function BracketTree({
 	// Si onOpenDetails no se pasa pero interactive es true, no-op silencioso
 	const handleOpen = interactive ? onOpenDetails : undefined;
 
-	// ── VISTA DE RONDA ÚNICA (con URL param) ──
-	if (isSingleRoundView && currentRound) {
+	// ── VISTA DE RONDA ÚNICA + NAVEGADOR (Sprint 5C, default behavior) ──
+	// Siempre se renderiza 1 sola ronda + navegador. La "vista completa" de
+	// 5 rondas apiladas fue removida porque ya no tiene sentido con el
+	// navegador de flechas.
+	{
 		// 3RD: renderizar el thirdPlaceMatch
 		if (currentRound === "3RD") {
 			return (
 				<section
-					aria-label="Árbol de eliminatorias del Mundial 2026"
+					aria-label="Partido por el tercer puesto"
 					className="max-w-4xl mx-auto space-y-1"
 				>
 					{/* Breadcrumb */}
@@ -283,93 +291,37 @@ export function BracketTree({
 				aria-label="Árbol de eliminatorias del Mundial 2026"
 				className="max-w-4xl mx-auto space-y-1"
 			>
-				{/* Breadcrumb */}
+				{/* ChampionBanner: solo en la Final (evita spoilers en R32/R16/etc) */}
+				{currentRound === "F" && champion && (
+					<ChampionBanner champion={champion} />
+				)}
+
+				{/* Header */}
 				<header className="text-center space-y-1 pt-2 pb-4">
 					<p className="font-label-caps text-[10px] text-tertiary tracking-widest font-bold bg-tertiary/10 border border-tertiary/25 px-3 py-1 rounded-full uppercase select-none inline-block">
 						🏆 Eliminatorias · {getRoundLabel(currentRound)}
 					</p>
+					<h2 className="font-display-lg text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+						Camino a la Final
+					</h2>
 				</header>
 				{/* Navegador */}
 				<div className="flex justify-center py-2">
 					<RoundNavigator current={currentRound} onNavigate={handleNavigate} />
 				</div>
-				{/* Una sola ronda */}
-				<BracketRound
-					round={round}
-					cardVariant={variantForRound(round.meta.abbr)}
-					onOpenDetails={handleOpen}
-					isFirst={true}
-				/>
-			</section>
-		);
-	}
-
-	return (
-		<section
-			aria-label="Árbol de eliminatorias del Mundial 2026"
-			className="max-w-4xl mx-auto space-y-1"
-		>
-			{/* Banner del campeón (si hay) */}
-			{champion && <ChampionBanner champion={champion} />}
-
-			{/* Header del árbol */}
-			<header className="text-center space-y-1 pt-2 pb-4">
-				<p className="font-label-caps text-[10px] text-tertiary tracking-widest font-bold bg-tertiary/10 border border-tertiary/25 px-3 py-1 rounded-full uppercase select-none inline-block">
-					🏆 Eliminatorias
-				</p>
-				<h2 className="font-display-lg text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-					Camino a la Final
-				</h2>
-				<p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-					5 rondas. 32 equipos. 1 campeón.
-				</p>
-			</header>
-
-			{/* 5 rondas apiladas con conectores SVG verticales */}
-			<div className="space-y-1">
-				{rounds.map((round, index) => (
-					<div key={round.meta.abbr}>
-						<BracketRound
-							round={round}
-							cardVariant={variantForRound(round.meta.abbr)}
-							onOpenDetails={handleOpen}
-							isFirst={index === 0}
-						/>
-						{/* Conector vertical entre rondas */}
-						{index < rounds.length - 1 && <RoundConnector />}
-					</div>
-				))}
-			</div>
-
-			{/* Conector antes del 3er puesto */}
-			<RoundConnector />
-
-			{/* Partido por el 3er puesto (apéndice) */}
-			<section aria-label="Partido por el tercer puesto" className="space-y-3">
-				<header className="flex items-center justify-center gap-2">
-					<h3 className="font-headline-md text-sm sm:text-base font-black text-white uppercase tracking-wider">
-						Tercer Puesto
-					</h3>
-					<span
-						aria-hidden="true"
-						className="
-							inline-flex items-center px-2 py-0.5 rounded-full
-							bg-tertiary/15 border border-tertiary/40 text-tertiary
-							font-label-caps text-[9px] sm:text-[10px]
-							font-black tracking-widest uppercase tabular-nums
-						"
-					>
-						×{thirdPlaceMatch.stageMultiplier}
-					</span>
-				</header>
-				<div className="max-w-md mx-auto">
-					<BracketMatchCard
-						match={thirdPlaceMatch}
-						variant="hero"
+				{/* Una sola ronda (con key para re-animar al cambiar) */}
+				<div
+					key={currentRound}
+					className="transition-all duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:duration-0 motion-reduce:transition-none"
+				>
+					<BracketRound
+						round={round}
+						cardVariant={variantForRound(round.meta.abbr)}
 						onOpenDetails={handleOpen}
+						isFirst={true}
 					/>
 				</div>
 			</section>
-		</section>
-	);
+		);
+	}
 }
