@@ -258,21 +258,30 @@ export function BracketQuadro({
 		);
 		if (!col) return;
 
-		// Verificar si la columna ya está visible (no-op si lo está)
-		const rect = col.getBoundingClientRect();
+		// Verificar si la columna ya está visible horizontalmente (no-op si lo está).
+		// Ya no chequeamos visibilidad vertical: scrollTo opera solo sobre el
+		// contenedor del carrusel, no toca el body. La posición vertical de la
+		// columna es irrelevante para esta decisión.
+		const colRect = col.getBoundingClientRect();
 		const containerRect = container.getBoundingClientRect();
 		if (
-			rect.left >= containerRect.left - 1 &&
-			rect.right <= containerRect.right + 1
+			colRect.left >= containerRect.left - 1 &&
+			colRect.right <= containerRect.right + 1
 		) {
 			return;
 		}
 
+		// ── Fix Sprint 5D: scrollTo directo sobre el contenedor del carrusel ──
+		// ANTES: col.scrollIntoView({ block: "nearest" })
+		// PROBLEMA: scrollIntoView afecta a TODOS los ancestros scrolleables.
+		// El body scrolleaba verticalmente, "centrando" la columna y ocultando
+		// el sticky chip bar (top-16).
+		// SOLUCIÓN: scrollTo opera SOLO sobre el contenedor del carrusel.
+		// El `scroll-snap-x mandatory` del contenedor alinea al start.
 		setProgrammaticFlag(true);
-		col.scrollIntoView({
+		container.scrollTo({
+			left: col.offsetLeft - container.offsetLeft,
 			behavior: prefersReducedMotion ? "auto" : "smooth",
-			inline: "start",
-			block: "nearest",
 		});
 	}, [currentRound, prefersReducedMotion, setProgrammaticFlag]);
 

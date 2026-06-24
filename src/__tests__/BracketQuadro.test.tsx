@@ -334,20 +334,17 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		]);
 
 		// Esperar a que el effect de URL→scroll se ejecute
-		// (usa setTimeout internamente, asi que esperamos un tick)
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
-		// scrollIntoView debe haber sido llamado al menos una vez
-		const scrollIntoViewMock = Element.prototype.scrollIntoView as ReturnType<
-			typeof vi.fn
-		>;
-		expect(scrollIntoViewMock.mock.calls.length).toBeGreaterThan(0);
+		// scrollTo (NO scrollIntoView) debe haber sido llamado al menos una vez
+		// (Sprint 5D Issue #1: scrollTo opera solo sobre el contenedor, evita
+		// scroll vertical no deseado del body).
+		const scrollToMock = Element.prototype.scrollTo as ReturnType<typeof vi.fn>;
+		expect(scrollToMock.mock.calls.length).toBeGreaterThan(0);
 
 		// Verificar que el effect determino que el target es F (no 3RD):
-		// el F column debe tener data-round="F" y existir en el DOM
 		const fColumn = container.querySelector('[data-round="F"]');
 		expect(fColumn).toBeInTheDocument();
-		// Y NO debe haber una columna con data-round="3RD"
 		const thirdPlaceColumn = container.querySelector('[data-round="3RD"]');
 		expect(thirdPlaceColumn).not.toBeInTheDocument();
 	});
@@ -372,13 +369,11 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		// Esperar a que el effect de URL→scroll se ejecute
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
-		// scrollIntoView debe haber sido llamado con behavior: "auto" (no "smooth")
-		const scrollIntoViewMock = Element.prototype.scrollIntoView as ReturnType<
-			typeof vi.fn
-		>;
-		const calls = scrollIntoViewMock.mock.calls;
+		// scrollTo (Sprint 5D) debe haber sido llamado con behavior: "auto"
+		// cuando prefers-reduced-motion está activo.
+		const scrollToMock = Element.prototype.scrollTo as ReturnType<typeof vi.fn>;
+		const calls = scrollToMock.mock.calls;
 
-		// Verificar que al menos una llamada tiene behavior: "auto"
 		const hasAutoBehavior = calls.some(
 			(call) => call[0]?.behavior === "auto",
 		);

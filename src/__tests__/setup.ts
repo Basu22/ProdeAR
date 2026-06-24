@@ -8,6 +8,11 @@ import { vi, beforeEach, afterEach } from "vitest";
 // ── scrollIntoView: jsdom no lo implementa ──
 Element.prototype.scrollIntoView = vi.fn();
 
+// ── scrollTo: jsdom no lo implementa en Element (sí en window) ──
+// Sprint 5D Issue #1 fix: BracketQuadro usa container.scrollTo({ left })
+// en vez de scrollIntoView para evitar scroll vertical no deseado.
+Element.prototype.scrollTo = vi.fn();
+
 // ── getBoundingClientRect: jsdom retorna 0,0,0,0 por defecto.
 // Sprint 5D: BracketQuadro usa este método para verificar si una columna
 // ya está visible antes de llamar a scrollIntoView. Sin un mock, el check
