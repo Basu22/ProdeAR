@@ -455,3 +455,51 @@ Iteración UX post-Sprint 3 sobre el `FormacionesTab` del Match Bottom Sheet. Lo
 - Reveal on tap-and-hold para mobile (cross-fade abreviado ↔ completo).
 - Considerar abreviación en el tab **Eventos** si la densidad lo justifica.
 - Usar `short_name` de la API si está disponible (evitaría el helper).
+
+---
+
+## Resumen Sprint 1-5 + FIX-1 *(2026-06-12 a 2026-06-23)*
+
+**Estado consolidado al cierre del feature Bracket Completo + Liga de Terceros** (7 commits locales, sin push):
+
+- ✅ **Sprint 1+2+3+4** (commit `96736f9`): Lógica pura + 5 componentes visuales + integración en /ligas + Tournament + PositionsView
+- ✅ **FIX-1** (commit `2c7c8b3`): Quitada columna "ESTADO" redundante de la Liga de 3ros (los colores + línea roja son suficientes)
+- ✅ **Sprint 5A** (commit `bfb736e`): Selector de competiciones escalable (trigger + panel) + filtro de amistosos (migration 0007)
+- ✅ **Sprint 5B** (commit `629d4d4`): Pills separadas en /ligas (GRUPOS | LIGA 3ROS (X/12) | LLAVES (X/16))
+- ✅ **Sprint 5C** (commit `a36d70b`): Navegación con flechas en el bracket (URL params `?round=`, 16vos solo der, Final solo izq)
+- ✅ **Sprint 5D** (commit `f18e99c`): CHANGELOG.md con todas las entradas
+- ✅ **biome style** (commit `b223745`): Fixes automáticos de formato
+
+**Tests**: 528/528 pasando en 32 archivos. **TypeScript**: 0 errores. **Build**: OK.
+
+### Decisiones del usuario aplicadas
+
+1. Selector escalable → trigger + panel (NO bottom sheet, NO Radix Popover)
+2. Filtro de amistosos → columna DB `is_friendly` (NO heurística runtime)
+3. State de pills del bracket → URL params `?round=` (NO useState local)
+4. Posición de flechas en mobile → header variant (NO bottom-fixed)
+5. CHANGELOG → creado en raíz (formato Keep a Changelog)
+
+### Migration SQL pendiente (te toca a vos)
+
+```sql
+-- 0006_bracket_stages.sql (YA aplicada según conversación previa)
+-- 0007_competitions_is_friendly.sql (NUEVA, pendiente de aplicar)
+--   ALTER TABLE competitions ADD COLUMN is_friendly boolean DEFAULT false;
+--   UPDATE competitions SET is_friendly = true WHERE LOWER(name) LIKE '%amistoso%' OR format IS NULL;
+```
+
+### Push al origin (te toca a vos)
+
+```bash
+git push origin main
+```
+
+### Próximos pasos sugeridos (próximo turno)
+
+1. **Aplicar migration 0007** en Supabase (SQL Editor)
+2. **Push manual** de los 7 commits
+3. **Smoke test en producción**: abrir /ligas con Mundial → ver 3 pills + selector escalable. Abrir /torneo → tab LLAVES → ver flechas.
+4. **Considerar agregar más ligas** (LPF, Premier) — ahora el selector soporta 20+ sin scroll horizontal
+5. **Refactor opcional**: `KnockoutBracket.tsx` está marcado `@deprecated` desde Sprint 4. Considerar eliminarlo si nadie lo usa.
+
