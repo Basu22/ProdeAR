@@ -41,9 +41,13 @@
  * - Estructura jerárquica: árbol → rondas → partidos → slots
  */
 
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getRoundLabel, parseRoundParam } from "../../lib/bracketNavigation";
+import {
+	getRoundLabel,
+	getRoundNavigatorState,
+	parseRoundParam,
+} from "../../lib/bracketNavigation";
 import type { FullBracket } from "../../lib/bracketTypes";
 import { BracketMatchCard } from "./BracketMatchCard";
 import { BracketRound } from "./BracketRound";
@@ -218,6 +222,42 @@ export function BracketTree({
 		setSearchParams(next, { replace: true });
 	};
 
+	// Keyboard shortcuts: ArrowLeft/Right para navegar rondas (Sprint 5C+ a11y).
+	// Solo se activa cuando no hay un input/formulario enfocado.
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			const target = e.target as HTMLElement | null;
+			if (
+				target &&
+				(target.tagName === "INPUT" ||
+					target.tagName === "TEXTAREA" ||
+					target.tagName === "SELECT" ||
+					target.isContentEditable)
+			) {
+				return;
+			}
+			if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+				e.preventDefault();
+				const navState = getRoundNavigatorState(currentRound);
+				if (
+					e.key === "ArrowLeft" &&
+					navState.left.enabled &&
+					navState.left.target
+				) {
+					handleNavigate(navState.left.target);
+				} else if (
+					e.key === "ArrowRight" &&
+					navState.right.enabled &&
+					navState.right.target
+				) {
+					handleNavigate(navState.right.target);
+				}
+			}
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
+	}, [currentRound, searchParams]);
+
 	// Estado vacío: no hay rondas
 	if (rounds.length === 0) {
 		return (
@@ -314,6 +354,15 @@ export function BracketTree({
 						Camino a la Final
 					</h2>
 				</header>
+				{/* aria-live: anuncia la ronda actual al cambiar (Sprint 5C+ a11y) */}
+				<div
+					role="status"
+					aria-live="polite"
+					aria-atomic="true"
+					className="sr-only"
+				>
+					Ronda actual: {getRoundLabel(currentRound)}
+				</div>
 				{/* Stepper unificado (flechas + pills de progreso clickeables) */}
 				<div className="flex justify-center py-2">
 					<RoundStepper
