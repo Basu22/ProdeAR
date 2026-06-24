@@ -43,11 +43,11 @@
 
 import { useId } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { FullBracket } from "../../lib/bracketTypes";
 import { getRoundLabel, parseRoundParam } from "../../lib/bracketNavigation";
+import type { FullBracket } from "../../lib/bracketTypes";
 import { BracketMatchCard } from "./BracketMatchCard";
 import { BracketRound } from "./BracketRound";
-import { RoundNavigator } from "./RoundNavigator";
+import { RoundStepper } from "./RoundStepper";
 
 // ============================================================================
 // PROPS
@@ -260,7 +260,7 @@ export function BracketTree({
 					</header>
 					{/* Navegador */}
 					<div className="flex justify-center py-2">
-						<RoundNavigator current="3RD" onNavigate={handleNavigate} />
+						<RoundStepper current="3RD" onNavigate={handleNavigate} />
 					</div>
 					{/* 3RD card (hero variant) */}
 					<div className="max-w-md mx-auto pt-2">
@@ -286,6 +286,15 @@ export function BracketTree({
 			}
 			return null;
 		}
+
+		// Detectar rondas con partidos en vivo (para dot rojo pulsante en pills)
+		const liveRounds = new Set<RoundAbbreviation>();
+		for (const r of rounds) {
+			if (r.matches.some((m) => m.slotA.isLive || m.slotB.isLive)) {
+				liveRounds.add(r.meta.abbr);
+			}
+		}
+
 		return (
 			<section
 				aria-label="Árbol de eliminatorias del Mundial 2026"
@@ -305,9 +314,14 @@ export function BracketTree({
 						Camino a la Final
 					</h2>
 				</header>
-				{/* Navegador */}
+				{/* Stepper unificado (flechas + pills de progreso clickeables) */}
 				<div className="flex justify-center py-2">
-					<RoundNavigator current={currentRound} onNavigate={handleNavigate} />
+					<RoundStepper
+						current={currentRound}
+						onNavigate={handleNavigate}
+						hasThirdPlace
+						liveRounds={liveRounds}
+					/>
 				</div>
 				{/* Una sola ronda (con key para re-animar al cambiar) */}
 				<div

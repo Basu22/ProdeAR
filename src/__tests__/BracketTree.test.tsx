@@ -61,7 +61,20 @@ function makeGroupTable(
 }
 
 function make12GroupTables(): GroupTable[] {
-	const groupNames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+	const groupNames = [
+		"A",
+		"B",
+		"C",
+		"D",
+		"E",
+		"F",
+		"G",
+		"H",
+		"I",
+		"J",
+		"K",
+		"L",
+	];
 	return groupNames.map((letter) =>
 		makeGroupTable(letter, [
 			{ name: `1°${letter}`, pts: 9, dg: 5, gf: 7 },
@@ -139,11 +152,13 @@ function renderWithRouter(
 	ui: React.ReactNode,
 	initialEntries: string[] = ["/"],
 ) {
-	return render(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
+	return render(
+		<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>,
+	);
 }
 
 describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
-	it("renderiza la primera ronda por default (R32) con navegador de flechas", () => {
+	it("renderiza la primera ronda por default (R32) con stepper de navegación", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
@@ -151,9 +166,9 @@ describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
 		expect(
 			screen.getByRole("region", { name: /ronda: 16vos de final/i }),
 		).toBeInTheDocument();
-		// El navegador de flechas debe estar visible
+		// El stepper (tablist con pills de progreso) debe estar visible
 		expect(
-			screen.getByRole("navigation", { name: /navegación del bracket/i }),
+			screen.getByRole("tablist", { name: /rondas de eliminatorias/i }),
 		).toBeInTheDocument();
 	});
 
@@ -269,7 +284,9 @@ describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
 		renderWithRouter(<BracketTree bracket={emptyBracket} />);
 
 		// El empty state debe estar presente (al menos 1 match: título + descripción)
-		const matches = screen.getAllByText(/se completará|cuando termine|sin partidos/i);
+		const matches = screen.getAllByText(
+			/se completará|cuando termine|sin partidos/i,
+		);
 		expect(matches.length).toBeGreaterThan(0);
 	});
 });
