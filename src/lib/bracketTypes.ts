@@ -140,6 +140,49 @@ export interface ExtendedBracketMatch {
 	bracketPosition: string;
 	/** stageMultiplier para scoring (2 para R32, 3 para R16, etc.) */
 	stageMultiplier: number;
+	/** Sprint 5D+: Estadio del partido (propagado desde Match.stadium). Null si TBD. */
+	stadium: string | null;
+	/** Sprint 5D+: ISO timestamp del kickoff (propagado desde Match.kickOff). Null si TBD. */
+	kickOff: string | null;
+}
+
+// ============================================================================
+// FORMAT HELPERS (Sprint 5D+)
+// ============================================================================
+
+/**
+ * Formatea un ISO timestamp a "DD/MM" usando timezone del usuario.
+ * Retorna null si el input es null/inválido.
+ * Ej: "2026-07-15T16:00:00Z" → "15/07"
+ */
+export function formatKickoffDate(iso: string | null | undefined): string | null {
+	if (!iso) return null;
+	try {
+		return new Intl.DateTimeFormat("es-AR", {
+			day: "2-digit",
+			month: "2-digit",
+		}).format(new Date(iso));
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Formatea un ISO timestamp a "HH:MM" (24h) usando timezone del usuario.
+ * Retorna null si el input es null/inválido.
+ * Ej: "2026-07-15T16:00:00Z" → "16:00"
+ */
+export function formatKickoffTime(iso: string | null | undefined): string | null {
+	if (!iso) return null;
+	try {
+		return new Intl.DateTimeFormat("es-AR", {
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		}).format(new Date(iso));
+	} catch {
+		return null;
+	}
 }
 
 // ============================================================================

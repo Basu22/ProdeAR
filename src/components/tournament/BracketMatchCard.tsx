@@ -2,28 +2,49 @@
  * BracketMatchCard — Card de un partido del árbol de eliminatorias.
  *
  * ============================================================================
+ * SPRINT 5D — REDISEÑO
+ * ============================================================================
+ * Layout 2 columnas SIN header ni multiplier (estos se muestran en el
+ * header de la ronda arriba, no en cada card):
+ *
+ * ```
+ * ┌──────────────────┬───────────────────┐
+ * │ 🇦🇷 Argentina  2 │ 🏟 Estadio Azteca │
+ * │ 🇫🇷 Francia    1 │ 📅 15/07  16:00   │
+ * └──────────────────┴───────────────────┘
+ *    ↑ 60% resultado   ↑ 40% logística
+ * ```
+ *
+ * Columna izquierda: 2 slots apilados (equipo A + equipo B con score).
+ * Columna derecha: estadio arriba, fecha+hora abajo (subcomponente
+ * `MatchLogistics` con border-l sutil para separar).
+ *
+ * Estado TBD: dashed border en card completo + "Por confirmar" en logistica.
+ *
+ * ============================================================================
  * VARIANTES (3)
  * ============================================================================
- * - `compact`  → R32, R16 (16 y 8 partidos): denso, sin score grande
- * - `default`  → QF, SF (4 y 2 partidos): medio, score visible
- * - `hero`     → F, 3RD (1 partido): generoso, score grande, trofeo
+ * - `compact`  → R32, R16 (16 y 8 partidos): denso, fuente 11px
+ * - `default`  → QF, SF (4 y 2 partidos): medio, fuente 13px
+ * - `hero`     → F, 3RD (1 partido): generoso, fuente 14-18px
  *
  * ============================================================================
  * ESTADOS VISUALES
  * ============================================================================
- * - TBD        → slots vacíos con stripes diagonales, "Por definir"
- * - Resolved   → ambos slots con equipo, sin score (o score parcial en live)
+ * - TBD        → slots con "Por definir"/"Ganador de X N", dashed border
+ * - Resolved   → ambos slots con equipo + score
  * - Live       → badge EN VIVO pulsante en uno o ambos slots
- * - Finished   → score final, ganador con check verde
- * - Penalties  → badge "PENALES" pequeño cuando decidedByPenalties
+ * - Finished   → score final, ganador con nombre bold + score verde
+ * - Penalties  → badge "PK" pequeño cuando decidedByPenalties
  *
  * ============================================================================
  * ACCESIBILIDAD
  * ============================================================================
- * - <button> clickeable con aria-label descriptivo
+ * - <button> clickeable con aria-label descriptivo (incluye estadio + fecha)
  * - Contraste WCAG AA (texto blanco sobre fondos oscuros)
- * - Touch target ≥ 40×40px (regla make-interfaces-feel-better)
+ * - Touch target ≥ 72px en compact (regla make-interfaces-feel-better)
  * - Tabular nums para scores (evita layout shift)
+ * - prefers-reduced-motion desactiva transiciones
  *
  * ============================================================================
  * INTERACCIÓN
@@ -31,11 +52,15 @@
  * - onClick → onOpenDetails(matchId) si está provisto
  * - onClick es no-op si onOpenDetails no está definido
  * - hover → sutil highlight de border
- * - active:scale-[0.96] para feedback táctil (regla make-interfaces-feel-better)
+ * - active:scale-[0.96] para feedback táctil
  */
 
 import React from "react";
-import type { ExtendedBracketMatch } from "../../lib/bracketTypes";
+import {
+	formatKickoffDate,
+	formatKickoffTime,
+	type ExtendedBracketMatch,
+} from "../../lib/bracketTypes";
 import { LiveBadge } from "./LiveBadge";
 
 // ============================================================================
@@ -57,9 +82,9 @@ interface BracketMatchCardProps {
 /**
  * Construye el aria-label descriptivo para el card.
  * Ejemplos:
- *  - "16vos 1: Argentina vs Francia"
- *  - "Final: Argentina 3 - 1 Francia"
- *  - "16vos 1: Por definir"
+ *  - "16vos 1: Argentina vs Francia. Estadio Azteca, 15/07 a las 16:00."
+ *  - "Final: Argentina 3 - 1 Francia. Lusail Stadium, 19/12 a las 17:00."
+ *  - "16vos 1: Por definir. Estadio por confirmar, fecha por confirmar."
  */
 function buildAriaLabel(
 	match: ExtendedBracketMatch,
@@ -67,10 +92,14 @@ function buildAriaLabel(
 ): string {
 	const a = match.slotA.teamName ?? "Por definir";
 	const b = match.slotB.teamName ?? "Por definir";
+	const stadium = match.stadium ?? "estadio por confirmar";
+	const date = formatKickoffDate(match.kickOff) ?? "fecha por confirmar";
+	const time = formatKickoffTime(match.kickOff) ?? "hora por confirmar";
+
 	if (match.score) {
-		return `${roundLabel} ${match.position}: ${a} ${match.score.home} - ${match.score.away} ${b}`;
+		return `${roundLabel} ${match.position}: ${a} ${match.score.home} - ${match.score.away} ${b}. ${stadium}, ${date} a las ${time}.`;
 	}
-	return `${roundLabel} ${match.position}: ${a} vs ${b}`;
+	return `${roundLabel} ${match.position}: ${a} vs ${b}. ${stadium}, ${date} a las ${time}.`;
 }
 
 /**
@@ -91,7 +120,6 @@ function buildTbdLabel(sourceMatchId: string | null): string {
 	const m = sourceMatchId.match(/^([A-Z0-9]+)-(\d+)$/);
 	if (!m) return "Por definir";
 	const [, abbr, pos] = m;
-	// Mapeo: abreviatura → nombre legible de la ronda
 	const ROUND_LABELS: Record<string, string> = {
 		R32: "16vos",
 		R16: "8vos",
@@ -101,43 +129,42 @@ function buildTbdLabel(sourceMatchId: string | null): string {
 		"3RD": "3er Puesto",
 	};
 	const label = ROUND_LABELS[abbr] ?? abbr;
-	// SF es el origen del 3RD (perdedores), no ganador
 	const prefix = abbr === "SF" ? "Perdedor de" : "Ganador de";
 	return `${prefix} ${label} ${pos}`;
 }
 
 /**
  * Sizing map por variante.
- * Cada variante define sus propias clases de padding, font-size, etc.
- * Mantener este objeto como single-source-of-truth para consistencia visual.
+ * Sprint 5D: las fonts son un poco más grandes porque ahora no compiten
+ * con el header. Los slots no tienen border ni background (clean).
  */
 const VARIANT_STYLES = {
 	compact: {
-		card: "p-2 gap-1.5",
-		headerText: "text-[9px]",
 		teamText: "text-[11px]",
 		scoreText: "text-sm",
-		logoSize: "w-4 h-4",
-		padding: "px-2 py-1.5",
+		logisticsText: "text-[10px]",
+		logisticsDateText: "text-[9px]",
+		logoSize: "w-3.5 h-3.5",
+		iconSize: "text-[11px]",
 		minHeight: "min-h-[64px]",
 	},
 	default: {
-		card: "p-3 gap-2",
-		headerText: "text-[10px]",
 		teamText: "text-xs",
-		scoreText: "text-base",
-		logoSize: "w-5 h-5",
-		padding: "px-2.5 py-2",
-		minHeight: "min-h-[88px]",
+		scoreText: "text-[15px]",
+		logisticsText: "text-[11px]",
+		logisticsDateText: "text-[10px]",
+		logoSize: "w-4 h-4",
+		iconSize: "text-[12px]",
+		minHeight: "min-h-[72px]",
 	},
 	hero: {
-		card: "p-4 gap-3",
-		headerText: "text-xs",
 		teamText: "text-sm",
-		scoreText: "text-2xl",
-		logoSize: "w-7 h-7",
-		padding: "px-3 py-3",
-		minHeight: "min-h-[120px]",
+		scoreText: "text-lg",
+		logisticsText: "text-xs",
+		logisticsDateText: "text-[10px]",
+		logoSize: "w-5 h-5",
+		iconSize: "text-[13px]",
+		minHeight: "min-h-[88px]",
 	},
 } as const;
 
@@ -153,7 +180,7 @@ interface SlotProps {
 	score: number | null;
 	variant: "compact" | "default" | "hero";
 	showPenalties: boolean;
-	/** Label personalizado para slots TBD. Default: "Por definir" */
+	/** Label personalizado para slots TBD. */
 	tbdLabel?: string;
 }
 
@@ -172,17 +199,15 @@ function Slot({
 	// Estado: TBD (slot vacío)
 	if (!teamName) {
 		return (
-			<div
-				className={`
-					flex items-center gap-2 ${styles.padding} rounded-lg
-					bg-surface-container-lowest/30 border border-dashed border-white/10
-				`.trim()}
-			>
-				<span className="material-symbols-outlined text-[14px] text-on-surface-variant/40">
+			<div className="flex items-center gap-1.5 min-w-0 text-white/40 italic">
+				<span
+					className="material-symbols-outlined text-[10px] text-white/30 flex-shrink-0"
+					aria-hidden="true"
+				>
 					help
 				</span>
 				<span
-					className={`${styles.teamText} text-on-surface-variant/40 italic font-medium truncate`}
+					className={`${styles.teamText} font-medium truncate flex-1`}
 				>
 					{tbdLabel ?? "Por definir"}
 				</span>
@@ -190,83 +215,55 @@ function Slot({
 		);
 	}
 
-	// Estado: slot resuelto
-	const slotClass = isWinner
-		? "bg-pitch-green/10 border-pitch-green/40"
-		: "bg-surface-container-lowest/60 border-white/5";
-
+	// Estado: slot resuelto — nombre + score, sin border ni background
 	return (
-		<div
-			className={`
-				flex items-center gap-2 ${styles.padding} rounded-lg border
-				${slotClass}
-				transition-colors duration-200
-			`.trim()}
-		>
-			{/* Logo del equipo */}
+		<div className="flex items-center gap-1.5 min-w-0">
+			{/* Logo pequeño (opcional) */}
 			{teamLogo ? (
 				<img
 					src={teamLogo}
 					alt=""
-					className={`${styles.logoSize} object-contain flex-shrink-0`}
+					className={`${styles.logoSize} object-contain flex-shrink-0 rounded-full`}
 					loading="lazy"
 				/>
-			) : (
-				<span
-					className={`${styles.logoSize} flex items-center justify-center text-on-surface-variant/50 flex-shrink-0 material-symbols-outlined`}
-					style={{ fontSize: variant === "hero" ? "20px" : "16px" }}
-				>
-					flag
-				</span>
-			)}
+			) : null}
 
 			{/* Nombre del equipo */}
 			<span
 				className={`
 					${styles.teamText} font-bold truncate flex-1
-					${isWinner ? "text-white" : "text-white/90"}
+					${isWinner ? "text-white" : "text-white/85"}
 				`.trim()}
 			>
 				{teamName}
 			</span>
 
-			{/* Score (si está populated) */}
+			{/* Score (tabular nums) */}
 			{score !== null && (
 				<span
 					className={`
 						${styles.scoreText} font-black tabular-nums flex-shrink-0
-						${isWinner ? "text-pitch-green" : "text-white/80"}
+						${isWinner ? "text-pitch-green" : isLive ? "text-white" : "text-white/75"}
 					`.trim()}
 				>
 					{score}
 				</span>
 			)}
 
-			{/* Live badge compact si está en vivo */}
+			{/* Live badge */}
 			{isLive && <LiveBadge variant="compact" />}
 
-			{/* Check de ganador */}
-			{isWinner && !isLive && (
-				<span
-					role="img"
-					aria-label="Ganador"
-					className="material-symbols-outlined text-pitch-green flex-shrink-0"
-					style={{ fontSize: variant === "hero" ? "20px" : "16px" }}
-				>
-					check_circle
-				</span>
-			)}
-
-			{/* Badge de penales */}
+			{/* Penales badge */}
 			{showPenalties && (
 				<span
 					role="img"
 					aria-label="Definido por penales"
-					className={`
-						inline-flex items-center px-1.5 py-0.5 rounded
+					className="
+						inline-flex items-center px-1 py-0.5 rounded
 						bg-tertiary/15 border border-tertiary/40 text-tertiary
 						font-label-caps text-[8px] font-black tracking-widest uppercase
-					`.trim()}
+						flex-shrink-0
+					"
 				>
 					PK
 				</span>
@@ -276,12 +273,74 @@ function Slot({
 }
 
 // ============================================================================
-// MAIN COMPONENT
+// MATCH LOGISTICS (columna derecha: estadio + fecha/hora)
 // ============================================================================
 
-/**
- * Render: extrae la ronda del bracketPosition prefix (R32, R16, QF, SF, F, 3RD)
- */
+interface MatchLogisticsProps {
+	stadium: string | null;
+	kickOff: string | null;
+	variant: "compact" | "default" | "hero";
+}
+
+function MatchLogistics({ stadium, kickOff, variant }: MatchLogisticsProps) {
+	const styles = VARIANT_STYLES[variant];
+	const stadiumText = stadium ?? "Por confirmar";
+	const dateText = formatKickoffDate(kickOff) ?? "—";
+	const timeText = formatKickoffTime(kickOff) ?? "—";
+
+	return (
+		<div
+			className="
+				flex flex-col justify-center
+				pl-2.5 ml-0.5
+				border-l border-white/10
+				text-right
+				min-w-0
+			"
+		>
+			{/* Estadio */}
+			<span
+				className={`
+					${styles.logisticsText} font-medium text-white/85
+					flex items-center justify-end gap-1 truncate
+				`.trim()}
+				title={stadiumText}
+			>
+				<span
+					className={`material-symbols-outlined text-white/40 flex-shrink-0 ${styles.iconSize}`}
+					aria-hidden="true"
+				>
+					stadium
+				</span>
+				<span className="truncate">{stadiumText}</span>
+			</span>
+
+			{/* Fecha + hora */}
+			<span
+				className={`
+					${styles.logisticsDateText} font-bold uppercase tracking-wider
+					text-on-surface-variant tabular-nums
+					flex items-center justify-end gap-1 mt-0.5
+				`.trim()}
+			>
+				<span
+					className={`material-symbols-outlined text-on-surface-variant/60 flex-shrink-0 ${styles.iconSize}`}
+					aria-hidden="true"
+				>
+					schedule
+				</span>
+				<span className="whitespace-pre">
+					{dateText}  {timeText}
+				</span>
+			</span>
+		</div>
+	);
+}
+
+// ============================================================================
+// ROUND LABEL (para aria-label y getRoundPrefix)
+// ============================================================================
+
 function getRoundPrefix(bracketPosition: string): string {
 	const match = bracketPosition.match(/^(R32|R16|QF|SF|F|3RD)/);
 	return match?.[1] ?? "";
@@ -300,6 +359,10 @@ function getRoundLabel(bracketPosition: string): string {
 	return map[prefix] ?? "Ronda";
 }
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export function BracketMatchCard({
 	match,
 	variant,
@@ -310,6 +373,7 @@ export function BracketMatchCard({
 	const isLiveMatch = match.slotA.isLive || match.slotB.isLive;
 	const hasScore = match.score !== null;
 	const winnerName = match.winner;
+	const isTbd = !match.slotA.teamName || !match.slotB.teamName;
 	const isHero = variant === "hero";
 
 	const handleClick = () => {
@@ -328,11 +392,15 @@ export function BracketMatchCard({
 	const roundLabel = getRoundLabel(match.bracketPosition);
 	const ariaLabel = buildAriaLabel(match, roundLabel);
 
+	// ── Card container: layout 2 columnas (slots | logística) ──
+	// TBD: dashed border en card completo. Live: ring error/30.
 	const cardClass = `
 		relative w-full ${styles.minHeight}
-		bg-surface-container-low/40 border border-white/10
-		rounded-xl ${styles.card}
-		flex flex-col
+		${isTbd
+			? "bg-surface-container-lowest/30 border border-dashed border-white/15"
+			: "bg-surface-container-low/40 border border-white/10"}
+		rounded-xl p-2.5
+		flex items-stretch gap-2
 		${isInteractive ? "cursor-pointer hover:border-white/25 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none transition-[transform,border-color] duration-150" : ""}
 		${isLiveMatch ? "ring-1 ring-error/30" : ""}
 		${hasScore ? "bg-surface-container-low/60" : ""}
@@ -340,89 +408,68 @@ export function BracketMatchCard({
 
 	const content = (
 		<>
-			{/* Header: R32 · 1 + status badge */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-1.5">
+			{/* ── Columna izquierda: 2 slots apilados (60%) ── */}
+			<div className="flex flex-col justify-center gap-0.5 flex-[3] min-w-0">
+				<Slot
+					teamName={match.slotA.teamName}
+					teamLogo={match.slotA.teamLogo}
+					isLive={match.slotA.isLive}
+					isWinner={
+						winnerName !== null && winnerName === match.slotA.teamName
+					}
+					score={hasScore && match.score ? match.score.home : null}
+					variant={variant}
+					tbdLabel={buildTbdLabel(match.slotA.sourceMatchId)}
+					showPenalties={
+						match.decidedByPenalties &&
+						hasScore &&
+						match.score?.home === match.score?.away &&
+						winnerName === match.slotA.teamName
+					}
+				/>
+				<Slot
+					teamName={match.slotB.teamName}
+					teamLogo={match.slotB.teamLogo}
+					isLive={match.slotB.isLive}
+					isWinner={
+						winnerName !== null && winnerName === match.slotB.teamName
+					}
+					score={hasScore && match.score ? match.score.away : null}
+					variant={variant}
+					tbdLabel={buildTbdLabel(match.slotB.sourceMatchId)}
+					showPenalties={
+						match.decidedByPenalties &&
+						hasScore &&
+						match.score?.home === match.score?.away &&
+						winnerName === match.slotB.teamName
+					}
+				/>
+			</div>
+
+			{/* ── Columna derecha: logística (40%) ── */}
+			<div className="flex-[2] min-w-0 flex items-stretch">
+				<MatchLogistics
+					stadium={match.stadium}
+					kickOff={match.kickOff}
+					variant={variant}
+				/>
+			</div>
+
+			{/* ── Badge Campeón (solo en hero, sobre todo el card) ── */}
+			{isHero && winnerName && !isLiveMatch && (
+				<div className="absolute top-1.5 right-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-pitch-green/15 border border-pitch-green/40">
 					<span
-						className={`${styles.headerText} font-label-caps uppercase tracking-widest font-bold text-on-surface-variant`}
+						className="material-symbols-outlined text-pitch-green"
+						style={{ fontSize: "11px" }}
+						aria-hidden="true"
 					>
-						{isHero ? "🏆 " : ""}
-						{roundLabel} · {match.position}
+						emoji_events
 					</span>
-					{isLiveMatch && <LiveBadge variant="default" />}
-					{!hasScore && !isLiveMatch && (
-						<span
-							role="img"
-							aria-label="Pendiente"
-							className={`${styles.headerText} font-label-caps uppercase tracking-widest text-on-surface-variant/50`}
-						>
-							· Pendiente
-						</span>
-					)}
-					{hasScore && !isLiveMatch && (
-						<span
-							role="img"
-							aria-label="Finalizado"
-							className={`${styles.headerText} font-label-caps uppercase tracking-widest text-pitch-green/70 font-bold`}
-						>
-							· Final
-						</span>
-					)}
+					<span className="font-label-caps text-[8px] font-black tracking-widest uppercase text-pitch-green">
+						Campeón
+					</span>
 				</div>
-				{/* Multiplier badge */}
-				{isHero && (
-					<span
-						role="img"
-						aria-label={`Multiplicador ×${match.stageMultiplier}`}
-						className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-tertiary/20 border border-tertiary/40 text-tertiary font-label-caps text-[9px] font-black tracking-widest"
-					>
-						×{match.stageMultiplier}
-					</span>
-				)}
-			</div>
-
-			{/* Slot A */}
-			<Slot
-				teamName={match.slotA.teamName}
-				teamLogo={match.slotA.teamLogo}
-				isLive={match.slotA.isLive}
-				isWinner={winnerName !== null && winnerName === match.slotA.teamName}
-				score={hasScore && match.score ? match.score.home : null}
-				variant={variant}
-				tbdLabel={buildTbdLabel(match.slotA.sourceMatchId)}
-				showPenalties={
-					match.decidedByPenalties &&
-					hasScore &&
-					match.score?.home === match.score?.away &&
-					winnerName === match.slotA.teamName
-				}
-			/>
-
-			{/* VS separator */}
-			<div className="flex items-center justify-center -my-1">
-				<span
-					className={`${styles.headerText} font-stat-value uppercase tracking-widest font-black text-on-surface-variant/30`}
-				>
-					vs
-				</span>
-			</div>
-
-			{/* Slot B */}
-			<Slot
-				teamName={match.slotB.teamName}
-				teamLogo={match.slotB.teamLogo}
-				isLive={match.slotB.isLive}
-				isWinner={winnerName !== null && winnerName === match.slotB.teamName}
-				score={hasScore && match.score ? match.score.away : null}
-				variant={variant}
-				tbdLabel={buildTbdLabel(match.slotB.sourceMatchId)}
-				showPenalties={
-					match.decidedByPenalties &&
-					hasScore &&
-					match.score?.home === match.score?.away &&
-					winnerName === match.slotB.teamName
-				}
-			/>
+			)}
 		</>
 	);
 
@@ -448,14 +495,12 @@ export function BracketMatchCard({
 
 // React.memo: evita re-renders innecesarios cuando el padre (BracketTree)
 // se actualiza por live updates, pero las props de este card no cambiaron.
-// Comparador shallow: si match.id, dbMatchId, score y winner no cambiaron,
-// no re-renderiza. Esto reduce ~32 re-renders a solo los cards afectados
-// en cada live update. (Fix QA #2 — Performance ALTO)
+// Comparador shallow: si match.id, dbMatchId, score, winner, stadium, kickOff
+// y sourceMatchId no cambiaron, no re-renderiza. Esto reduce ~32 re-renders
+// a solo los cards afectados en cada live update. (Fix QA #2 — Performance)
 //
-// Sprint 5D: agregamos `sourceMatchId` al comparador para que cuando un
-// slot TBD se resuelva (cambia el `sourceMatchId` o el `teamName`), el
-// card re-renderice con el label correcto ("Ganador de 16vos 1" vs
-// "Por definir" vs nombre del equipo).
+// Sprint 5D: agregamos stadium y kickOff al comparador para que cambios
+// en logística (ej. el organizador cambia el estadio) disparen re-render.
 export const MemoizedBracketMatchCard = React.memo(
 	BracketMatchCard,
 	(prevProps, nextProps) => {
@@ -468,6 +513,8 @@ export const MemoizedBracketMatchCard = React.memo(
 			prev.score?.home === next.score?.home &&
 			prev.score?.away === next.score?.away &&
 			prev.decidedByPenalties === next.decidedByPenalties &&
+			prev.stadium === next.stadium &&
+			prev.kickOff === next.kickOff &&
 			prev.slotA.teamName === next.slotA.teamName &&
 			prev.slotA.teamLogo === next.slotA.teamLogo &&
 			prev.slotA.isLive === next.slotA.isLive &&

@@ -278,6 +278,8 @@ describe("getWinnerOfBracketMatch", () => {
 			score: { home: 2, away: 1 },
 			decidedByPenalties: false,
 			bracketPosition: "R32-1",
+			stadium: null,
+			kickOff: null,
 			stageMultiplier: 2,
 		};
 		expect(getWinnerOfBracketMatch(match)).toBe("Argentina");
@@ -314,6 +316,8 @@ describe("getWinnerOfBracketMatch", () => {
 			score: null,
 			decidedByPenalties: false,
 			bracketPosition: "R32-1",
+			stadium: null,
+			kickOff: null,
 			stageMultiplier: 2,
 		};
 		expect(getWinnerOfBracketMatch(match)).toBeNull();
@@ -350,6 +354,8 @@ describe("getWinnerOfBracketMatch", () => {
 			score: { home: 1, away: 1 },
 			decidedByPenalties: true,
 			bracketPosition: "R32-1",
+			stadium: null,
+			kickOff: null,
 			stageMultiplier: 2,
 		};
 		// Para testear penaltyWinner, necesitamos que el match tenga penaltyWinner poblado
@@ -384,7 +390,9 @@ describe("propagateBracketWinners", () => {
 				awayScore: 1,
 				penaltyWinner: null,
 				stageName: "Round of 32",
-				stageMultiplier: 2,
+				stadium: null,
+			kickOff: null,
+			stageMultiplier: 2,
 				status: "finished",
 				bracketPosition: m.bracketPosition,
 			}),

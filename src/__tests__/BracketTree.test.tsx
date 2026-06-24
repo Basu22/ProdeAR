@@ -136,6 +136,8 @@ function makeMatchTBD(position: number, id: string): ExtendedBracketMatch {
 		score: null,
 		decidedByPenalties: false,
 		bracketPosition: id,
+		stadium: null,
+		kickOff: null,
 		stageMultiplier: 2,
 	};
 }

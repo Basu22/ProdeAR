@@ -83,6 +83,8 @@ function toExtendedMatch(
 		winner: null,
 		winnerLogo: null,
 		score: null,
+		stadium: null,
+		kickOff: null,
 		decidedByPenalties: false,
 		bracketPosition: match.id,
 		stageMultiplier: multiplier,
@@ -167,6 +169,8 @@ export function resolveQuarterFinals(
 			winner: null,
 			winnerLogo: null,
 			score: null,
+			stadium: null,
+			kickOff: null,
 			decidedByPenalties: false,
 			bracketPosition: id,
 			stageMultiplier: multiplier,
@@ -252,6 +256,8 @@ export function resolveThirdPlace(
 		winner: null,
 		winnerLogo: null,
 		score: null,
+		stadium: null,
+		kickOff: null,
 		decidedByPenalties: false,
 		bracketPosition: "3RD-1",
 		stageMultiplier: ROUND_CATALOG["3RD"].multiplier,
@@ -361,6 +367,8 @@ function pairWinnersIntoRound(
 			winner: null,
 			winnerLogo: null,
 			score: null,
+			stadium: null,
+			kickOff: null,
 			decidedByPenalties: false,
 			bracketPosition: id,
 			stageMultiplier: multiplier,
@@ -407,6 +415,8 @@ function pairTwoIntoFinal(
 		winner: null,
 		winnerLogo: null,
 		score: null,
+		stadium: null,
+		kickOff: null,
 		decidedByPenalties: false,
 		bracketPosition: "F-1",
 		stageMultiplier: ROUND_CATALOG.F.multiplier,
@@ -457,15 +467,20 @@ export function propagateBracketWinners(
 		);
 	}
 
-	// 3. Para cada match de DB, propagar score y winner al bracket
+	// 3. Para cada match de DB, propagar datos al bracket
 	for (const [position, dbMatch] of dbMatchByPosition) {
 		const ebMatch = ebMatchByPosition.get(position);
 		if (!ebMatch) continue;
 
-		// Solo propagar si el match tiene score
+		// Sprint 5D+: estos campos se propagan incluso para matches sin score
+		// (TBD con fecha programada: el usuario ve estadio+fecha antes del resultado)
+		ebMatch.dbMatchId = dbMatch.id;
+		ebMatch.stadium = dbMatch.stadium ?? null;
+		ebMatch.kickOff = dbMatch.kickOff ?? null;
+
+		// Solo propagar score y winner si el match tiene resultado
 		if (dbMatch.homeScore === null || dbMatch.awayScore === null) continue;
 
-		ebMatch.dbMatchId = dbMatch.id;
 		ebMatch.score = { home: dbMatch.homeScore, away: dbMatch.awayScore };
 		ebMatch.decidedByPenalties = dbMatch.penaltyWinner !== null;
 
