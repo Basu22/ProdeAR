@@ -837,3 +837,20 @@
 		}
 	}
 }
+
+/* ============================================================================
+ * Sprint 5D: scrollbar-hide utility
+ * ============================================================================
+ * Oculta la scrollbar de un contenedor con overflow-x-auto o overflow-y-auto.
+ * Usado en RoundChipBar (chips de rondas) y en DotIndicator containers
+ * donde queremos swipe horizontal sin mostrar la scrollbar nativa.
+ *
+ * Cubre: WebKit (Chrome/Safari/iOS), Firefox, IE/Edge legacy.
+ * ============================================================================ */
+.scrollbar-hide {
+	-ms-overflow-style: none; /* IE 10+ */
+	scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+	display: none; /* Chrome/Safari/WebKit */
+}
