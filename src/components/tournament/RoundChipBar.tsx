@@ -81,6 +81,8 @@ function buildChipAriaLabel(abbr: RoundAbbreviation, full: string): string {
 interface ChipProps {
 	abbr: RoundAbbreviation;
 	label: string;
+	/** Label completo para screen readers (ej. "16vos de final") */
+	fullLabel: string;
 	isActive: boolean;
 	isLive: boolean;
 	isThirdPlace: boolean;
@@ -91,6 +93,7 @@ interface ChipProps {
 function Chip({
 	abbr,
 	label,
+	fullLabel,
 	isActive,
 	isLive,
 	isThirdPlace,
@@ -110,7 +113,7 @@ function Chip({
 			onClick={onClick}
 			aria-controls={panelId}
 			aria-current={isActive ? "page" : undefined}
-			aria-label={buildChipAriaLabel(abbr, label)}
+			aria-label={buildChipAriaLabel(abbr, fullLabel)}
 			className={`
 				relative shrink-0
 				inline-flex items-center justify-center gap-1.5
@@ -161,7 +164,12 @@ export function RoundChipBar({
 	onChipClick,
 	liveRounds = new Set(),
 }: RoundChipBarProps) {
+	// 6 chips: 5 rondas regulares (R32 → F) + 3RD como apéndice de la Final.
+	// El 3RD NO está en `getProgressPills()` (que retorna las 5 rondas
+	// principales), por lo que lo agregamos manualmente.
 	const pills = getProgressPills();
+	const thirdPlacePill = { abbr: "3RD" as const, short: "3er Puesto", full: "Tercer Puesto" };
+	const allPills = [...pills, thirdPlacePill];
 	const thirdPlaceIndex = 4; // Separador entre F (índice 4) y 3RD (índice 5)
 
 	return (
@@ -182,9 +190,11 @@ export function RoundChipBar({
 					mx-auto max-w-3xl
 				"
 			>
-				{pills.map((pill, i) => {
+				{allPills.map((pill, i) => {
 					const isThirdPlace = pill.abbr === "3RD";
 					const panelId = `panel-${pill.abbr}`;
+					// Usar `pill.full` para el aria-label (más descriptivo para
+					// screen readers: "Ir a 16vos de final" en vez de "Ir a 16vos").
 					return (
 						<div key={pill.abbr} className="flex items-center gap-2">
 							{/* Separador entre F y 3RD */}
@@ -197,6 +207,7 @@ export function RoundChipBar({
 							<Chip
 								abbr={pill.abbr}
 								label={pill.short}
+								fullLabel={pill.full}
 								isActive={activeRound === pill.abbr}
 								isLive={liveRounds.has(pill.abbr)}
 								isThirdPlace={isThirdPlace}

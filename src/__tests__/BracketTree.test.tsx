@@ -1,20 +1,20 @@
 /**
  * Tests para `src/components/tournament/BracketTree.tsx`.
  *
- * Sprint 5C: el árbol ahora SIEMPRE muestra 1 sola ronda + navegador
- * de flechas (con URL params `?round=`). La vista de "5 rondas apiladas"
- * fue removida porque ya no tiene sentido con el navegador.
+ * Sprint 5D: BracketTree es ahora un wrapper thin que delega a BracketQuadro.
+ * Estos tests verifican que la API pública se mantiene (named export,
+ * BracketTreeProps) y que la integración funciona correctamente.
  *
  * ============================================================================
  * COBERTURA (8 tests)
  * ============================================================================
- * 1. Renderiza 1 ronda por default + navegador con flechas
- * 2. Renderiza 3RD con `?round=3rd` (apéndice de la final)
+ * 1. Renderiza la primera ronda por default (R32) con chip activo
+ * 2. Renderiza el 3RD como sub-card de F cuando ?round=3rd
  * 3. Muestra TBD en slots no resueltos
  * 4. Muestra nombres de equipos en slots resueltos
  * 5. Llama onOpenDetails al hacer click en un partido
  * 6. Muestra LiveBadge en partidos en vivo
- * 7. Muestra banner del campeón cuando la final termina (con `?round=f`)
+ * 7. Muestra banner del campeón cuando la final termina (con ?round=f)
  * 8. Muestra empty state cuando no hay partidos definidos
  * ============================================================================
  */
@@ -145,8 +145,9 @@ function makeMatchTBD(position: number, id: string): ExtendedBracketMatch {
 // ============================================================================
 
 /**
- * Helper: renderiza el BracketTree dentro de un MemoryRouter (Sprint 5C
- * usa useSearchParams). Acepta `initialEntries` para simular `?round=`.
+ * Helper: renderiza el BracketTree dentro de un MemoryRouter (Sprint 5D
+ * usa useSearchParams via BracketQuadro). Acepta `initialEntries` para
+ * simular `?round=`.
  */
 function renderWithRouter(
 	ui: React.ReactNode,
@@ -157,46 +158,57 @@ function renderWithRouter(
 	);
 }
 
-describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
-	it("renderiza la primera ronda por default (R32) con stepper de navegación", () => {
+describe("BracketTree (Sprint 5D: wrapper de BracketQuadro)", () => {
+	it("renderiza R32 por default con chip activo en el RoundChipBar", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
-		// El header de la ronda R32 debe estar visible
-		expect(
-			screen.getByRole("region", { name: /ronda: 16vos de final/i }),
-		).toBeInTheDocument();
-		// El stepper (tablist con pills de progreso) debe estar visible
-		expect(
-			screen.getByRole("tablist", { name: /rondas de eliminatorias/i }),
-		).toBeInTheDocument();
+		// El chip R32 debe estar activo (aria-current="page")
+		const r32Chip = screen.getByRole("button", {
+			name: /ir a 16vos de final/i,
+		});
+		expect(r32Chip).toHaveAttribute("aria-current", "page");
+
+		// La columna R32 debe estar en el DOM con data-round
+		const { container } = renderWithRouter(<BracketTree bracket={bracket} />);
+		const r32Column = container.querySelector('[data-round="R32"]');
+		expect(r32Column).toBeInTheDocument();
 	});
 
-	it("renderiza el 3RD con `?round=3rd` (apéndice de la final)", () => {
+	it("renderiza 3RD como sub-card de F cuando ?round=3rd (NO columna aparte)", () => {
 		const bracket = makeEmptyBracket();
-		renderWithRouter(<BracketTree bracket={bracket} />, ["/?round=3rd"]);
+		const { container } = renderWithRouter(<BracketTree bracket={bracket} />, [
+			"/?round=3rd",
+		]);
 
-		// El section del 3er puesto debe estar presente
-		expect(
-			screen.getByRole("region", {
-				name: /partido por el tercer puesto/i,
-			}),
-		).toBeInTheDocument();
+		// El separator del 3er puesto debe estar presente
+		const separator = screen.getByRole("separator", {
+			name: /sección tercer puesto/i,
+		});
+		expect(separator).toBeInTheDocument();
+
+		// El separator debe estar DENTRO de la columna F
+		const fColumn = container.querySelector('[data-round="F"]');
+		expect(fColumn).toBeInTheDocument();
+		expect(fColumn?.contains(separator)).toBe(true);
+
+		// NO debe haber una columna separada con data-round="3RD"
+		const thirdPlaceColumn = container.querySelector('[data-round="3RD"]');
+		expect(thirdPlaceColumn).not.toBeInTheDocument();
 	});
 
-	it("muestra TBD en slots no resueltos (rondas sin grupos asignados)", () => {
+	it("muestra TBD en slots no resueltos (Q4tos con cruces pendientes)", () => {
 		const bracket = makeEmptyBracket();
-		// Navegamos a QF (cuartos) que SÍ tiene slots TBD porque los
-		// grupos aún no han definido los 8 cruces de cuartos.
-		// R32 siempre tiene equipos desde los grupos, así que no tiene TBDs.
 		renderWithRouter(<BracketTree bracket={bracket} />, ["/?round=qf"]);
 
-		// El QF debe tener slots "Por definir"
-		const tbdElements = screen.queryAllByText(/por definir|tbd/i);
+		// QF debe tener slots TBD (porque R16 no se jugo)
+		// El nuevo helper buildTbdLabel genera "Ganador de 8vos N" para slots
+		// cuyo sourceMatchId apunta a un R16 match.
+		const tbdElements = screen.queryAllByText(/por definir|ganador de 8vos/i);
 		expect(tbdElements.length).toBeGreaterThan(0);
 	});
 
-	it("muestra nombres de equipos en slots resueltos", () => {
+	it("muestra nombres de equipos en slots resueltos (R32 default)", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
@@ -243,12 +255,12 @@ describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
 
 		renderWithRouter(<BracketTree bracket={bracket} />);
 
-		// Debe haber un badge "En vivo" o un LiveBadge compact
+		// Debe haber un badge "En vivo"
 		const liveBadges = screen.getAllByLabelText(/en vivo/i);
 		expect(liveBadges.length).toBeGreaterThan(0);
 	});
 
-	it("muestra banner del campeón cuando la final termina (con `?round=f`)", () => {
+	it("muestra banner del campeón cuando la final termina (con ?round=f)", () => {
 		const bracket = makeEmptyBracket();
 		// Propagar el resultado de la final
 		const finalMatch = bracket.rounds[4]?.matches[0];
@@ -283,10 +295,8 @@ describe("BracketTree (Sprint 5C: 1 ronda + navegador)", () => {
 
 		renderWithRouter(<BracketTree bracket={emptyBracket} />);
 
-		// El empty state debe estar presente (al menos 1 match: título + descripción)
-		const matches = screen.getAllByText(
-			/se completará|cuando termine|sin partidos/i,
-		);
-		expect(matches.length).toBeGreaterThan(0);
+		// El empty state debe estar presente
+		const emptyStateText = screen.getByText(/el árbol se completará/i);
+		expect(emptyStateText).toBeInTheDocument();
 	});
 });

@@ -210,8 +210,14 @@ describe("PositionsView", () => {
 
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
 
-		// El header "Camino a la Final" del BracketTree debe aparecer
-		expect(screen.getByText("Camino a la Final")).toBeInTheDocument();
+		// El nav del RoundChipBar del BracketQuadro debe aparecer
+		expect(
+			screen.getByRole("navigation", { name: /rondas del mundial/i }),
+		).toBeInTheDocument();
+		// Y debe haber al menos una columna con data-round (ej. R32)
+		expect(
+			document.querySelector('[data-round="R32"]'),
+		).toBeInTheDocument();
 		// El pill LLAVES ahora es el activo
 		expect(screen.getByRole("tab", { name: /LLAVES/i })).toHaveAttribute(
 			"aria-selected",
@@ -229,13 +235,17 @@ describe("PositionsView", () => {
 
 		// 1. Click en LLAVES
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
-		expect(screen.getByText("Camino a la Final")).toBeInTheDocument();
+		expect(
+			screen.getByRole("navigation", { name: /rondas del mundial/i }),
+		).toBeInTheDocument();
 
 		// 2. Click en GRUPOS
 		await user.click(screen.getByRole("tab", { name: /GRUPOS/i }));
 		expect(screen.getByText("Grupo A")).toBeInTheDocument();
-		// El header del BracketTree ya NO debe estar
-		expect(screen.queryByText("Camino a la Final")).not.toBeInTheDocument();
+		// El nav del RoundChipBar ya NO debe estar
+		expect(
+			screen.queryByRole("navigation", { name: /rondas del mundial/i }),
+		).not.toBeInTheDocument();
 	});
 
 	it("muestra badge con contador de partidos en vivo en el pill GRUPOS", () => {

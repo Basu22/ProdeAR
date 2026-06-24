@@ -8,6 +8,64 @@ import { vi, beforeEach, afterEach } from "vitest";
 // ── scrollIntoView: jsdom no lo implementa ──
 Element.prototype.scrollIntoView = vi.fn();
 
+// ── getBoundingClientRect: jsdom retorna 0,0,0,0 por defecto.
+// Sprint 5D: BracketQuadro usa este método para verificar si una columna
+// ya está visible antes de llamar a scrollIntoView. Sin un mock, el check
+// falla (0 >= 0 es true) y el effect bail-out, por lo que scrollIntoView
+// nunca se llama. Este mock devuelve posiciones variables para que el
+// check funcione correctamente.
+//
+// Para elementos con data-round (columnas del carrusel): cada una ocupa
+// un slot horizontal de 300px. El container "ocupa" 1000px de viewport.
+// → R32, R16, QF quedan dentro del viewport (visibles, no scroll).
+// → SF, F quedan fuera del viewport (no visibles, disparan scroll).
+const ROUND_INDEX: Record<string, number> = {
+	R32: 0,
+	R16: 1,
+	QF: 2,
+	SF: 3,
+	F: 4,
+	"3RD": 4, // 3RD mapea a F para el scroll
+};
+const COLUMN_WIDTH = 300;
+const VIEWPORT_WIDTH = 1000;
+
+const originalGetBoundingClientRect =
+	Element.prototype.getBoundingClientRect;
+Element.prototype.getBoundingClientRect = function () {
+	const dataRound = this.getAttribute?.("data-round");
+	if (dataRound && dataRound in ROUND_INDEX) {
+		const index = ROUND_INDEX[dataRound]!;
+		const left = index * COLUMN_WIDTH;
+		return {
+			x: left,
+			y: 0,
+			width: COLUMN_WIDTH,
+			height: 800,
+			top: 0,
+			right: left + COLUMN_WIDTH,
+			bottom: 800,
+			left,
+			toJSON: () => ({}),
+		} as DOMRect;
+	}
+	// Container del carrusel: ocupa todo el viewport
+	if (this.querySelector?.("[data-round]")) {
+		return {
+			x: 0,
+			y: 0,
+			width: VIEWPORT_WIDTH,
+			height: 800,
+			top: 0,
+			right: VIEWPORT_WIDTH,
+			bottom: 800,
+			left: 0,
+			toJSON: () => ({}),
+		} as DOMRect;
+	}
+	return originalGetBoundingClientRect.call(this);
+};
+
 // ── matchMedia: jsdom no lo implementa ──
 // Default: prefers-reduced-motion NO está activo.
 Object.defineProperty(window, "matchMedia", {
@@ -73,7 +131,7 @@ export class MockIntersectionObserver {
 			time: performance.now(),
 			...e,
 		})) as IntersectionObserverEntry[];
-		this.callback(fullEntries, this);
+		this.callback(fullEntries, this as unknown as IntersectionObserver);
 	}
 
 	static get latest(): MockIntersectionObserver {
