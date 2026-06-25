@@ -66,6 +66,13 @@ interface BracketColumnProps {
 	thirdPlaceMatch?: ExtendedBracketMatch;
 	/** ID del panel para `aria-controls` desde los chips. Default: `panel-${abbr}` */
 	id?: string;
+	/**
+	 * Sprint 5D+: true si esta columna es la que se está dejando (sale del
+	 * viewport por el lado opuesto a la dirección de scroll). Cuando es
+	 * true, se aplica `data-leaving="true"` al wrapper para que CSS
+	 * muestre el "gap" entre cards (espacio para las líneas conectoras).
+	 */
+	isLeaving?: boolean;
 }
 
 // ============================================================================
@@ -133,6 +140,7 @@ export function BracketColumn({
 	onOpenDetails,
 	thirdPlaceMatch,
 	id,
+	isLeaving = false,
 }: BracketColumnProps) {
 	const { meta } = round;
 	const panelId = id ?? `panel-${meta.abbr}`;
@@ -143,6 +151,7 @@ export function BracketColumn({
 		<div
 			id={panelId}
 			data-round={meta.abbr}
+			data-leaving={isLeaving ? "true" : "false"}
 			className={`
 				shrink-0
 				min-w-[55vw] sm:min-w-[50vw]
@@ -150,6 +159,7 @@ export function BracketColumn({
 				md:min-w-0 md:flex-1
 				border-l-2 ${borderLeftClass}
 				pl-3 pr-1
+				${isLeaving ? "bracket-column-leaving" : ""}
 			`.trim()}
 		>
 			{/* Round content (reusa BracketRound) */}

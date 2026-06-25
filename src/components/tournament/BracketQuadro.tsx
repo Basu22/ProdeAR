@@ -440,6 +440,7 @@ export function BracketQuadro({
 						variant={variantForRound(round.meta.abbr)}
 						onOpenDetails={handleOpen}
 						thirdPlaceMatch={round.meta.abbr === "F" ? thirdPlaceMatch : undefined}
+						isLeaving={leavingRound === round.meta.abbr}
 					/>
 				))}
 			</div>
