@@ -188,3 +188,34 @@ export function getRoundLabel(abbr: RoundAbbreviation): string {
 export function getRoundShortLabel(abbr: RoundAbbreviation): string {
 	return ROUND_SHORT_LABELS[abbr];
 }
+
+/**
+ * Parsea el query param `?round=` a una abreviatura de ronda canónica.
+ *
+ * Acepta los strings cortos que típicamente se usan en URLs:
+ * - "r32" → "R32"
+ * - "r16" → "R16"
+ * - "qf"  → "QF"
+ * - "sf"  → "SF"
+ * - "f"   → "F"
+ * - "3rd" → "3RD"
+ *
+ * Es case-insensitive. Si el param no matchea ninguna ronda válida, retorna null.
+ *
+ * Esta función es específica para URL params (más estricta que
+ * `normalizeRoundName` que acepta nombres completos de la API como
+ * "Round of 32" / "Quarter-finals" / "Cuartos de final").
+ */
+const URL_PARAM_MAP: Record<string, RoundAbbreviation> = {
+	r32: "R32",
+	r16: "R16",
+	qf: "QF",
+	sf: "SF",
+	f: "F",
+	"3rd": "3RD",
+};
+
+export function parseRoundParam(param: string | null): RoundAbbreviation | null {
+	if (!param) return null;
+	return URL_PARAM_MAP[param.toLowerCase()] ?? null;
+}
