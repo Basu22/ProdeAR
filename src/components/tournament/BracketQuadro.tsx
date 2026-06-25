@@ -67,6 +67,7 @@ import type { FullBracket } from "../../lib/bracketTypes";
 import type { RoundAbbreviation } from "../../lib/roundNames";
 import { useActiveRound } from "../../hooks/useActiveRound";
 import { BracketColumn } from "./BracketColumn";
+import { BracketConnectors } from "./BracketConnectors";
 import { ChampionBanner } from "./ChampionBanner";
 import { RoundChipBar } from "./RoundChipBar";
 
@@ -239,11 +240,15 @@ export function BracketQuadro({
 		}
 	}, []);
 
-	// ── Detectar columna activa + leaving + scrollDirection ──
-	// Sprint 5D+: useActiveRound ahora retorna 3 valores para soportar
-	// el efecto visual del árbol de eliminatorias con líneas conectoras.
-	const { active: activeRound, leaving: leavingRound, scrollDirection } =
-		useActiveRound(scrollRef, ROUND_ORDER, isProgrammaticScroll);
+	// ── Detectar columna activa + leaving (Sprint 5D+ tree) ──
+	// useActiveRound retorna { active, leaving, scrollDirection }. Por
+	// ahora solo usamos active y leaving; scrollDirection se mantiene en
+	// el hook para futuras mejoras (ej. invertir dirección del L-shape).
+	const { active: activeRound, leaving: leavingRound } = useActiveRound(
+		scrollRef,
+		ROUND_ORDER,
+		isProgrammaticScroll,
+	);
 
 	// ── Effect: URL → scroll (cuando cambia ?round=) ──
 	useEffect(() => {
@@ -431,6 +436,9 @@ export function BracketQuadro({
 				{/* Fade gradients (mobile only) */}
 				<FadeGradient side="left" />
 				<FadeGradient side="right" />
+
+				{/* Sprint 5D+: SVG overlay con las líneas conectoras del árbol */}
+				<BracketConnectors containerRef={scrollRef} rounds={rounds} />
 
 				{/* 5 columnas de rondas */}
 				{rounds.map((round) => (

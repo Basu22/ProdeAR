@@ -854,3 +854,59 @@
 .scrollbar-hide::-webkit-scrollbar {
 	display: none; /* Chrome/Safari/WebKit */
 }
+
+/* ============================================================================
+ * Sprint 5D+ — Bracket tree: animaciones de líneas + gap de leaving
+ * ============================================================================
+ *
+ * Las líneas conectoras entre rondas (BracketConnectors SVG overlay) tienen
+ * 3 estados visuales:
+ * - resolved: sólido, stroke-opacity: 0.6
+ * - live: sólido con pulse animation (bracket-line-pulse)
+ * - tbd: dashed (stroke-dasharray: 4 4), stroke-opacity: 0.35
+ *
+ * El gap visual de la ronda "leaving" (la que se está dejando al scrollear)
+ * se aplica via [data-leaving="true"] en BracketColumn. Las cards pares
+ * (2, 4, 6, ...) llevan un margin-bottom extra para crear el espacio
+ * donde "convergen" las líneas hacia la siguiente ronda.
+ *
+ * Variables CSS:
+ * - --bracket-card-height: altura de una card R32 (medida en runtime)
+ * - --bracket-gap-height: altura del gap = 1 card + 1 gap (medida en runtime)
+ *
+ * Por ahora usamos valores por defecto hasta que BracketColumn mida las
+ * cards reales con useLayoutEffect.
+ * ============================================================================ */
+
+@keyframes bracket-line-pulse {
+	0%,
+	100% {
+		stroke-opacity: 0.7;
+	}
+	50% {
+		stroke-opacity: 1;
+	}
+}
+
+.bracket-line-live {
+	animation: bracket-line-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bracket-line-live {
+		animation: none;
+		stroke-opacity: 1;
+	}
+}
+
+/* Gap visual en la ronda "leaving" (cards pares con margin-bottom extra) */
+.bracket-column-leaving [data-card-position="2"],
+.bracket-column-leaving [data-card-position="4"],
+.bracket-column-leaving [data-card-position="6"],
+.bracket-column-leaving [data-card-position="8"],
+.bracket-column-leaving [data-card-position="10"],
+.bracket-column-leaving [data-card-position="12"],
+.bracket-column-leaving [data-card-position="14"],
+.bracket-column-leaving [data-card-position="16"] {
+	margin-bottom: var(--bracket-gap-height, 40px);
+}
