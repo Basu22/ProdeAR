@@ -373,13 +373,6 @@ export function BracketMatchCard({
 		}
 	};
 
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" || e.key === " ") {
-			e.preventDefault();
-			handleClick();
-		}
-	};
-
 	const roundLabel = getRoundLabel(match.bracketPosition);
 	const ariaLabel = buildAriaLabel(match, roundLabel);
 

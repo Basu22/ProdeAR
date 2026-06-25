@@ -16,12 +16,10 @@
 
 import { render } from "@testing-library/react";
 import { useRef } from "react";
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
 import { BracketConnectors } from "../components/tournament/BracketConnectors";
 import { getFullBracket } from "../lib/bracketEngine";
 import type {
-	ExtendedBracketMatch,
-	ExtendedBracketSlot,
 	FullBracket,
 	KnockoutRound,
 } from "../lib/bracketTypes";
@@ -88,78 +86,6 @@ function makeBestThirds(qualifyCount = 8): BestThirdsTable {
 		standings,
 		qualifyCount,
 		cutoffIndex: Math.min(qualifyCount, standings.length) - 1,
-	};
-}
-
-function makeResolvedMatch(
-	position: number,
-	id: string,
-	slotAName: string,
-	slotBName: string,
-	score: { home: number; away: number },
-	winnerName: string,
-	_sourceAId: string,
-	_sourceBId: string,
-): ExtendedBracketMatch {
-	const baseSlot: ExtendedBracketSlot = {
-		slotType: "1st",
-		groupLetter: null,
-		bestThirdRank: null,
-		teamName: null,
-		teamLogo: null,
-		isLive: false,
-		sourceMatchId: null,
-		decidedByPenalties: false,
-	};
-	return {
-		id,
-		position,
-		slotA: { ...baseSlot, teamName: slotAName },
-		slotB: { ...baseSlot, teamName: slotBName },
-		isComplete: true,
-		dbMatchId: `db-${id}`,
-		winner: winnerName,
-		winnerLogo: null,
-		score,
-		decidedByPenalties: false,
-		bracketPosition: id,
-		stageMultiplier: 2,
-		stadium: null,
-		kickOff: null,
-	};
-}
-
-function makeTbdMatch(
-	position: number,
-	id: string,
-	sourceAId: string,
-	sourceBId: string,
-): ExtendedBracketMatch {
-	const baseSlot: ExtendedBracketSlot = {
-		slotType: "winner",
-		groupLetter: null,
-		bestThirdRank: null,
-		teamName: null,
-		teamLogo: null,
-		isLive: false,
-		sourceMatchId: null,
-		decidedByPenalties: false,
-	};
-	return {
-		id,
-		position,
-		slotA: { ...baseSlot, sourceMatchId: sourceAId },
-		slotB: { ...baseSlot, sourceMatchId: sourceBId },
-		isComplete: false,
-		dbMatchId: null,
-		winner: null,
-		winnerLogo: null,
-		score: null,
-		decidedByPenalties: false,
-		bracketPosition: id,
-		stageMultiplier: 3,
-		stadium: null,
-		kickOff: null,
 	};
 }
 
