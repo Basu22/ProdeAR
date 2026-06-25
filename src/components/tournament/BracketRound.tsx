@@ -48,17 +48,11 @@ interface BracketRoundProps {
 // ============================================================================
 
 /**
- * Determina el grid de columnas según la cantidad de partidos.
- * Mobile-first: 1 col, expand según viewport.
+ * Sprint 5D+: ya no usamos grid. Todas las cards se renderizan en una
+ * sola columna vertical (flex flex-col) para soportar el efecto visual
+ * del árbol de eliminatorias. Cada card recibe un margin-top proporcional
+ * via CSS variable (--bracket-offset-multiplier) seteada en BracketColumn.
  */
-function getGridCols(matchCount: number): string {
-	if (matchCount === 1) return "grid-cols-1 max-w-md mx-auto";
-	if (matchCount === 2) return "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto";
-	if (matchCount === 4) return "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto";
-	if (matchCount === 8) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-	// 16
-	return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
-}
 
 // ============================================================================
 // MAIN COMPONENT
@@ -72,7 +66,6 @@ export function BracketRound({
 }: BracketRoundProps) {
 	const { meta, matches, completedCount } = round;
 	const totalMatches = matches.length;
-	const gridCols = getGridCols(totalMatches);
 
 	return (
 		<section aria-label={`Ronda: ${meta.label}`} className="space-y-3">
@@ -129,14 +122,15 @@ export function BracketRound({
 				</span>
 			</header>
 
-			{/* Grid de partidos */}
-			<div className={`grid gap-2 sm:gap-3 ${gridCols}`}>
+			{/* Sprint 5D+: flex flex-col (no más grid) para soportar el árbol visual */}
+			<div className="flex flex-col gap-3">
 				{matches.map((match) => (
 					<MemoizedBracketMatchCard
 						key={match.id}
 						match={match}
 						variant={cardVariant}
 						onOpenDetails={onOpenDetails}
+						bracketPosition={match.position}
 					/>
 				))}
 			</div>

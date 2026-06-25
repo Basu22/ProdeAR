@@ -73,6 +73,12 @@ interface BracketMatchCardProps {
 	variant: "compact" | "default" | "hero";
 	/** Callback al hacer click (abre MatchSheet con pronóstico) */
 	onOpenDetails?: (matchId: string) => void;
+	/**
+	 * Sprint 5D+: posición de la card en su ronda (1-16 para R32, 1-8 para R16, etc.).
+	 * Se usa como `data-card-position={n}` para que CSS y JS ubiquen la card
+	 * en el árbol de eliminatorias (margin-top proporcional según ronda).
+	 */
+	bracketPosition?: number;
 }
 
 // ============================================================================
@@ -351,6 +357,7 @@ export function BracketMatchCard({
 	match,
 	variant,
 	onOpenDetails,
+	bracketPosition,
 }: BracketMatchCardProps) {
 	const styles = VARIANT_STYLES[variant];
 	const isInteractive = !!onOpenDetails && !!match.dbMatchId;
@@ -378,6 +385,7 @@ export function BracketMatchCard({
 
 	// ── Card container: layout 2 columnas (slots | logística) ──
 	// TBD: dashed border en card completo. Live: ring error/30.
+	// Sprint 5D+: data-card-position para CSS targeting del árbol.
 	const cardClass = `
 		relative w-full ${styles.minHeight}
 		${isTbd
@@ -463,6 +471,7 @@ export function BracketMatchCard({
 				type="button"
 				onClick={handleClick}
 				aria-label={ariaLabel}
+				data-card-position={bracketPosition}
 				className={`${cardClass} text-left`}
 			>
 				{content}
@@ -471,7 +480,11 @@ export function BracketMatchCard({
 	}
 
 	return (
-		<article aria-label={ariaLabel} className={cardClass}>
+		<article
+			aria-label={ariaLabel}
+			data-card-position={bracketPosition}
+			className={cardClass}
+		>
 			{content}
 		</article>
 	);
