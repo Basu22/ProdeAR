@@ -339,6 +339,166 @@ DROP FUNCTION IF EXISTS public.get_closure_notification_recipients;
 
 ---
 
+## 🗄️ Sincronización de DB: PROD → DEV
+
+> **Última actualización**: 23 de junio de 2026
+> **Sprint**: Sync DB — permite testear sobre datos productivos reales sin tocar PROD
+
+### ¿Para qué sirve?
+
+El script `scripts/sync-prod-to-dev-pgdump.sh` (y su versión previa `scripts/sync-prod-to-dev.sh`) sincroniza la base de datos de **PRODUCCIÓN** (`cdwefeqlxktliumtaqdc`) a la de **DESARROLLO** (`ijscgcpdfwlkgucjrmna`) para poder:
+
+- Probar features nuevas con **datos productivos reales** (usuarios, torneos, partidos, predicciones) sin contaminar PROD.
+- Reproducir bugs reportados por usuarios en un entorno idéntico.
+- Iterar sobre el comportamiento de UI con datasets grandes (ej: Mundial completo).
+
+**El frontend local sigue apuntando a DEV**, así que después del sync un `npm run dev` usa los datos recién sincronizados sin tocar nada.
+
+### Requisitos
+
+| Dependencia | Para qué se usa | Cómo obtenerla |
+|---|---|---|
+| **Docker** | correr `pg_dump`/`pg_restore` con la imagen oficial `postgres:17` | [docker.com](https://docker.com) |
+| **postgresql-client** (opcional) | solo si querés usar `psql` directo (no es estrictamente necesario porque el script ya envuelve `psql` en Docker) | `apt install postgresql-client` |
+| **Bash 4+** | ejecutar el script | ya viene en macOS / Linux |
+
+> **Por qué Docker y no el `pg_dump` del sistema**: el de Postgres 17 oficial garantiza **mismo binario mayor** que el servidor de Supabase (que corre 17.x), evitando el error `server version mismatch` o el clásico `unsupported version`. Además, `--network=host` resuelve problemas de IPv6 que aparecen cuando se intenta conectar a `db.<ref>.supabase.co` desde la red bridge de Docker.
+
+### Setup (una vez)
+
+```bash
+# 1. Copiar el template de credenciales
+cp scripts/.env.staging.example scripts/.env.staging
+chmod 600 scripts/.env.staging
+
+# 2. Editar scripts/.env.staging con los valores reales:
+#    - SUPABASE_ACCESS_TOKEN  → https://supabase.com/dashboard/account/tokens
+#    - PROD_DB_PASSWORD       → Dashboard PROD → Settings → Database
+#    - DEV_DB_PASSWORD        → Dashboard DEV  → Settings → Database
+#    (PROD_PROJECT_REF y DEV_PROJECT_REF ya vienen en el example)
+
+# 3. Verificar que Docker esté corriendo
+docker ps
+```
+
+`scripts/.env.staging` está en `.gitignore` — **NUNCA commitear**.
+
+### Uso
+
+```bash
+# Solo auditoría (muestra counts de PROD vs DEV, NO toca nada)
+npm run sync:db:audit
+
+# Dry-run (audita + muestra el plan, NO toca nada)
+npm run sync:db:dry
+
+# Ejecutar el sync real (pide confirmación)
+npm run sync:db
+
+# Sin prompts (CI)
+./scripts/sync-prod-to-dev-pgdump.sh --execute --yes
+
+# Solo la auditoría inicial
+./scripts/sync-prod-to-dev-pgdump.sh --only-audit
+```
+
+### ¿Qué se copia de PROD y qué se preserva de DEV?
+
+| Tabla / Schema | Acción | Notas |
+|---|---|---|
+| `public.users` | **REEMPLAZADO** con los datos de PROD | ⚠️ Perdés el user de DEV. Para loguearte en DEV después, usá cualquier email de PROD con su contraseña real. |
+| `public.competitions` | **REEMPLAZADO** | — |
+| `public.tournaments` | **REEMPLAZADO** | — |
+| `public.tournament_members` | **REEMPLAZADO** | — |
+| `public.matches` | **REEMPLAZADO** | — |
+| `public.predictions` | **REEMPLAZADO** | ⚠️ Requiere que exista `predicted_penalty_winner` en DEV (ver "Schema drift" abajo). |
+| `auth.users` + `auth.identities` | **REEMPLAZADO** | Necesario para que las FKs de `public.users` se satisfagan. |
+| `public.chat_messages` | VACIADA | Estaba vacía en DEV, se trunca y queda vacía. |
+| `public.notification_log` | VACIADA | Ídem. |
+| `public.push_subscriptions` | VACIADA | Ídem. |
+| `public.team_aliases` | **PRESERVADA** (merge) | Los de DEV que no estén en PROD se mergean. |
+| `league_coverage`, `match_broadcasters`, `league_standings` | NO SE TOCAN | Vacías en ambas DBs. |
+| Estructura de tablas, triggers, RLS policies | NO SE TOCAN | El schema queda como está. |
+
+### Estructura del script (5 fases)
+
+```
+FASE 1: Auditoría pre-sync          (counts de PROD vs DEV, FALLA si DRY_RUN)
+FASE 2: pg_dump de PROD             (2 dumps separados: public + auth)
+FASE 3: Preparar DEV                (TRUNCATE de TODAS las tablas + auth.users CASCADE)
+FASE 4: pg_restore en DEV           (auth primero, después public, con TRUNCATE intermedio de public.users)
+FASE 5: Validación post-sync        (counts, RLS check, FKs huérfanas, rehabilitar trigger)
+```
+
+### Decisiones técnicas clave (lecciones aprendidas)
+
+1. **Dos `pg_dump` separados** (`--schema=public` y `--table=auth.users --table=auth.identities`): `pg_dump` no permite combinar `--schema` y `--table` en la misma invocación (se pisan mutuamente). Por eso el script hace dos dumps y los restaura en orden.
+2. **Orden de restore: auth antes que public**: la tabla `public.users` tiene FK a `auth.users.id`, así que `auth.users` + `auth.identities` se restauran PRIMERO, después `public`.
+3. **TRUNCATE intermedio de `public.users`**: el trigger `on_auth_user_created` se dispara automáticamente al insertar filas en `auth.users` durante el restore y crea duplicados en `public.users` (con `ON CONFLICT DO NOTHING` no funciona porque las filas del trigger y las del dump tienen la misma PK, pero el orden de inserción puede no garantizar unicidad). Se trunca `public.users` DESPUÉS de restaurar `auth` y ANTES de restaurar `public`.
+4. **No se puede `ALTER TRIGGER ... DISABLE`** porque Supabase es el owner de `auth.users` y el role `postgres` de DEV no tiene permisos. Por eso se optó por la estrategia de TRUNCATE intermedio en vez de desactivar el trigger.
+5. **`TRUNCATE auth.users CASCADE` al inicio**: necesario porque las FKs de `public.users` apuntan a `auth.users.id`. Sin el `CASCADE` el TRUNCATE fallaría por violación de FK.
+6. **Re-habilitar el trigger al final**: el script hace `ALTER TABLE auth.users ENABLE TRIGGER on_auth_user_created` después del restore para que los nuevos signups en DEV sigan creando la fila en `public.users` automáticamente.
+7. **`--network=host` en Docker**: en algunas distros (Ubuntu 22+, Fedora) Docker por defecto intenta resolver DNS por IPv6 y falla al conectar a `db.<ref>.supabase.co` que es solo IPv4. `--network=host` usa la red del host y bypasea el problema.
+
+### Loguearse en DEV después del sync
+
+Una vez completado el sync, DEV tiene los mismos usuarios que PROD. Para loguearte:
+
+1. Abrí la app en `http://localhost:5173` (o el puerto de Vite).
+2. Usá **cualquier email que esté en PROD** y la **contraseña real que tenga ese user en PROD**.
+3. Si querés un user de "admin" o tu propio user de DEV, asegurate de que ese user exista en PROD (o crealo primero con sign-up normal en PROD y después sincronizá).
+
+> **Tip**: si querés mantener un user de DEV con credenciales conocidas (ej. `dev@prodear.app / dev1234`), creá ese user primero en PROD con un sign-up normal, después corré el sync, y DEV lo va a tener. **La contraseña es la misma que en PROD** (se copia el hash en `auth.users`).
+
+### ⚠️ Schema drift detectado y cómo resolverlo
+
+El 2026-06-23 descubrimos que la tabla `public.predictions` en DEV **no tiene la columna** `predicted_penalty_winner TEXT` que sí existe en PROD. Esa columna:
+
+- Está en `supabase/schema.sql:117` (debería haber sido agregada vía migration, no fue así).
+- Se usa en el trigger `check_prediction_lock` (`supabase/schema.sql:299`).
+- Se usa en `poll-scores` (line 1409) para setear `penalty_winner`.
+
+**Antes de correr el sync por primera vez**, aplicá la migration 0007 en DEV:
+
+```sql
+-- Pegar en el SQL Editor de DEV (https://supabase.com/dashboard/project/ijscgcpdfwlkgucjrmna)
+-- Contenido: supabase/migrations/0007_add_predicted_penalty_winner.sql
+ALTER TABLE public.predictions
+  ADD COLUMN IF NOT EXISTS predicted_penalty_winner TEXT DEFAULT NULL;
+NOTIFY pgrst, 'reload schema';
+```
+
+Sin esto, el `pg_restore` va a fallar con un error tipo `column "predicted_penalty_winner" does not exist` y el sync se aborta.
+
+### Housekeeping — rotar credenciales
+
+Las credenciales de `.env.staging` (`SUPABASE_ACCESS_TOKEN`, `PROD_DB_PASSWORD`, `DEV_DB_PASSWORD`) son **secretas** y de alto privilegio. Recomendaciones:
+
+- **Rotar cada 3-6 meses** el `SUPABASE_ACCESS_TOKEN` (https://supabase.com/dashboard/account/tokens).
+- **Rotar cada 6-12 meses** los passwords de DB (Dashboard → Settings → Database → Reset database password). **Cuidado**: rotar el password invalida el `DATABASE_URL` de Vercel y de cualquier consumer que use la URL directa (usar la de connection pooler `6543` que es estable para la mayoría de los casos).
+- Después de rotar, actualizar `scripts/.env.staging` y `Vercel → Environment Variables` si aplica.
+- **Nunca commitear** `scripts/.env.staging` ni pegarlo en chats / issues. Si se filtra, rotar inmediatamente.
+
+### Troubleshooting
+
+| Error | Causa | Solución |
+|---|---|---|
+| `server version mismatch` | `pg_dump` del sistema (v16 o menor) contra servidor v17 | Usar el script con Docker (ya lo hace por vos) |
+| Docker network unreachable / timeout conectando a `db.<ref>.supabase.co` | IPv6 de Docker bridge | El script ya usa `--network=host`. Si igual falla: `docker run --rm --network=host alpine:17 ping db.<ref>.supabase.co` para debug |
+| `ERROR: permission denied to disable trigger on_auth_user_created` | Supabase es owner de `auth.users` | El script NO intenta `DISABLE TRIGGER`. Usa TRUNCATE intermedio. |
+| `column "predicted_penalty_winner" does not exist` durante el restore | Schema drift, falta la columna en DEV | Aplicar migration 0007 antes del primer sync (ver arriba) |
+| `argument list too long` en Management API script | El script viejo usaba batches de 50 → bajado a 10 | Ya está parcheado. Si volvés a ver esto, re-bajar `BATCH_SIZE=5` en `sync-prod-to-dev.sh` |
+| `Argument list too long` en shell durante `pg_restore` | Comando muy largo | El script de pgdump no usa `psql` con strings largas. Si pasa, reportar a @documentacion |
+
+### Limitaciones y trabajo futuro
+
+- **No preserva tu user de DEV**: el sync es un **replace** total de `public.users` + `auth.users`. Si querés mantener tu user de DEV, tenés que crearlo primero en PROD.
+- **No preserva `chat_messages` ni `notification_log`**: ambas tablas quedan vacías en DEV después del sync. Esto es intencional (eran ruido en DEV).
+- **No migra la password de tu user de DEV si lo creaste manualmente** (fuera de Supabase Auth): tenés que setearla desde el SQL Editor de DEV o usar el flujo "forgot password".
+- **Backlog**: integrar el script en un `Makefile` o `task` runner (ahora se ejecuta via `npm run sync:db*`). Evaluar opción de `dbmate` o `pgcopydb` para mayor robustez.
+
+---
+
 ## 📞 Próximas sesiones
 
 - **Fase 4** (opcional): Tests con `@qa-engineer` para cubrir:
@@ -347,3 +507,10 @@ DROP FUNCTION IF EXISTS public.get_closure_notification_recipients;
   - Test de `permission === "denied"` → modal
   - Test de persistencia entre sesiones
   - E2E del flujo de Fase 3
+
+- **Sync DB — Trabajo futuro**:
+  - Tests de integración para el script (`scripts/sync-prod-to-dev-pgdump.test.sh` con BATS o similar)
+  - CI hook que corra `--only-audit` semanalmente para detectar schema drift
+  - Snapshot del estado de DEV pre/post sync (timing + tamaño de tablas) para auditoría
+  - Evaluar `pgcopydb` o `dbmate` como reemplazo del script bash
+  - Investigar por qué el `package.json` apunta a `sync-prod-to-dev.sh` (Management API, viejo) en vez de `sync-prod-to-dev-pgdump.sh` (Docker, nuevo). Decidir cuál es el canónico y unificar.

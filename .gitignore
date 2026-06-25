@@ -26,3 +26,9 @@ dist-ssr
 # VAPID private key (generada por scripts/generate-vapid-keys.mjs)
 # Se borra tras configurar Supabase Secrets. La clave pública va en .env.local.
 .vapid-private.txt
+
+# Sync de DB: credenciales de PROD y DEV (contienen passwords)
+scripts/.env.staging
+scripts/.env.staging.local
+scripts/.env.*.local
+scripts/logs/

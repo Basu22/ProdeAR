@@ -8,14 +8,30 @@
  * - isKnockoutMatch: stageMultiplier + strings
  * - getFlagUrl: URL generation
  * - getGroupTables: live vs finished, ordering, edge cases
+ * - resolveKnockoutMatchups (legacy): estructura simplificada, 12 pares + 4 best3rd
+ * - resolveKnockoutMatchups (BRACKET_V2 = FIFA): cruces oficiales M73-M88
+ * - resolveKnockoutMatchups (feature flag): switch legacy ↔ FIFA
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+	clearFeatureFlag,
+	isFeatureEnabled,
+	setFeatureFlag,
+} from "../lib/featureFlags";
+import {
+	BEST_THIRDS_COMBINATIONS,
+	buildBestThirdsKey,
+	FIFA_R32_MATCHUPS,
+	getThirdForFirstPlace,
+	resolveBestThirdsAssignment,
+} from "../lib/fifaBracketDefinition";
 import {
 	BEST_THIRDS_QUALIFY_COUNT,
 	BUILT_IN_TEAM_ALIASES,
 	calculateBestThirds,
 	findCanonicalTeam,
+	type GroupTable,
 	getFlagUrl,
 	getGroupLetterFromStage,
 	getGroupTables,
@@ -933,10 +949,19 @@ describe("calculateBestThirds", () => {
 });
 
 // ============================================================================
-// resolveKnockoutMatchups
+// resolveKnockoutMatchups — LEGACY (BRACKET_V2 = false)
 // ============================================================================
+// Estos tests verifican la implementación original (T0) que sigue activa
+// cuando el feature flag `BRACKET_V2` está en `false` (default). Permite
+// rollback instantáneo si la nueva lógica FIFA causa algún bug.
 
-describe("resolveKnockoutMatchups", () => {
+describe("resolveKnockoutMatchups (legacy)", () => {
+	beforeEach(() => {
+		setFeatureFlag("BRACKET_V2", false);
+	});
+	afterEach(() => {
+		clearFeatureFlag("BRACKET_V2");
+	});
 	/**
 	 * Helper: crea 12 GroupTable mock con 1° y 2° definidos para tests de bracket.
 	 */
@@ -1201,5 +1226,688 @@ describe("resolveKnockoutMatchups", () => {
 			"R32-15",
 			"R32-16",
 		]);
+	});
+});
+
+// ============================================================================
+// resolveKnockoutMatchups — BRACKET_V2 = true (FIFA 2026 — source of truth)
+// ============================================================================
+// Tests que validan la nueva implementación basada en `FIFA_R32_MATCHUPS` y
+// `BEST_THIRDS_COMBINATIONS`. Activa vía `setFeatureFlag("BRACKET_V2", true)`.
+
+describe("resolveKnockoutMatchups (BRACKET_V2 = FIFA 2026)", () => {
+	// Helper: 12 GroupTables con 3ros diferenciados por grupo (orden estable
+	// por teamName) para que `calculateBestThirds` produzca una clasificación
+	// determinística. Los pts de 3ros van decreciendo por grupo: grupo A es
+	// el mejor 3°, grupo L el peor.
+	function makeGroupTablesWithNamed3rds(
+		firsts: string[] = Array.from(
+			{ length: 12 },
+			(_, i) => `1° of ${String.fromCharCode(65 + i)}`,
+		),
+		seconds: string[] = Array.from(
+			{ length: 12 },
+			(_, i) => `2° of ${String.fromCharCode(65 + i)}`,
+		),
+		thirdPts: number[] = Array.from({ length: 12 }, (_, i) => 3 - i * 0.01),
+	): GroupTable[] {
+		return Array.from({ length: 12 }, (_, i) => {
+			const letter = String.fromCharCode(65 + i);
+			return {
+				groupName: `Grupo ${letter}`,
+				groupLetter: letter,
+				standings: [
+					{
+						teamName: firsts[i] ?? `1° of ${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 3,
+						pe: 0,
+						pp: 0,
+						gf: 6,
+						gc: 1,
+						dg: 5,
+						pts: 9,
+						isLive: false,
+					},
+					{
+						teamName: seconds[i] ?? `2° of ${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 2,
+						pe: 0,
+						pp: 1,
+						gf: 4,
+						gc: 2,
+						dg: 2,
+						pts: 6,
+						isLive: false,
+					},
+					{
+						teamName: `3°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 1,
+						pe: 0,
+						pp: 2,
+						gf: 2,
+						gc: 2,
+						dg: 0,
+						pts: thirdPts[i] ?? 0,
+						isLive: false,
+					},
+					{
+						teamName: `4°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 0,
+						pe: 0,
+						pp: 3,
+						gf: 0,
+						gc: 7,
+						dg: -7,
+						pts: 0,
+						isLive: false,
+					},
+				],
+				liveMatches: [],
+			};
+		});
+	}
+
+	beforeEach(() => {
+		setFeatureFlag("BRACKET_V2", true);
+	});
+	afterEach(() => {
+		clearFeatureFlag("BRACKET_V2");
+	});
+
+	// --------------------------------------------------------------------------
+	// Estructura general
+	// --------------------------------------------------------------------------
+
+	it("produce 16 partidos con bracketId R32-1 a R32-16 en orden FIFA", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		expect(bracket.matches).toHaveLength(16);
+		expect(bracket.totalMatches).toBe(16);
+		expect(bracket.roundName).toBe("Dieciseisavos de final");
+		expect(bracket.matches.map((m) => m.id)).toEqual(
+			FIFA_R32_MATCHUPS.map((m) => m.bracketId),
+		);
+	});
+
+	it("el orden de los matches es por número FIFA (M73→R32-1, M88→R32-16)", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		expect(bracket.matches[0]?.id).toBe("R32-1"); // M73
+		expect(bracket.matches[1]?.id).toBe("R32-2"); // M74
+		expect(bracket.matches[15]?.id).toBe("R32-16"); // M88
+	});
+
+	// --------------------------------------------------------------------------
+	// Tipos de cruce: 2°vs2° (4), 1°vs2° (4), 1°vs3° (8)
+	// --------------------------------------------------------------------------
+
+	it("M73, M78, M83, M88 son los 4 partidos 2°vs2°", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		const twoVsTwo = ["R32-1", "R32-6", "R32-11", "R32-16"]; // M73,M78,M83,M88
+		for (const id of twoVsTwo) {
+			const match = bracket.matches.find((m) => m.id === id);
+			expect(match).toBeDefined();
+			expect(match?.slotA.slotType).toBe("2nd");
+			expect(match?.slotB.slotType).toBe("2nd");
+		}
+	});
+
+	it("M75, M76, M84, M86 son los 4 partidos 1°vs2°", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		const oneVsTwo = ["R32-3", "R32-4", "R32-12", "R32-14"]; // M75,M76,M84,M86
+		for (const id of oneVsTwo) {
+			const match = bracket.matches.find((m) => m.id === id);
+			expect(match).toBeDefined();
+			// Uno de los slots es 1st, el otro es 2nd
+			const slotTypes = [match?.slotA.slotType, match?.slotB.slotType].sort();
+			expect(slotTypes).toEqual(["1st", "2nd"]);
+		}
+	});
+
+	it("M74, M77, M79, M80, M81, M82, M85, M87 son los 8 partidos 1°vsBest3°", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		const oneVsThird = [
+			"R32-2", // M74
+			"R32-5", // M77
+			"R32-7", // M79
+			"R32-8", // M80
+			"R32-9", // M81
+			"R32-10", // M82
+			"R32-13", // M85
+			"R32-15", // M87
+		];
+		for (const id of oneVsThird) {
+			const match = bracket.matches.find((m) => m.id === id);
+			expect(match).toBeDefined();
+			expect(match?.slotA.slotType).toBe("1st");
+			expect(match?.slotB.slotType).toBe("best3rd");
+		}
+	});
+
+	// --------------------------------------------------------------------------
+	// Slots fijos: 1° y 2° se llenan desde groupTables
+	// --------------------------------------------------------------------------
+
+	it("M73 (2A vs 2B) toma el 2° de A y el 2° de B", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		const m73 = bracket.matches.find((m) => m.id === "R32-1");
+
+		expect(m73).toBeDefined();
+		expect(m73?.slotA.groupLetter).toBe("A");
+		expect(m73?.slotA.slotType).toBe("2nd");
+		expect(m73?.slotA.teamName).toBe("2° of A");
+		expect(m73?.slotB.groupLetter).toBe("B");
+		expect(m73?.slotB.slotType).toBe("2nd");
+		expect(m73?.slotB.teamName).toBe("2° of B");
+	});
+
+	it("M75 (1F vs 2C) toma el 1° de F y el 2° de C", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		const m75 = bracket.matches.find((m) => m.id === "R32-3");
+
+		expect(m75).toBeDefined();
+		expect(m75?.slotA.groupLetter).toBe("F");
+		expect(m75?.slotA.teamName).toBe("1° of F");
+		expect(m75?.slotB.groupLetter).toBe("C");
+		expect(m75?.slotB.teamName).toBe("2° of C");
+	});
+
+	it("M74 (1E vs Best 3°) tiene slotA=1°E y slotB=best3rd", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		const m74 = bracket.matches.find((m) => m.id === "R32-2");
+
+		expect(m74).toBeDefined();
+		expect(m74?.slotA.slotType).toBe("1st");
+		expect(m74?.slotA.groupLetter).toBe("E");
+		expect(m74?.slotA.teamName).toBe("1° of E");
+		expect(m74?.slotB.slotType).toBe("best3rd");
+	});
+
+	// --------------------------------------------------------------------------
+	// Asignación de best3rd para combinaciones específicas
+	// --------------------------------------------------------------------------
+
+	it("asigna correctamente el best3rd según la combinación de grupos", () => {
+		// Combinación "111111110000" (A,B,C,D,E,F,G,H qualify, I,J,K,L eliminados)
+		// = 8 grupos con mejores pts en 3°. Aseguramos esto dando pts altos a
+		// A-H y pts bajos a I-L.
+		const thirdPts: number[] = [
+			3,
+			3,
+			3,
+			3,
+			3,
+			3,
+			3,
+			3,
+			0,
+			0,
+			0,
+			0, // I,J,K,L eliminados
+		];
+		const groupTables = makeGroupTablesWithNamed3rds(
+			undefined,
+			undefined,
+			thirdPts,
+		);
+		const bestThirds = calculateBestThirds(groupTables);
+
+		// Sanity: verificar que la combinación coincide
+		const qualifiedGroups = bestThirds.standings
+			.filter((s) => s.qualifies)
+			.map((s) => s.groupLetter)
+			.sort();
+		expect(qualifiedGroups).toEqual(["A", "B", "C", "D", "E", "F", "G", "H"]);
+		expect(buildBestThirdsKey(qualifiedGroups as never[])).toBe("111111110000");
+
+		// Validar la asignación FIFA de esta combinación
+		const expected = BEST_THIRDS_COMBINATIONS["111111110000"];
+		expect(expected).toBeDefined();
+		const actual = resolveBestThirdsAssignment(qualifiedGroups as never[]);
+		expect(actual).toEqual(expected);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// Con thirdPts todos iguales (3 vs 0) y luego sort por nombre dentro
+		// de cada "tier", el ranking de los 8 clasificados es:
+		// A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8
+		// (todos tienen pts=3, dg=0, gf=2 → desempate por teamName alfabético)
+
+		// M74 (1°E vs 3°C según FIFA): slotB = 3° de C
+		const m74 = bracket.matches.find((m) => m.id === "R32-2");
+		expect(m74?.slotB.groupLetter).toBe("C");
+		expect(m74?.slotB.teamName).toBe("3°-C");
+		expect(m74?.slotB.bestThirdRank).toBe(3);
+
+		// M77 (1°I vs 3°F según FIFA): slotB = 3° de F
+		const m77 = bracket.matches.find((m) => m.id === "R32-5");
+		expect(m77?.slotA.groupLetter).toBe("I");
+		expect(m77?.slotB.groupLetter).toBe("F");
+		expect(m77?.slotB.teamName).toBe("3°-F");
+		expect(m77?.slotB.bestThirdRank).toBe(6);
+
+		// M79 (1°A vs 3°H según FIFA): slotB = 3° de H
+		const m79 = bracket.matches.find((m) => m.id === "R32-7");
+		expect(m79?.slotA.groupLetter).toBe("A");
+		expect(m79?.slotB.groupLetter).toBe("H");
+		expect(m79?.slotB.teamName).toBe("3°-H");
+		expect(m79?.slotB.bestThirdRank).toBe(8);
+
+		// M85 (1°B vs 3°G según FIFA): slotB = 3° de G
+		const m85 = bracket.matches.find((m) => m.id === "R32-13");
+		expect(m85?.slotA.groupLetter).toBe("B");
+		expect(m85?.slotB.groupLetter).toBe("G");
+		expect(m85?.slotB.teamName).toBe("3°-G");
+		expect(m85?.slotB.bestThirdRank).toBe(7);
+
+		// M87 (1°K vs 3°D según FIFA): slotB = 3° de D
+		const m87 = bracket.matches.find((m) => m.id === "R32-15");
+		expect(m87?.slotA.groupLetter).toBe("K");
+		expect(m87?.slotB.groupLetter).toBe("D");
+		expect(m87?.slotB.teamName).toBe("3°-D");
+		expect(m87?.slotB.bestThirdRank).toBe(4);
+	});
+
+	it("asigna correctamente cuando la combinación es E-L (key=000011111111)", () => {
+		// 3ros con pts altos en E-L (eliminados) y bajos en A-D (clasifican)
+		const thirdPts: number[] = [
+			0,
+			0,
+			0,
+			0,
+			3,
+			3,
+			3,
+			3,
+			3,
+			3,
+			3,
+			3, // A-D eliminated (peor pts)
+		];
+		const groupTables = makeGroupTablesWithNamed3rds(
+			undefined,
+			undefined,
+			thirdPts,
+		);
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const qualifiedGroups = bestThirds.standings
+			.filter((s) => s.qualifies)
+			.map((s) => s.groupLetter)
+			.sort();
+		expect(qualifiedGroups).toEqual(["E", "F", "G", "H", "I", "J", "K", "L"]);
+
+		// Para key "000011111111":
+		// M74: F, M77: G, M79: E, M80: K, M81: I, M82: H, M85: J, M87: L
+		const expected = BEST_THIRDS_COMBINATIONS["000011111111"];
+		expect(expected).toBeDefined();
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// M74 (1°E vs 3°F): slotB = 3° de F
+		const m74 = bracket.matches.find((m) => m.id === "R32-2");
+		expect(m74?.slotA.groupLetter).toBe("E");
+		expect(m74?.slotB.groupLetter).toBe("F");
+		expect(m74?.slotB.teamName).toBe("3°-F");
+
+		// M79 (1°A vs 3°E): slotB = 3° de E
+		const m79 = bracket.matches.find((m) => m.id === "R32-7");
+		expect(m79?.slotB.groupLetter).toBe("E");
+		expect(m79?.slotB.teamName).toBe("3°-E");
+	});
+
+	// --------------------------------------------------------------------------
+	// Casos TBD: cuando un grupo no clasifica como mejor 3°
+	// --------------------------------------------------------------------------
+
+	it("lanza error si no hay exactamente 8 terceros clasificados (invariante rota)", () => {
+		// La invariante de FIFA es: siempre hay exactamente 8 grupos cuyos
+		// terceros clasifican. Si por algún bug `calculateBestThirds` produce
+		// un número distinto, `resolveKnockoutMatchups` debe lanzar para
+		// evitar generar un bracket incorrecto.
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		// Forzamos que SOLO 2 clasifiquen (rompiendo la invariante).
+		for (const s of bestThirds.standings) {
+			s.qualifies = false;
+		}
+		const s0 = bestThirds.standings[0];
+		const s1 = bestThirds.standings[1];
+		if (s0) s0.qualifies = true;
+		if (s1) s1.qualifies = true;
+
+		expect(() => resolveKnockoutMatchups(groupTables, bestThirds)).toThrow(
+			/Se esperan 8 mejores terceros/,
+		);
+	});
+
+	it("lanza error si bestThirds.standings está vacío (caso degenerado)", () => {
+		// Si bestThirds.standings está vacío (caso degenerado en el que
+		// calculateBestThirds no produjo datos), la invariante se rompe y
+		// la función lanza para evitar generar un bracket incorrecto.
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		// Vaciamos bestThirds.standings.
+		bestThirds.standings = [];
+
+		expect(() => resolveKnockoutMatchups(groupTables, bestThirds)).toThrow(
+			/Se esperan 8 mejores terceros/,
+		);
+	});
+
+	it("deja TBD el slot best3rd si la entrada de bestThirds tiene teamName=null (3° aún no computado)", () => {
+		// Caso realista: los 8 grupos clasifican (invariante OK), pero el
+		// standing de uno de ellos tiene `teamName=null` (ej. 3° aún no
+		// computado por partido en curso). El slot best3rd de ese grupo
+		// debe quedar TBD en vez de mostrar info inconsistente.
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		// Para key "111111110000", M74=3°C. Limpiamos el teamName del 3° de C
+		// para simular que C no terminó.
+		const cThirdIdx = bestThirds.standings.findIndex(
+			(s) => s.groupLetter === "C",
+		);
+		if (cThirdIdx >= 0) {
+			const cStanding = bestThirds.standings[cThirdIdx];
+			if (cStanding) cStanding.teamName = "";
+		}
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		const m74 = bracket.matches.find((m) => m.id === "R32-2");
+
+		// M74 slotA (1°E) está OK; slotB (3°C) debe quedar TBD
+		expect(m74?.slotA.teamName).toBe("1° of E");
+		expect(m74?.slotB.slotType).toBe("best3rd");
+		expect(m74?.slotB.teamName).toBeNull();
+		expect(m74?.slotB.groupLetter).toBe("C");
+		expect(m74?.isComplete).toBe(false);
+	});
+
+	// --------------------------------------------------------------------------
+	// isComplete y completedMatches
+	// --------------------------------------------------------------------------
+
+	it("marca isComplete=true solo si ambos slots están resueltos (con 12 grupos completos)", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		for (const match of bracket.matches) {
+			expect(match.isComplete).toBe(true);
+		}
+		expect(bracket.completedMatches).toBe(16);
+	});
+
+	it("isComplete=false cuando un grupo tiene 1°/2° sin resolver (teamName=null)", () => {
+		// Simulamos el caso: los 12 grupos tienen 4 standings (para que
+		// calculateBestThirds produzca 12 terceros y 8 califiquen), pero
+		// los 1°/2° de los grupos C-L tienen `teamName: null` (no terminaron).
+		// → slots 1°/2° de M74, M75, M76, M77, M79, M80, M81, M82, M84, M85,
+		//   M86, M87 quedan TBD.
+		const groupTables = makeGroupTablesWithNamed3rds().map((g) => {
+			if (g.groupLetter === "A" || g.groupLetter === "B") return g;
+			// Para C-L: 1° y 2° con teamName=null (grupo aún no termina)
+			return {
+				...g,
+				standings: g.standings.map(
+					(s: { teamName: string; [k: string]: unknown }, i: number) =>
+						i < 2
+							? // Forzamos null para simular "grupo pendiente"
+								{ ...s, teamName: null as unknown as string }
+							: s,
+				),
+			};
+		});
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// M73 (2A vs 2B): ambos grupos A y B tienen 1°/2° resueltos → completo
+		const m73 = bracket.matches.find((m) => m.id === "R32-1");
+		expect(m73?.isComplete).toBe(true);
+
+		// M75 (1F vs 2C): F.1° y C.2° están null → TBD
+		const m75 = bracket.matches.find((m) => m.id === "R32-3");
+		expect(m75?.isComplete).toBe(false);
+
+		// M74 (1E vs 3°): slotA (1°E) sin resolver → TBD
+		const m74 = bracket.matches.find((m) => m.id === "R32-2");
+		expect(m74?.isComplete).toBe(false);
+	});
+
+	// --------------------------------------------------------------------------
+	// Paridad con fuente FIFA (test de smoke)
+	// --------------------------------------------------------------------------
+
+	it("el bracket generado coincide con FIFA_R32_MATCHUPS (id, fifaNumber, slot structure)", () => {
+		const groupTables = makeGroupTablesWithNamed3rds();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// Cada match.id debe corresponder al bracketId FIFA
+		for (const fifaMatch of FIFA_R32_MATCHUPS) {
+			const bracketMatch = bracket.matches.find(
+				(m) => m.id === fifaMatch.bracketId,
+			);
+			expect(bracketMatch).toBeDefined();
+			// El slotA/slotB del bracket debe coincidir en slotType y group
+			// con el slotA/slotB de FIFA
+			expect(bracketMatch?.slotA.slotType).toBe(fifaMatch.slotA.slotType);
+			if (fifaMatch.slotA.slotType !== "best3rd") {
+				expect(bracketMatch?.slotA.groupLetter).toBe(fifaMatch.slotA.group);
+			}
+		}
+	});
+
+	it("getThirdForFirstPlace retorna el mismo grupo que el slotB del match", () => {
+		// Para la combinación "111111110000" (A,B,C,D,E,F,G,H qualify)
+		const qualifiedGroups = ["A", "B", "C", "D", "E", "F", "G", "H"];
+		// Cada 1° que enfrenta a un 3° (E, I, A, L, D, G, B, K)
+		// debe tener su 3° rival según FIFA
+		expect(getThirdForFirstPlace("E", qualifiedGroups)).toBe("C"); // M74
+		expect(getThirdForFirstPlace("I", qualifiedGroups)).toBe("F"); // M77
+		expect(getThirdForFirstPlace("A", qualifiedGroups)).toBe("H"); // M79
+		expect(getThirdForFirstPlace("L", qualifiedGroups)).toBe("E"); // M80
+		expect(getThirdForFirstPlace("D", qualifiedGroups)).toBe("B"); // M81
+		expect(getThirdForFirstPlace("G", qualifiedGroups)).toBe("A"); // M82
+		expect(getThirdForFirstPlace("B", qualifiedGroups)).toBe("G"); // M85
+		expect(getThirdForFirstPlace("K", qualifiedGroups)).toBe("D"); // M87
+	});
+});
+
+// ============================================================================
+// resolveKnockoutMatchups — Feature flag BRACKET_V2
+// ============================================================================
+
+describe("resolveKnockoutMatchups — feature flag BRACKET_V2", () => {
+	// Helper: 12 GroupTables básicos (4 por grupo, 3ro diferenciable por nombre)
+	function make12GroupTables(): GroupTable[] {
+		return Array.from({ length: 12 }, (_, i) => {
+			const letter = String.fromCharCode(65 + i);
+			return {
+				groupName: `Grupo ${letter}`,
+				groupLetter: letter,
+				standings: [
+					{
+						teamName: `1°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 3,
+						pe: 0,
+						pp: 0,
+						gf: 6,
+						gc: 1,
+						dg: 5,
+						pts: 9,
+						isLive: false,
+					},
+					{
+						teamName: `2°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 2,
+						pe: 0,
+						pp: 1,
+						gf: 4,
+						gc: 2,
+						dg: 2,
+						pts: 6,
+						isLive: false,
+					},
+					{
+						teamName: `3°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 1,
+						pe: 0,
+						pp: 2,
+						gf: 2,
+						gc: 2,
+						dg: 0,
+						pts: 3,
+						isLive: false,
+					},
+					{
+						teamName: `4°-${letter}`,
+						logo: null,
+						pj: 3,
+						pg: 0,
+						pe: 0,
+						pp: 3,
+						gf: 0,
+						gc: 7,
+						dg: -7,
+						pts: 0,
+						isLive: false,
+					},
+				],
+				liveMatches: [],
+			};
+		});
+	}
+
+	afterEach(() => {
+		clearFeatureFlag("BRACKET_V2");
+	});
+
+	it("con BRACKET_V2=false (default) retorna la estructura legacy", () => {
+		setFeatureFlag("BRACKET_V2", false);
+		expect(isFeatureEnabled("BRACKET_V2")).toBe(false);
+
+		const groupTables = make12GroupTables();
+		const bestThirds = calculateBestThirds(groupTables);
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// Legacy: Match 1 = 1°A vs 2°B (par adyacente)
+		expect(bracket.matches[0]?.slotA.groupLetter).toBe("A");
+		expect(bracket.matches[0]?.slotA.slotType).toBe("1st");
+		expect(bracket.matches[0]?.slotB.groupLetter).toBe("B");
+		expect(bracket.matches[0]?.slotB.slotType).toBe("2nd");
+
+		// Match 13 (legacy) = 3°#1 vs 3°#2 (best3rd vs best3rd)
+		expect(bracket.matches[12]?.slotA.slotType).toBe("best3rd");
+		expect(bracket.matches[12]?.slotB.slotType).toBe("best3rd");
+	});
+
+	it("con BRACKET_V2=true retorna la estructura FIFA (M73=2A vs 2B)", () => {
+		setFeatureFlag("BRACKET_V2", true);
+		expect(isFeatureEnabled("BRACKET_V2")).toBe(true);
+
+		const groupTables = make12GroupTables();
+		const bestThirds = calculateBestThirds(groupTables);
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// FIFA: M73 (R32-1) = 2°A vs 2°B
+		expect(bracket.matches[0]?.id).toBe("R32-1");
+		expect(bracket.matches[0]?.slotA.slotType).toBe("2nd");
+		expect(bracket.matches[0]?.slotA.groupLetter).toBe("A");
+		expect(bracket.matches[0]?.slotB.slotType).toBe("2nd");
+		expect(bracket.matches[0]?.slotB.groupLetter).toBe("B");
+	});
+
+	it("cambiar el flag en runtime cambia el comportamiento (legacy → FIFA)", () => {
+		const groupTables = make12GroupTables();
+		const bestThirds = calculateBestThirds(groupTables);
+
+		// 1) Con BRACKET_V2=false → legacy
+		setFeatureFlag("BRACKET_V2", false);
+		const legacyBracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		// Legacy Match 1: 1°A vs 2°B
+		expect(legacyBracket.matches[0]?.slotA.slotType).toBe("1st");
+		expect(legacyBracket.matches[0]?.slotB.slotType).toBe("2nd");
+
+		// 2) Con BRACKET_V2=true → FIFA
+		setFeatureFlag("BRACKET_V2", true);
+		const fifaBracket = resolveKnockoutMatchups(groupTables, bestThirds);
+		// FIFA R32-1 (M73): 2°A vs 2°B
+		expect(fifaBracket.matches[0]?.slotA.slotType).toBe("2nd");
+		expect(fifaBracket.matches[0]?.slotB.slotType).toBe("2nd");
+	});
+
+	it("con BRACKET_V2=true NO se invoca la lógica legacy (los pares adyacentes desaparecen)", () => {
+		setFeatureFlag("BRACKET_V2", true);
+
+		const groupTables = make12GroupTables();
+		const bestThirds = calculateBestThirds(groupTables);
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// En legacy, Match 1 era 1°A vs 2°B. En FIFA, M73 es 2°A vs 2°B.
+		// Verificamos que el slotA es "2nd" (FIFA), no "1st" (legacy).
+		expect(bracket.matches[0]?.slotA.slotType).toBe("2nd");
+	});
+
+	it("clearFeatureFlag resetea al default (BRACKET_V2=false → legacy)", () => {
+		setFeatureFlag("BRACKET_V2", true);
+		expect(isFeatureEnabled("BRACKET_V2")).toBe(true);
+
+		clearFeatureFlag("BRACKET_V2");
+		expect(isFeatureEnabled("BRACKET_V2")).toBe(false);
+
+		const groupTables = make12GroupTables();
+		const bestThirds = calculateBestThirds(groupTables);
+		const bracket = resolveKnockoutMatchups(groupTables, bestThirds);
+
+		// Default legacy: Match 1 = 1°A vs 2°B
+		expect(bracket.matches[0]?.slotA.slotType).toBe("1st");
 	});
 });

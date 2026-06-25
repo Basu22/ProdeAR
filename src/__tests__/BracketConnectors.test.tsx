@@ -16,13 +16,10 @@
 
 import { render } from "@testing-library/react";
 import { useRef } from "react";
-import { describe, expect, it, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { BracketConnectors } from "../components/tournament/BracketConnectors";
 import { getFullBracket } from "../lib/bracketEngine";
-import type {
-	FullBracket,
-	KnockoutRound,
-} from "../lib/bracketTypes";
+import type { FullBracket, KnockoutRound } from "../lib/bracketTypes";
 import type { BestThirdsTable, GroupTable } from "../lib/worldCupGroups";
 
 // ============================================================================
@@ -105,9 +102,7 @@ interface CardInfo {
  * Tambien hace mock de getBoundingClientRect para que cada card tenga
  * coordenadas conocidas.
  */
-function setupMockCarousel(
-	cardsByRound: Record<string, number[]>,
-): {
+function setupMockCarousel(cardsByRound: Record<string, number[]>): {
 	container: HTMLDivElement;
 	cardMap: Map<string, CardInfo>;
 	cleanup: () => void;
@@ -154,12 +149,13 @@ function setupMockCarousel(
 				toJSON: () => ({}),
 			};
 			card.getBoundingClientRect = () => rect as DOMRect;
-			col.getBoundingClientRect = () => ({
-				...rect,
-				width: colWidth,
-				right: xOffset + colWidth,
-				left: xOffset,
-			}) as DOMRect;
+			col.getBoundingClientRect = () =>
+				({
+					...rect,
+					width: colWidth,
+					right: xOffset + colWidth,
+					left: xOffset,
+				}) as DOMRect;
 
 			cardMap.set(`${abbr}-${pos}`, { abbr, position: pos, el: card });
 		});
@@ -167,17 +163,18 @@ function setupMockCarousel(
 		xOffset += colWidth;
 	}
 
-	container.getBoundingClientRect = () => ({
-		x: 0,
-		y: 0,
-		width: 1000,
-		height: 1000,
-		top: 0,
-		right: 1000,
-		bottom: 1000,
-		left: 0,
-		toJSON: () => ({}),
-	}) as DOMRect;
+	container.getBoundingClientRect = () =>
+		({
+			x: 0,
+			y: 0,
+			width: 1000,
+			height: 1000,
+			top: 0,
+			right: 1000,
+			bottom: 1000,
+			left: 0,
+			toJSON: () => ({}),
+		}) as DOMRect;
 
 	const cleanup = () => {
 		document.body.removeChild(container);

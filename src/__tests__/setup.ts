@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 
 // ============================================================================
 // Sprint 5D: Mocks globales para BracketQuadro (carrusel horizontal)
@@ -35,8 +35,7 @@ const ROUND_INDEX: Record<string, number> = {
 const COLUMN_WIDTH = 300;
 const VIEWPORT_WIDTH = 1000;
 
-const originalGetBoundingClientRect =
-	Element.prototype.getBoundingClientRect;
+const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
 Element.prototype.getBoundingClientRect = function () {
 	const dataRound = this.getAttribute?.("data-round");
 	if (dataRound && dataRound in ROUND_INDEX) {
@@ -140,13 +139,16 @@ export class MockIntersectionObserver {
 	}
 
 	static get latest(): MockIntersectionObserver {
-		const last = this.instances[this.instances.length - 1];
+		const last =
+			MockIntersectionObserver.instances[
+				MockIntersectionObserver.instances.length - 1
+			];
 		if (!last) throw new Error("No MockIntersectionObserver instances");
 		return last;
 	}
 
 	static reset(): void {
-		this.instances = [];
+		MockIntersectionObserver.instances = [];
 	}
 }
 

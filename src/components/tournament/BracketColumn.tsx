@@ -145,7 +145,8 @@ export function BracketColumn({
 	const { meta } = round;
 	const panelId = id ?? `panel-${meta.abbr}`;
 	const showThirdPlace = meta.abbr === "F" && thirdPlaceMatch;
-	const borderLeftClass = VARIANT_BORDER_LEFT[variant] ?? VARIANT_BORDER_LEFT.compact;
+	const borderLeftClass =
+		VARIANT_BORDER_LEFT[variant] ?? VARIANT_BORDER_LEFT.compact;
 
 	return (
 		<div

@@ -46,7 +46,7 @@
  * ```
  */
 
-import { useEffect, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useState } from "react";
 import type { RoundAbbreviation } from "../lib/roundNames";
 
 // ============================================================================
@@ -191,8 +191,7 @@ export function useActiveRound(
 		if (typeof ResizeObserver !== "undefined") {
 			resizeObserver = new ResizeObserver(() => {
 				observer.disconnect();
-				const fresh =
-					container.querySelectorAll<HTMLElement>("[data-round]");
+				const fresh = container.querySelectorAll<HTMLElement>("[data-round]");
 				for (const col of fresh) observer.observe(col);
 			});
 			resizeObserver.observe(container);

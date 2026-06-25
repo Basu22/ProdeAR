@@ -59,13 +59,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useActiveRound } from "../../hooks/useActiveRound";
 import {
 	getRoundNavigatorState,
 	parseRoundParam,
 } from "../../lib/bracketNavigation";
 import type { FullBracket } from "../../lib/bracketTypes";
 import type { RoundAbbreviation } from "../../lib/roundNames";
-import { useActiveRound } from "../../hooks/useActiveRound";
 import { BracketColumn } from "./BracketColumn";
 import { BracketConnectors } from "./BracketConnectors";
 import { ChampionBanner } from "./ChampionBanner";
@@ -256,7 +256,8 @@ export function BracketQuadro({
 		if (!container) return;
 
 		// 3RD es sub-card de F: si el URL es 3RD, scrolleamos a F
-		const scrollTarget: RoundAbbreviation = currentRound === "3RD" ? "F" : currentRound;
+		const scrollTarget: RoundAbbreviation =
+			currentRound === "3RD" ? "F" : currentRound;
 		const col = container.querySelector<HTMLElement>(
 			`[data-round="${scrollTarget}"]`,
 		);
@@ -365,7 +366,9 @@ export function BracketQuadro({
 	}, [currentRound, navigateToRound]);
 
 	// ── Helper: variant según la ronda ──
-	const variantForRound = (abbr: RoundAbbreviation): "compact" | "default" | "hero" => {
+	const variantForRound = (
+		abbr: RoundAbbreviation,
+	): "compact" | "default" | "hero" => {
 		if (abbr === "R32" || abbr === "R16") return "compact";
 		if (abbr === "QF" || abbr === "SF") return "default";
 		return "hero"; // F
@@ -394,7 +397,8 @@ export function BracketQuadro({
 	const totalDots = ROUND_ORDER.length;
 
 	// ── ChampionBanner solo si F es la ronda activa o visible ──
-	const showChampion = champion && (activeRound === "F" || currentRound === "F");
+	const showChampion =
+		champion && (activeRound === "F" || currentRound === "F");
 
 	return (
 		<section
@@ -447,14 +451,21 @@ export function BracketQuadro({
 						round={round}
 						variant={variantForRound(round.meta.abbr)}
 						onOpenDetails={handleOpen}
-						thirdPlaceMatch={round.meta.abbr === "F" ? thirdPlaceMatch : undefined}
+						thirdPlaceMatch={
+							round.meta.abbr === "F" ? thirdPlaceMatch : undefined
+						}
 						isLeaving={leavingRound === round.meta.abbr}
 					/>
 				))}
 			</div>
 
 			{/* Live region para screen readers */}
-			<div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+			<div
+				role="status"
+				aria-live="polite"
+				aria-atomic="true"
+				className="sr-only"
+			>
 				Ronda actual: {activeRound ?? currentRound}
 			</div>
 		</section>

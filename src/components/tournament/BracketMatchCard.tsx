@@ -57,9 +57,9 @@
 
 import React from "react";
 import {
+	type ExtendedBracketMatch,
 	formatKickoffDate,
 	formatKickoffTime,
-	type ExtendedBracketMatch,
 } from "../../lib/bracketTypes";
 import { LiveBadge } from "./LiveBadge";
 
@@ -152,7 +152,7 @@ const VARIANT_STYLES = {
 		logisticsDateText: "text-[9px]",
 		logoSize: "w-3.5 h-3.5",
 		iconSize: "text-[11px]",
-		minHeight: "min-h-[64px]",
+		maxHeight: "max-h-[64px] overflow-hidden",
 	},
 	default: {
 		teamText: "text-xs",
@@ -161,7 +161,7 @@ const VARIANT_STYLES = {
 		logisticsDateText: "text-[10px]",
 		logoSize: "w-4 h-4",
 		iconSize: "text-[12px]",
-		minHeight: "min-h-[72px]",
+		maxHeight: "max-h-[72px] overflow-hidden",
 	},
 	hero: {
 		teamText: "text-sm",
@@ -170,7 +170,7 @@ const VARIANT_STYLES = {
 		logisticsDateText: "text-[10px]",
 		logoSize: "w-5 h-5",
 		iconSize: "text-[13px]",
-		minHeight: "min-h-[88px]",
+		maxHeight: "max-h-[88px] overflow-hidden",
 	},
 } as const;
 
@@ -212,9 +212,7 @@ function Slot({
 				>
 					help
 				</span>
-				<span
-					className={`${styles.teamText} font-medium truncate flex-1`}
-				>
+				<span className={`${styles.teamText} font-medium truncate flex-1`}>
 					{tbdLabel ?? "Por definir"}
 				</span>
 			</div>
@@ -321,7 +319,7 @@ function MatchLogistics({ stadium, kickOff, variant }: MatchLogisticsProps) {
 					text-on-surface-variant tabular-nums whitespace-pre
 				`.trim()}
 			>
-				{dateText}  {timeText}
+				{dateText} {timeText}
 			</span>
 		</div>
 	);
@@ -378,12 +376,16 @@ export function BracketMatchCard({
 
 	// ── Card container: layout 2 columnas (slots | logística) ──
 	// TBD: dashed border en card completo. Live: ring error/30.
-	// Sprint 5D+: data-card-position para CSS targeting del árbol.
+	// Sprint 5D+ (Approach A Grid): el wrapper externo en BracketRound tiene
+	// `data-card-position`. La card interna NO lo necesita; usa `max-h` +
+	// `overflow-hidden` para que el grid layout funcione correctamente.
 	const cardClass = `
-		relative w-full ${styles.minHeight}
-		${isTbd
-			? "bg-surface-container-lowest/30 border border-dashed border-white/15"
-			: "bg-surface-container-low/40 border border-white/10"}
+		relative w-full ${styles.maxHeight}
+		${
+			isTbd
+				? "bg-surface-container-lowest/30 border border-dashed border-white/15"
+				: "bg-surface-container-low/40 border border-white/10"
+		}
 		rounded-xl p-2.5
 		flex items-stretch gap-2
 		${isInteractive ? "cursor-pointer hover:border-white/25 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none transition-[transform,border-color] duration-150" : ""}
@@ -399,9 +401,7 @@ export function BracketMatchCard({
 					teamName={match.slotA.teamName}
 					teamLogo={match.slotA.teamLogo}
 					isLive={match.slotA.isLive}
-					isWinner={
-						winnerName !== null && winnerName === match.slotA.teamName
-					}
+					isWinner={winnerName !== null && winnerName === match.slotA.teamName}
 					score={hasScore && match.score ? match.score.home : null}
 					variant={variant}
 					tbdLabel={buildTbdLabel(match.slotA.sourceMatchId)}
@@ -416,9 +416,7 @@ export function BracketMatchCard({
 					teamName={match.slotB.teamName}
 					teamLogo={match.slotB.teamLogo}
 					isLive={match.slotB.isLive}
-					isWinner={
-						winnerName !== null && winnerName === match.slotB.teamName
-					}
+					isWinner={winnerName !== null && winnerName === match.slotB.teamName}
 					score={hasScore && match.score ? match.score.away : null}
 					variant={variant}
 					tbdLabel={buildTbdLabel(match.slotB.sourceMatchId)}
@@ -464,7 +462,6 @@ export function BracketMatchCard({
 				type="button"
 				onClick={handleClick}
 				aria-label={ariaLabel}
-				data-card-position={bracketPosition}
 				className={`${cardClass} text-left`}
 			>
 				{content}
@@ -473,11 +470,7 @@ export function BracketMatchCard({
 	}
 
 	return (
-		<article
-			aria-label={ariaLabel}
-			data-card-position={bracketPosition}
-			className={cardClass}
-		>
+		<article aria-label={ariaLabel} className={cardClass}>
 			{content}
 		</article>
 	);

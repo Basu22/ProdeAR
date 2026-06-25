@@ -215,7 +215,9 @@ const URL_PARAM_MAP: Record<string, RoundAbbreviation> = {
 	"3rd": "3RD",
 };
 
-export function parseRoundParam(param: string | null): RoundAbbreviation | null {
+export function parseRoundParam(
+	param: string | null,
+): RoundAbbreviation | null {
 	if (!param) return null;
 	return URL_PARAM_MAP[param.toLowerCase()] ?? null;
 }

@@ -899,14 +899,25 @@
 	}
 }
 
-/* Gap visual en la ronda "leaving" (cards pares con margin-bottom extra) */
-.bracket-column-leaving [data-card-position="2"],
-.bracket-column-leaving [data-card-position="4"],
-.bracket-column-leaving [data-card-position="6"],
-.bracket-column-leaving [data-card-position="8"],
-.bracket-column-leaving [data-card-position="10"],
-.bracket-column-leaving [data-card-position="12"],
-.bracket-column-leaving [data-card-position="14"],
-.bracket-column-leaving [data-card-position="16"] {
-	margin-bottom: var(--bracket-gap-height, 40px);
+/* ============================================================================
+ * Bracket tree — efecto "leaving" (columna que se está dejando al scrollear)
+ * ============================================================================
+ * Sprint 5D+: cuando el usuario scrollea horizontalmente y una columna es
+ * adyacente a la activa pero se está "yendo" del viewport, le aplicamos
+ * opacity 0.5 con transition suave. No es un gap (el gap lo maneja el
+ * grid layout, no CSS variables).
+ *
+ * prefers-reduced-motion: resetea opacity a 1 y elimina la transition.
+ * ============================================================================ */
+
+[data-round][data-leaving="true"] {
+	opacity: 0.5;
+	transition: opacity 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-round][data-leaving="true"] {
+		opacity: 1;
+		transition: none;
+	}
 }

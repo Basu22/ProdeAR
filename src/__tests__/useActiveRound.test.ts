@@ -14,12 +14,12 @@
  * ============================================================================
  */
 
-import { renderHook, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { useActiveRound } from "../hooks/useActiveRound";
-import { MockIntersectionObserver } from "./setup";
-import type { RoundAbbreviation } from "../lib/roundNames";
+import { act, renderHook } from "@testing-library/react";
 import { useRef } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useActiveRound } from "../hooks/useActiveRound";
+import type { RoundAbbreviation } from "../lib/roundNames";
+import { MockIntersectionObserver } from "./setup";
 
 // ============================================================================
 // HELPERS
@@ -29,9 +29,10 @@ import { useRef } from "react";
  * Crea un container con columnas que tienen `data-round` attributes.
  * Retorna el container y un mapa de columnas por abreviatura.
  */
-function createContainerWithColumns(
-	rounds: RoundAbbreviation[],
-): { container: HTMLDivElement; columns: Map<RoundAbbreviation, HTMLDivElement> } {
+function createContainerWithColumns(rounds: RoundAbbreviation[]): {
+	container: HTMLDivElement;
+	columns: Map<RoundAbbreviation, HTMLDivElement>;
+} {
 	const container = document.createElement("div");
 	const columns = new Map<RoundAbbreviation, HTMLDivElement>();
 

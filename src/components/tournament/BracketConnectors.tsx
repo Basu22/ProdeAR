@@ -53,8 +53,11 @@
  * ```
  */
 
-import { useEffect, useRef, useState, type RefObject } from "react";
-import type { ExtendedBracketMatch, KnockoutRound } from "../../lib/bracketTypes";
+import { type RefObject, useEffect, useRef, useState } from "react";
+import type {
+	ExtendedBracketMatch,
+	KnockoutRound,
+} from "../../lib/bracketTypes";
 
 // ============================================================================
 // TYPES
@@ -142,12 +145,16 @@ function computeLinesForRoundPair(
 
 		// Determinar el estado
 		const isSourceTbd =
-			!srcA.slotA.teamName || !srcA.slotB.teamName ||
-			!srcB.slotA.teamName || !srcB.slotB.teamName;
+			!srcA.slotA.teamName ||
+			!srcA.slotB.teamName ||
+			!srcB.slotA.teamName ||
+			!srcB.slotB.teamName;
 		const isTargetTbd = !target.slotA.teamName || !target.slotB.teamName;
 		const isLive =
-			srcA.slotA.isLive || srcA.slotB.isLive ||
-			srcB.slotA.isLive || srcB.slotB.isLive;
+			srcA.slotA.isLive ||
+			srcA.slotB.isLive ||
+			srcB.slotA.isLive ||
+			srcB.slotB.isLive;
 
 		let state: ConnectorLine["state"];
 		if (isTargetTbd) state = "tbd-dest";
@@ -189,11 +196,7 @@ export function BracketConnectors({
 			const sourceRound = rounds[i]!;
 			const targetRound = rounds[i + 1]!;
 			allLines.push(
-				...computeLinesForRoundPair(
-					targetRound,
-					sourceRound,
-					containerRect,
-				),
+				...computeLinesForRoundPair(targetRound, sourceRound, containerRect),
 			);
 		}
 

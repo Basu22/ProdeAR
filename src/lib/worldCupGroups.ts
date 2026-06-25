@@ -26,6 +26,15 @@
  * @module lib/worldCupGroups
  */
 
+import { isFeatureEnabled } from "./featureFlags";
+import {
+	BEST_THIRDS_COMBINATIONS,
+	type BestThirdsAssignment,
+	FIFA_R32_MATCHUPS,
+	type GroupLetter as FIFADefGroupLetter,
+	type FIFASlotDef,
+	resolveBestThirdsAssignment,
+} from "./fifaBracketDefinition";
 import type { Match } from "./types";
 
 // ============================================================================
@@ -1077,33 +1086,32 @@ export interface KnockoutBracket {
 
 /**
  * ============================================================================
- * ESTRUCTURA DEL BRACKET (Mundial 2026 — formato simplificado)
+ * ESTRUCTURA DEL BRACKET — Mundial 2026
  * ============================================================================
  *
- * El formato oficial FIFA 2026 con 48 equipos aún no está confirmado al 100%,
- * pero la estructura lógica es:
- * - 12 grupos (A-L) → 24 equipos (1° y 2° de cada uno)
- * - + 8 mejores terceros
- * - = 32 equipos en Dieciseisavos (16 partidos)
+ * T2 (FIFA Source of Truth): esta función ahora tiene **dos implementaciones**
+ * seleccionables vía feature flag `BRACKET_V2` (default: `false`):
  *
- * En esta implementación usamos una **versión simplificada** del bracket:
+ * 1. **Legacy (BRACKET_V2 = false)** — `resolveKnockoutMatchupsLegacy`
+ *    Estructura simplificada inventada en la primera iteración:
+ *    - Partidos 1-12: pares adyacentes (1°A vs 2°B, 1°B vs 2°A, 1°C vs 2°D, ...)
+ *    - Partidos 13-16: mejores terceros emparejados secuencialmente
+ *      (3°#1 vs 3°#2, 3°#3 vs 3°#4, 3°#5 vs 3°#6, 3°#7 vs 3°#8)
+ *    ⚠️ **NO coincide con el fixture oficial FIFA 2026** — solo útil para
+ *    rollback seguro.
  *
- * **Partidos 1-12**: 1° vs 2° de grupos adyacentes en pares (A-B, C-D, E-F, G-H, I-J, K-L)
- *   - Match 1: 1°A vs 2°B
- *   - Match 2: 1°B vs 2°A
- *   - Match 3: 1°C vs 2°D
- *   - Match 4: 1°D vs 2°C
- *   - ... etc
+ * 2. **FIFA 2026 (BRACKET_V2 = true)** — implementación principal
+ *    Usa `FIFA_R32_MATCHUPS` de `fifaBracketDefinition.ts` (fuente única de
+ *    verdad oficial) y `BEST_THIRDS_COMBINATIONS` para resolver los 8 partidos
+ *    "1° vs Mejor 3°" según los 8 grupos cuyos terceros clasifican.
  *
- * **Partidos 13-16**: Mejores terceros emparejados en orden
- *   - Match 13: 3° #1 vs 3° #2
- *   - Match 14: 3° #3 vs 3° #4
- *   - Match 15: 3° #5 vs 3° #6
- *   - Match 16: 3° #7 vs 3° #8
+ *    Estructura oficial (numeración FIFA M73-M88):
+ *    - 4 partidos 2° vs 2°:        M73, M78, M83, M88
+ *    - 4 partidos 1° vs 2°:        M75, M76, M84, M86
+ *    - 8 partidos 1° vs Best 3°:   M74, M77, M79, M80, M81, M82, M85, M87
  *
- * Esta es una simplificación pedagógica para visualizar cómo se va armando
- * el bracket en vivo. El bracket oficial FIFA tiene cruces específicos entre
- * grupos (ej. 1A vs 2C) que se pueden agregar en una iteración futura.
+ *    Cada partido tiene un `bracketId` "R32-1" a "R32-16" en orden FIFA
+ *    (M73 → R32-1, M74 → R32-2, ..., M88 → R32-16).
  *
  * ============================================================================
  *
@@ -1112,6 +1120,84 @@ export interface KnockoutBracket {
  * @returns KnockoutBracket con 16 matches, cada uno con 2 slots
  */
 export function resolveKnockoutMatchups(
+	groupTables: GroupTable[],
+	bestThirds: BestThirdsTable,
+): KnockoutBracket {
+	// ============================================================================
+	// Feature flag BRACKET_V2: default false (legacy) para rollback seguro
+	// ============================================================================
+	// En producción, mientras BRACKET_V2 esté en false, la lógica legacy sigue
+	// funcionando exactamente como antes. Al activarse, se usa la fuente FIFA
+	// oficial. Esto permite A/B testing y rollback instantáneo sin redeploy.
+	if (!isFeatureEnabled("BRACKET_V2")) {
+		return resolveKnockoutMatchupsLegacy(groupTables, bestThirds);
+	}
+
+	// ============================================================================
+	// T2: Lógica nueva con definición oficial FIFA
+	// ============================================================================
+	// 1. Extraer los 8 grupos cuyos terceros clasifican (en orden alfabético
+	//    para que la key sea estable y determinística).
+	// 2. Resolver, según esos 8 grupos, qué 3° (de qué grupo) enfrenta a cada
+	//    1° en los 8 partidos "1° vs Best 3°" (M74, M77, M79, M80, M81, M82,
+	//    M85, M87) usando `resolveBestThirdsAssignment`.
+	// 3. Para cada uno de los 16 cruces FIFA, construir un `BracketMatch` con
+	//    sus dos `BracketSlot` ya resueltos (o TBD si el grupo aún no terminó).
+	// ============================================================================
+	const qualifiedGroups = extractQualifiedGroups(bestThirds);
+	const bestThirdsAssignment = resolveBestThirdsAssignment(qualifiedGroups);
+
+	const matches: BracketMatch[] = FIFA_R32_MATCHUPS.map((fifaMatch) => {
+		const slotA = resolveFIFASlot(
+			fifaMatch.slotA,
+			fifaMatch.fifaNumber,
+			bestThirdsAssignment,
+			bestThirds,
+			groupTables,
+		);
+		const slotB = resolveFIFASlot(
+			fifaMatch.slotB,
+			fifaMatch.fifaNumber,
+			bestThirdsAssignment,
+			bestThirds,
+			groupTables,
+		);
+		return {
+			id: fifaMatch.bracketId,
+			position: Number.parseInt(fifaMatch.bracketId.split("-")[1] ?? "0", 10),
+			slotA,
+			slotB,
+			isComplete: slotA.teamName !== null && slotB.teamName !== null,
+		};
+	});
+
+	const completedMatches = matches.filter((m) => m.isComplete).length;
+
+	return {
+		roundName: "Dieciseisavos de final",
+		matches,
+		completedMatches,
+		totalMatches: matches.length,
+	};
+}
+
+/**
+ * ============================================================================
+ * LEGACY: Implementación original de `resolveKnockoutMatchups` (T0)
+ * ============================================================================
+ *
+ * Estructura simplificada (NO oficial FIFA) usada como fallback mientras
+ * `BRACKET_V2` está en `false`. Permite rollback instantáneo si la nueva
+ * implementación con fuente FIFA causa algún bug en producción.
+ *
+ * Estructura:
+ * - Partidos 1-12: pares adyacentes (1°A vs 2°B, 1°B vs 2°A, ...)
+ * - Partidos 13-16: mejores terceros emparejados secuencialmente
+ *
+ * @internal Solo invocada desde `resolveKnockoutMatchups` cuando el flag
+ *           `BRACKET_V2` está deshabilitado.
+ */
+function resolveKnockoutMatchupsLegacy(
 	groupTables: GroupTable[],
 	bestThirds: BestThirdsTable,
 ): KnockoutBracket {
@@ -1232,6 +1318,198 @@ export function resolveKnockoutMatchups(
 		totalMatches: matches.length,
 	};
 }
+
+// ============================================================================
+// HELPERS PRIVADOS — Lógica FIFA (T2)
+// ============================================================================
+
+/**
+ * Mapeo de número FIFA del partido (M73-M88) → key del `BestThirdsAssignment`
+ * (M73-M88). Solo se popla para los 8 partidos que SÍ son "1° vs Best 3°" (los
+ * otros 8 — 2°vs2° y 1°vs2° — no tienen entrada en el assignment).
+ *
+ * Se usa en `resolveFIFASlot` para indexar el assignment con el `fifaNumber`
+ * del match (no con el `bracketId`).
+ */
+const FIFA_NUMBER_TO_ASSIGNMENT_KEY: Readonly<
+	Record<number, keyof BestThirdsAssignment | null>
+> = {
+	73: null,
+	74: "M74",
+	75: null,
+	76: null,
+	77: "M77",
+	78: null,
+	79: "M79",
+	80: "M80",
+	81: "M81",
+	82: "M82",
+	83: null,
+	84: null,
+	85: "M85",
+	86: null,
+	87: "M87",
+	88: null,
+};
+
+/**
+ * Extrae los 8 grupos cuyos terceros clasifican al cuadro principal, en
+ * orden alfabético (A→L). Esta lista es la **key** de las 495 combinaciones
+ * oficiales FIFA: para una combinación dada, hay 8 grupos con `qualifies=true`
+ * y 4 con `qualifies=false`.
+ *
+ * @throws Si la cantidad de terceros clasificados no es exactamente 8. Esto
+ *         indica un bug upstream en `calculateBestThirds`.
+ */
+function extractQualifiedGroups(
+	bestThirds: BestThirdsTable,
+): FIFADefGroupLetter[] {
+	const qualified = bestThirds.standings
+		.filter((s) => s.qualifies)
+		.map((s) => s.groupLetter as FIFADefGroupLetter);
+	if (qualified.length !== 8) {
+		throw new Error(
+			`[resolveKnockoutMatchups] Se esperan 8 mejores terceros clasificados, hay ${qualified.length}. ` +
+				`Esto indica un bug en calculateBestThirds o en la lectura de standings.`,
+		);
+	}
+	return [...qualified].sort();
+}
+
+/**
+ * Resuelve un `FIFASlotDef` (declaración de slot de la fuente FIFA) a un
+ * `BracketSlot` populado con el equipo real (o TBD si el grupo aún no
+ * terminó / no clasifica).
+ *
+ * ============================================================================
+ * CASO best3rd: EL GRUPO DEL TERCERO PUEDE NO ESTAR EN `qualifiedGroups`
+ * ============================================================================
+ * Esto ocurre cuando el pool de "Best 3°" para un partido (ej. M74: 1°E vs
+ * 3° de {A,B,C,D,F}) incluye grupos que NO están entre los 8 que clasifican
+ * (en este ejemplo, si A,B,C clasifican pero D y F no). En ese caso, la
+ * `BestThirdsAssignment` ya tiene resuelto qué grupo específico juega, y si
+ * ese grupo está en `bestThirds.standings` con `qualifies=true`, lo usamos;
+ * si no, el slot queda TBD hasta que la fase de grupos avance.
+ *
+ * @param fifaSlot - Definición FIFA del slot (slotA o slotB de un match)
+ * @param matchFifaNumber - Número FIFA del partido contenedor (73-88). Necesario
+ *                          para indexar el `BestThirdsAssignment` cuando el
+ *                          slot es de tipo `best3rd`.
+ * @param bestThirdsAssignment - Mapa M74/M77/.../M87 → grupo del 3° rival
+ * @param bestThirds - Tabla completa de mejores terceros (12 equipos)
+ * @param groupTables - Tablas de los 12 grupos
+ */
+function resolveFIFASlot(
+	fifaSlot: FIFASlotDef,
+	matchFifaNumber: number,
+	bestThirdsAssignment: BestThirdsAssignment,
+	bestThirds: BestThirdsTable,
+	groupTables: GroupTable[],
+): BracketSlot {
+	// -------------------------------------------------------------------------
+	// Caso 1: slot es 1° o 2° de un grupo fijo
+	// -------------------------------------------------------------------------
+	if (fifaSlot.slotType === "1st" || fifaSlot.slotType === "2nd") {
+		const positionIndex = fifaSlot.slotType === "1st" ? 0 : 1;
+		const group = groupTables.find((g) => g.groupLetter === fifaSlot.group);
+		const team = group?.standings[positionIndex];
+		return {
+			slotType: fifaSlot.slotType,
+			groupLetter: fifaSlot.group,
+			bestThirdRank: null,
+			teamName: team?.teamName ?? null,
+			teamLogo: team?.logo ?? null,
+			isLive: team?.isLive ?? false,
+		};
+	}
+
+	// -------------------------------------------------------------------------
+	// Caso 2: slot es "Mejor 3°" → resolver vía bestThirdsAssignment
+	// -------------------------------------------------------------------------
+	if (fifaSlot.slotType === "best3rd") {
+		const assignmentKey = FIFA_NUMBER_TO_ASSIGNMENT_KEY[matchFifaNumber];
+		// Si el match no es "1° vs Best 3°" (raro — indica desincronización con
+		// FIFA_R32_MATCHUPS), retornamos un slot TBD silencioso.
+		if (!assignmentKey) {
+			return {
+				slotType: "best3rd",
+				groupLetter: null,
+				bestThirdRank: null,
+				teamName: null,
+				teamLogo: null,
+				isLive: false,
+			};
+		}
+
+		const thirdGroupLetter = bestThirdsAssignment[assignmentKey];
+		const thirdStanding = bestThirds.standings.find(
+			(s) => s.groupLetter === thirdGroupLetter,
+		);
+
+		// -------------------------------------------------------------------------
+		// Sub-caso 2a: el grupo del 3° no clasifica (NO está en top 8 de
+		//              mejores terceros) → slot TBD.
+		// Sub-caso 2b: el grupo del 3° sí clasifica pero no tenemos el standing
+		//              cargado (grupo vacío en groupTables) → slot TBD.
+		// Sub-caso 2c: el 3° tiene `teamName` vacío/null (3° aún no computado
+		//              porque el grupo tiene partidos live/pendientes) → slot
+		//              TBD pero con `groupLetter` populado (la FIFA ya nos
+		//              dice de qué grupo viene).
+		// -------------------------------------------------------------------------
+		if (!thirdStanding?.qualifies) {
+			return {
+				slotType: "best3rd",
+				groupLetter: null,
+				bestThirdRank: null,
+				teamName: null,
+				teamLogo: null,
+				isLive: false,
+			};
+		}
+
+		// Sub-caso 2c: standing existe y califica, pero el equipo no está
+		// aún determinado (live / pending). Devolvemos TBD parcial: sabemos
+		// el grupo (FIFA) y el rank, pero no el teamName.
+		if (!thirdStanding.teamName) {
+			return {
+				slotType: "best3rd",
+				groupLetter: thirdGroupLetter,
+				bestThirdRank: thirdStanding.rank,
+				teamName: null,
+				teamLogo: null,
+				isLive: thirdStanding.isLive,
+			};
+		}
+
+		return {
+			slotType: "best3rd",
+			groupLetter: thirdGroupLetter,
+			bestThirdRank: thirdStanding.rank,
+			teamName: thirdStanding.teamName,
+			teamLogo: thirdStanding.logo,
+			isLive: thirdStanding.isLive,
+		};
+	}
+
+	// -------------------------------------------------------------------------
+	// Caso 3: tipo desconocido — no debería pasar si FIFA_R32_MATCHUPS está bien
+	// -------------------------------------------------------------------------
+	throw new Error(
+		`[resolveKnockoutMatchups] Tipo de slot FIFA desconocido: ${(fifaSlot as { slotType: string }).slotType}`,
+	);
+}
+
+/**
+ * Re-exporta la cantidad total de combinaciones oficiales FIFA de "mejores
+ * terceros" (C(12,8) = 495). Útil para tests y para que `bracketEngine` /
+ * consumers externos no necesiten importar `fifaBracketDefinition`
+ * directamente.
+ */
+export {
+	BEST_THIRDS_COMBINATIONS,
+	FIFA_R32_MATCHUPS,
+	resolveBestThirdsAssignment,
+};
 
 /**
  * Calcula las tablas de posiciones de los 12 grupos del Mundial 2026.

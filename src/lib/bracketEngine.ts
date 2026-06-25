@@ -35,6 +35,14 @@ import type {
 	KnockoutRound,
 } from "./bracketTypes";
 import { ROUND_CATALOG } from "./bracketTypes";
+import { isFeatureEnabled } from "./featureFlags";
+import {
+	FIFA_FINAL,
+	FIFA_QF_MATCHUPS,
+	FIFA_R16_MATCHUPS,
+	FIFA_SF_MATCHUPS,
+	FIFA_THIRD_PLACE,
+} from "./fifaBracketDefinition";
 import type { RoundAbbreviation } from "./roundNames";
 import type { Match } from "./types";
 import type {
@@ -116,19 +124,229 @@ export function resolveRoundOf16(
 }
 
 /**
- * Resuelve los 8 partidos de Octavos (R16) emparejando ganadores de R32:
- *   R16-1 = ganador(R32-1) vs ganador(R32-2)
- *   R16-2 = ganador(R32-3) vs ganador(R32-4)
- *   ...
+ * Resuelve los 8 partidos de Octavos (R16) emparejando ganadores de R32.
  *
- * Si un R32 no tiene ganador (slot TBD), el slot correspondiente del R16
- * queda TBD hasta que se propague el resultado.
+ * ============================================================================
+ * T3: BRACKET_V2 — DUAL IMPLEMENTATION
+ * ============================================================================
+ * Wrapper que selecciona la implementación según el feature flag:
+ * - `BRACKET_V2 = false` (default) → `resolveQuarterFinalsLegacy` (secuencial)
+ * - `BRACKET_V2 = true`            → cruces oficiales FIFA via
+ *                                   `FIFA_R16_MATCHUPS` (M89-M96)
  *
  * **Nota sobre naming:** La función se llama `resolveQuarterFinals` (legacy)
  * porque en el plan original "Quarter" se refería a la ronda R16. Esta
  * función produce los partidos de Octavos (R16), NO los Cuartos.
  */
 export function resolveQuarterFinals(
+	roundOf16Matches: ExtendedBracketMatch[],
+): ExtendedBracketMatch[] {
+	if (!isFeatureEnabled("BRACKET_V2")) {
+		return resolveQuarterFinalsLegacy(roundOf16Matches);
+	}
+	return resolveRoundFromFixtures(
+		roundOf16Matches,
+		FIFA_R16_MATCHUPS,
+		"R16",
+		ROUND_CATALOG.R16.multiplier,
+	);
+}
+
+/**
+ * Resuelve los 4 partidos de Cuartos de Final (QF) emparejando ganadores
+ * de R16.
+ *
+ * ============================================================================
+ * T3: BRACKET_V2 — DUAL IMPLEMENTATION
+ * ============================================================================
+ * - `BRACKET_V2 = false` (default) → `resolveSemiFinalsLegacy` (secuencial)
+ * - `BRACKET_V2 = true`            → cruces oficiales FIFA via
+ *                                   `FIFA_QF_MATCHUPS` (M97-M100)
+ *
+ * **Nota sobre naming:** Idéntico a `resolveQuarterFinals`, produce la
+ * ronda siguiente a la que recibe.
+ */
+export function resolveSemiFinals(
+	r16Matches: ExtendedBracketMatch[],
+): ExtendedBracketMatch[] {
+	if (!isFeatureEnabled("BRACKET_V2")) {
+		return resolveSemiFinalsLegacy(r16Matches);
+	}
+	return resolveRoundFromFixtures(
+		r16Matches,
+		FIFA_QF_MATCHUPS,
+		"QF",
+		ROUND_CATALOG.QF.multiplier,
+	);
+}
+
+/**
+ * Resuelve los 2 partidos de Semifinal (SF) y la Final (F).
+ *
+ * ============================================================================
+ * T3: BRACKET_V2 — DUAL IMPLEMENTATION
+ * ============================================================================
+ * - `BRACKET_V2 = false` (default) → `resolveFinalLegacy` (secuencial)
+ * - `BRACKET_V2 = true`            → cruces oficiales FIFA via
+ *                                   `FIFA_SF_MATCHUPS` (SF) + `FIFA_FINAL` (F-1)
+ */
+export function resolveFinal(quarterMatches: ExtendedBracketMatch[]): {
+	semiMatches: ExtendedBracketMatch[];
+	finalMatch: ExtendedBracketMatch;
+} {
+	if (!isFeatureEnabled("BRACKET_V2")) {
+		return resolveFinalLegacy(quarterMatches);
+	}
+	const semiMatches = resolveRoundFromFixtures(
+		quarterMatches,
+		FIFA_SF_MATCHUPS,
+		"SF",
+		ROUND_CATALOG.SF.multiplier,
+	);
+	const finalMatch = resolveSingleMatchFromFixture(
+		semiMatches,
+		FIFA_FINAL,
+		ROUND_CATALOG.F.multiplier,
+	);
+	return { semiMatches, finalMatch };
+}
+
+/**
+ * Resuelve el partido por el 3er puesto a partir de los perdedores de SF.
+ *   3RD-1 = perdedor(SF-1) vs perdedor(SF-2)
+ *
+ * ============================================================================
+ * T3: BRACKET_V2 — DUAL IMPLEMENTATION
+ * ============================================================================
+ * - `BRACKET_V2 = false` (default) → `resolveThirdPlaceLegacy` (pre-llena
+ *                                   slots con perdedores de SF si están
+ *                                   disponibles; legacy: el 3RD queda con
+ *                                   teamName pre-llenado).
+ * - `BRACKET_V2 = true`            → `resolveThirdPlaceFromFixture`. Los
+ *                                   slots quedan VACÍOS (teamName = null) y
+ *                                   se llenan con los perdedores durante
+ *                                   `propagateLosersToThirdPlace`. Esto es
+ *                                   más correcto: 3RD no debería pre-llenarse
+ *                                   en construcción.
+ */
+export function resolveThirdPlace(
+	semiMatches: ExtendedBracketMatch[],
+): ExtendedBracketMatch {
+	if (!isFeatureEnabled("BRACKET_V2")) {
+		return resolveThirdPlaceLegacy(semiMatches);
+	}
+	return resolveThirdPlaceFromFixture(semiMatches);
+}
+
+// ============================================================================
+// WINNER / LOSER HELPERS
+// ============================================================================
+
+/**
+ * Determina el ganador de un partido del bracket.
+ *
+ * - Retorna el nombre del equipo si hay score y no hay empate
+ * - Retorna null si no hay score, o si hay empate sin info de penales
+ *
+ * **IMPORTANTE:** En caso de empate, esta función NO puede resolver
+ * quién ganó por penales usando solo `ExtendedBracketMatch`. La info de
+ * `penaltyWinner` viene del `Match` de la DB y se aplica en
+ * `propagateBracketWinners`.
+ */
+export function getWinnerOfBracketMatch(
+	match: ExtendedBracketMatch,
+): string | null {
+	if (!match.score) return null;
+	const { home, away } = match.score;
+	if (home === away) {
+		// Empate: no podemos resolver sin penaltyWinner de la DB
+		return null;
+	}
+	return home > away ? match.slotA.teamName : match.slotB.teamName;
+}
+
+/**
+ * Determina el perdedor de un partido del bracket.
+ * Retorna un objeto con teamName, teamLogo y decidedByPenalties, o null
+ * si no se puede determinar.
+ *
+ * ============================================================================
+ * T0 HOTFIX 2026-06-25: Manejo de penales
+ * ============================================================================
+ * Si el partido terminó empatado pero se definió por penales
+ * (`decidedByPenalties === true` y `match.winner` está populado),
+ * el perdedor es el equipo que NO ganó. Esto es necesario para
+ * propagar correctamente los perdedores de SF al partido por el 3er puesto.
+ *
+ * Caso típico: SF-1 termina 1-1 y se define por penales para Argentina.
+ * El perdedor (Francia) debe ir al 3RD-1.
+ *
+ * Pre-condición: `propagateBracketWinners` ya populó `match.winner` y
+ * `match.decidedByPenalties` desde el `Match` de la DB.
+ */
+function getLoserOfBracketMatch(match: ExtendedBracketMatch): {
+	teamName: string;
+	teamLogo: string | null;
+	decidedByPenalties: boolean;
+} | null {
+	if (!match.score) return null;
+	const { home, away } = match.score;
+
+	// Caso 1: Resultado normal (no hubo empate)
+	if (home > away) {
+		return {
+			teamName: match.slotB.teamName ?? "",
+			teamLogo: match.slotB.teamLogo,
+			decidedByPenalties: match.decidedByPenalties,
+		};
+	}
+	if (away > home) {
+		return {
+			teamName: match.slotA.teamName ?? "",
+			teamLogo: match.slotA.teamLogo,
+			decidedByPenalties: match.decidedByPenalties,
+		};
+	}
+
+	// Caso 2: Empate (home === away)
+	// Si se definió por penales y tenemos el winner populado, el perdedor es
+	// el equipo que NO ganó.
+	if (match.decidedByPenalties && match.winner) {
+		const loserIsSlotA = match.winner === match.slotB.teamName;
+		return {
+			teamName: loserIsSlotA
+				? (match.slotA.teamName ?? "")
+				: (match.slotB.teamName ?? ""),
+			teamLogo: loserIsSlotA ? match.slotA.teamLogo : match.slotB.teamLogo,
+			decidedByPenalties: true,
+		};
+	}
+
+	// Empate sin info de penales: no se puede determinar el perdedor
+	return null;
+}
+
+// ============================================================================
+// LEGACY IMPLEMENTATIONS (T3: BRACKET_V2 = false)
+// ============================================================================
+// Las funciones `*Legacy` son las implementaciones originales de T0-T2
+// (emparejamiento secuencial: R16-1 = W(R32-1) vs W(R32-2), etc.).
+// Se preservan tal cual para que BRACKET_V2 = false mantenga el
+// comportamiento legacy exacto (sin cambios en tests existentes).
+// ============================================================================
+
+/**
+ * Resuelve los 8 partidos de Octavos (R16) emparejando ganadores de R32 de
+ * forma **secuencial**:
+ *   R16-1 = ganador(R32-1) vs ganador(R32-2)
+ *   R16-2 = ganador(R32-3) vs ganador(R32-4)
+ *   ...
+ *
+ * ⚠️ Esta implementación **NO coincide con el fixture oficial FIFA 2026**
+ * (donde, p.ej., R16-1 = W(R32-1) vs W(R32-3)). Se preserva solo para
+ * rollback seguro vía `BRACKET_V2 = false`.
+ */
+function resolveQuarterFinalsLegacy(
 	roundOf16Matches: ExtendedBracketMatch[],
 ): ExtendedBracketMatch[] {
 	const result: ExtendedBracketMatch[] = [];
@@ -183,43 +401,40 @@ export function resolveQuarterFinals(
 
 /**
  * Resuelve los 4 partidos de Cuartos de Final (QF) emparejando ganadores
- * de R16. Misma lógica que `resolveQuarterFinals` pero produce QF.
- *
- * **Nota sobre naming:** Idéntico a `resolveQuarterFinals`, produce la
- * ronda siguiente a la que recibe.
+ * de R16 de forma **secuencial** (legacy).
  */
-export function resolveSemiFinals(
+function resolveSemiFinalsLegacy(
 	r16Matches: ExtendedBracketMatch[],
 ): ExtendedBracketMatch[] {
-	return pairWinnersIntoRound(r16Matches, "QF", ROUND_CATALOG.QF.multiplier);
+	return pairWinnersIntoRoundLegacy(
+		r16Matches,
+		"QF",
+		ROUND_CATALOG.QF.multiplier,
+	);
 }
 
 /**
- * Resuelve los 2 partidos de Semifinal (SF) y la Final (F).
- *   SF-1 = ganador(QF-1) vs ganador(QF-2)
- *   SF-2 = ganador(QF-3) vs ganador(QF-4)
- *   F-1  = ganador(SF-1) vs ganador(SF-2)
+ * Resuelve los 2 partidos de Semifinal (SF) y la Final (F) con emparejamiento
+ * **secuencial** (legacy).
  */
-export function resolveFinal(quarterMatches: ExtendedBracketMatch[]): {
+function resolveFinalLegacy(quarterMatches: ExtendedBracketMatch[]): {
 	semiMatches: ExtendedBracketMatch[];
 	finalMatch: ExtendedBracketMatch;
 } {
-	const semiMatches = pairWinnersIntoRound(
+	const semiMatches = pairWinnersIntoRoundLegacy(
 		quarterMatches,
 		"SF",
 		ROUND_CATALOG.SF.multiplier,
 	);
-	const finalMatch = pairTwoIntoFinal(semiMatches);
+	const finalMatch = pairTwoIntoFinalLegacy(semiMatches);
 	return { semiMatches, finalMatch };
 }
 
 /**
- * Resuelve el partido por el 3er puesto a partir de los perdedores de SF.
- *   3RD-1 = perdedor(SF-1) vs perdedor(SF-2)
- *
- * Si una SF no tiene perdedor (aún no se jugó), el slot queda TBD.
+ * Resuelve el partido por el 3er puesto (legacy: pre-llena slots con los
+ * perdedores de SF si están disponibles al momento de construcción).
  */
-export function resolveThirdPlace(
+function resolveThirdPlaceLegacy(
 	semiMatches: ExtendedBracketMatch[],
 ): ExtendedBracketMatch {
 	const sf1 = semiMatches[0];
@@ -264,69 +479,12 @@ export function resolveThirdPlace(
 	};
 }
 
-// ============================================================================
-// WINNER / LOSER HELPERS
-// ============================================================================
-
 /**
- * Determina el ganador de un partido del bracket.
- *
- * - Retorna el nombre del equipo si hay score y no hay empate
- * - Retorna null si no hay score, o si hay empate sin info de penales
- *
- * **IMPORTANTE:** En caso de empate, esta función NO puede resolver
- * quién ganó por penales usando solo `ExtendedBracketMatch`. La info de
- * `penaltyWinner` viene del `Match` de la DB y se aplica en
- * `propagateBracketWinners`.
+ * Empareja ganadores de N matches en N/2 partidos de la ronda siguiente
+ * de forma **secuencial** (legacy). Helper genérico usado por
+ * `resolveQuarterFinalsLegacy`, `resolveSemiFinalsLegacy`, `resolveFinalLegacy`.
  */
-export function getWinnerOfBracketMatch(
-	match: ExtendedBracketMatch,
-): string | null {
-	if (!match.score) return null;
-	const { home, away } = match.score;
-	if (home === away) {
-		// Empate: no podemos resolver sin penaltyWinner de la DB
-		return null;
-	}
-	return home > away ? match.slotA.teamName : match.slotB.teamName;
-}
-
-/**
- * Determina el perdedor de un partido del bracket.
- * Retorna un objeto con teamName, teamLogo y decidedByPenalties, o null
- * si no se puede determinar.
- */
-function getLoserOfBracketMatch(match: ExtendedBracketMatch): {
-	teamName: string;
-	teamLogo: string | null;
-	decidedByPenalties: boolean;
-} | null {
-	if (!match.score) return null;
-	const { home, away } = match.score;
-	if (home === away) return null; // Empate: no podemos resolver
-	if (home > away) {
-		return {
-			teamName: match.slotB.teamName ?? "",
-			teamLogo: match.slotB.teamLogo,
-			decidedByPenalties: match.decidedByPenalties,
-		};
-	}
-	return {
-		teamName: match.slotA.teamName ?? "",
-		teamLogo: match.slotA.teamLogo,
-		decidedByPenalties: match.decidedByPenalties,
-	};
-}
-
-// ============================================================================
-// PAIR HELPERS
-// ============================================================================
-
-/**
- * Empareja ganadores de N matches en N/2 partidos de la ronda siguiente.
- * Helper genérico usado por R16, QF, SF.
- */
-function pairWinnersIntoRound(
+function pairWinnersIntoRoundLegacy(
 	sourceMatches: ExtendedBracketMatch[],
 	targetRound: RoundAbbreviation,
 	multiplier: number,
@@ -379,9 +537,9 @@ function pairWinnersIntoRound(
 }
 
 /**
- * Empareja 2 semifinalistas en 1 final.
+ * Empareja 2 semifinalistas en 1 final (legacy).
  */
-function pairTwoIntoFinal(
+function pairTwoIntoFinalLegacy(
 	semiMatches: ExtendedBracketMatch[],
 ): ExtendedBracketMatch {
 	const sf1 = semiMatches[0];
@@ -420,6 +578,208 @@ function pairTwoIntoFinal(
 		decidedByPenalties: false,
 		bracketPosition: "F-1",
 		stageMultiplier: ROUND_CATALOG.F.multiplier,
+	};
+}
+
+// ============================================================================
+// FIFA HELPERS (T3: BRACKET_V2 = true)
+// ============================================================================
+// Helpers genéricos que construyen rondas a partir de los fixtures oficiales
+// FIFA. Usan `bracketPosition` del match fuente como link de propagación
+// (no por índice de array), lo cual es robusto ante cualquier reorden de R32.
+//
+// Cada helper toma un subset del tipo FIFA def correspondiente
+// (FIFAR16MatchDef | FIFAQFMatchDef | FIFASFMatchDef) y produce los
+// `ExtendedBracketMatch` con `sourceMatchId` apuntando a los bracketIds
+// de los partidos fuente.
+// ============================================================================
+
+/**
+ * Estructura mínima de un fixture FIFA usada por `resolveRoundFromFixtures`.
+ * `FIFAR16MatchDef`, `FIFAQFMatchDef` y `FIFASFMatchDef` la satisfacen.
+ */
+interface FIFAFixtureSource {
+	bracketId: string;
+	sourceMatchA: string;
+	sourceMatchB: string;
+}
+
+/**
+ * Construye los partidos de una ronda (R16 / QF / SF) a partir de los cruces
+ * oficiales FIFA y los partidos de la ronda anterior.
+ *
+ * Comportamiento:
+ * - Cada fixture produce un `ExtendedBracketMatch` con `bracketPosition` igual
+ *   al `bracketId` del fixture (ej. "R16-1"), no un índice de array.
+ * - `slotA.sourceMatchId` y `slotB.sourceMatchId` apuntan a los `bracketPosition`
+ *   de los partidos fuente (que en R32/R16/QF también son "R32-1", "R16-3", etc.).
+ * - `teamName`/`teamLogo` se populan desde `source.winner`/`source.winnerLogo`
+ *   si están disponibles (es decir, si el match fuente ya terminó).
+ * - `isComplete` es `true` solo si ambos sources tienen winner.
+ */
+function resolveRoundFromFixtures<T extends FIFAFixtureSource>(
+	sourceMatches: ExtendedBracketMatch[],
+	fixtures: readonly T[],
+	targetRound: RoundAbbreviation,
+	multiplier: number,
+): ExtendedBracketMatch[] {
+	return fixtures.map((fixture, idx) => {
+		const sourceA = sourceMatches.find(
+			(m) => m.bracketPosition === fixture.sourceMatchA,
+		);
+		const sourceB = sourceMatches.find(
+			(m) => m.bracketPosition === fixture.sourceMatchB,
+		);
+
+		const position = idx + 1;
+		const id = fixture.bracketId || `${targetRound}-${position}`;
+
+		return {
+			id,
+			position,
+			slotA: {
+				slotType: "winner",
+				groupLetter: null,
+				bestThirdRank: null,
+				teamName: sourceA?.winner ?? null,
+				teamLogo: sourceA?.winnerLogo ?? null,
+				isLive: false,
+				sourceMatchId: sourceA?.bracketPosition ?? null,
+				decidedByPenalties: sourceA?.decidedByPenalties ?? false,
+			},
+			slotB: {
+				slotType: "winner",
+				groupLetter: null,
+				bestThirdRank: null,
+				teamName: sourceB?.winner ?? null,
+				teamLogo: sourceB?.winnerLogo ?? null,
+				isLive: false,
+				sourceMatchId: sourceB?.bracketPosition ?? null,
+				decidedByPenalties: sourceB?.decidedByPenalties ?? false,
+			},
+			isComplete: sourceA?.winner != null && sourceB?.winner != null,
+			dbMatchId: null,
+			winner: null,
+			winnerLogo: null,
+			score: null,
+			stadium: null,
+			kickOff: null,
+			decidedByPenalties: false,
+			bracketPosition: id,
+			stageMultiplier: multiplier,
+		};
+	});
+}
+
+/**
+ * Construye un único match (F-1) a partir de un fixture FIFA con dos sources.
+ * Usado para la Final: F-1 = W(SF-1) vs W(SF-2).
+ */
+function resolveSingleMatchFromFixture(
+	sourceMatches: ExtendedBracketMatch[],
+	fixture: FIFAFixtureSource,
+	multiplier: number,
+): ExtendedBracketMatch {
+	const sourceA = sourceMatches.find(
+		(m) => m.bracketPosition === fixture.sourceMatchA,
+	);
+	const sourceB = sourceMatches.find(
+		(m) => m.bracketPosition === fixture.sourceMatchB,
+	);
+
+	return {
+		id: fixture.bracketId,
+		position: 1,
+		slotA: {
+			slotType: "winner",
+			groupLetter: null,
+			bestThirdRank: null,
+			teamName: sourceA?.winner ?? null,
+			teamLogo: sourceA?.winnerLogo ?? null,
+			isLive: false,
+			sourceMatchId: sourceA?.bracketPosition ?? null,
+			decidedByPenalties: sourceA?.decidedByPenalties ?? false,
+		},
+		slotB: {
+			slotType: "winner",
+			groupLetter: null,
+			bestThirdRank: null,
+			teamName: sourceB?.winner ?? null,
+			teamLogo: sourceB?.winnerLogo ?? null,
+			isLive: false,
+			sourceMatchId: sourceB?.bracketPosition ?? null,
+			decidedByPenalties: sourceB?.decidedByPenalties ?? false,
+		},
+		isComplete: sourceA?.winner != null && sourceB?.winner != null,
+		dbMatchId: null,
+		winner: null,
+		winnerLogo: null,
+		score: null,
+		stadium: null,
+		kickOff: null,
+		decidedByPenalties: false,
+		bracketPosition: fixture.bracketId,
+		stageMultiplier: multiplier,
+	};
+}
+
+/**
+ * Construye el match 3RD-1 a partir del fixture FIFA.
+ *
+ * A diferencia de los otros helpers, **NO popula `teamName`/`teamLogo` desde
+ * los sources** porque el 3RD se llena con los **perdedores** de SF, no con
+ * los ganadores. Esta función solo establece la estructura del match:
+ * - `slotA.sourceMatchId = "SF-1"` y `slotB.sourceMatchId = "SF-2"`
+ * - `teamName`/`teamLogo` quedan en `null`
+ * - `isComplete: false` al inicio
+ *
+ * Los perdedores se inyectan durante `propagateLosersToThirdPlace`, que
+ * matchea `semi.bracketPosition === thirdPlaceMatch.slotA.sourceMatchId`
+ * (es decir, "SF-1" === "SF-1" para slotA, y "SF-2" === "SF-2" para slotB).
+ */
+function resolveThirdPlaceFromFixture(
+	semiMatches: ExtendedBracketMatch[],
+): ExtendedBracketMatch {
+	const sourceA = semiMatches.find(
+		(m) => m.bracketPosition === FIFA_THIRD_PLACE.sourceMatchA,
+	);
+	const sourceB = semiMatches.find(
+		(m) => m.bracketPosition === FIFA_THIRD_PLACE.sourceMatchB,
+	);
+
+	return {
+		id: "3RD-1",
+		position: 1,
+		slotA: {
+			slotType: "winner",
+			groupLetter: null,
+			bestThirdRank: null,
+			teamName: null,
+			teamLogo: null,
+			isLive: false,
+			sourceMatchId: sourceA?.bracketPosition ?? FIFA_THIRD_PLACE.sourceMatchA,
+			decidedByPenalties: false,
+		},
+		slotB: {
+			slotType: "winner",
+			groupLetter: null,
+			bestThirdRank: null,
+			teamName: null,
+			teamLogo: null,
+			isLive: false,
+			sourceMatchId: sourceB?.bracketPosition ?? FIFA_THIRD_PLACE.sourceMatchB,
+			decidedByPenalties: false,
+		},
+		isComplete: false,
+		dbMatchId: null,
+		winner: null,
+		winnerLogo: null,
+		score: null,
+		stadium: null,
+		kickOff: null,
+		decidedByPenalties: false,
+		bracketPosition: "3RD-1",
+		stageMultiplier: ROUND_CATALOG["3RD"].multiplier,
 	};
 }
 
@@ -587,6 +947,17 @@ function propagateWinnersToNextRound(
 
 /**
  * Copia perdedores de SF al partido por el 3er puesto.
+ *
+ * ============================================================================
+ * T0 HOTFIX 2026-06-25: Manejo de penales
+ * ============================================================================
+ * Si una SF termina empatada y se define por penales
+ * (`decidedByPenalties === true` y `winner` está populado), el perdedor
+ * es el equipo que NO ganó. Esto evita que el 3RD quede con slots TBD
+ * para siempre cuando hay penales en SF (bug pre-T0).
+ *
+ * Pre-condición: `propagateBracketWinners` ya populó `semi.score`,
+ * `semi.winner` y `semi.decidedByPenalties` desde el `Match` de la DB.
  */
 function propagateLosersToThirdPlace(
 	semiMatches: ExtendedBracketMatch[],
@@ -595,18 +966,39 @@ function propagateLosersToThirdPlace(
 	for (const semi of semiMatches) {
 		if (!semi.score) continue;
 		const { home, away } = semi.score;
-		if (home === away) continue; // Empate sin penales → no se puede determinar perdedor
 
-		const loserName = home > away ? semi.slotB.teamName : semi.slotA.teamName;
-		const loserLogo = home > away ? semi.slotB.teamLogo : semi.slotA.teamLogo;
+		let loserName: string | null | undefined;
+		let loserLogo: string | null | undefined;
+
+		if (home > away) {
+			// Victoria normal: perdedor es el visitante
+			loserName = semi.slotB.teamName;
+			loserLogo = semi.slotB.teamLogo;
+		} else if (away > home) {
+			// Victoria normal: perdedor es el local
+			loserName = semi.slotA.teamName;
+			loserLogo = semi.slotA.teamLogo;
+		} else {
+			// Empate: solo podemos resolver si se definió por penales
+			// y tenemos el winner populado (T0 hotfix).
+			if (semi.decidedByPenalties && semi.winner) {
+				// El perdedor es el equipo que NO ganó los penales
+				const loserIsSlotA = semi.winner === semi.slotB.teamName;
+				loserName = loserIsSlotA ? semi.slotA.teamName : semi.slotB.teamName;
+				loserLogo = loserIsSlotA ? semi.slotA.teamLogo : semi.slotB.teamLogo;
+			} else {
+				// Empate sin info de penales: no se puede determinar
+				continue;
+			}
+		}
 
 		// Asignar al slot correspondiente (mismo orden: SF-1 → slotA, SF-2 → slotB)
 		if (semi.bracketPosition === thirdPlaceMatch.slotA.sourceMatchId) {
-			thirdPlaceMatch.slotA.teamName = loserName;
-			thirdPlaceMatch.slotA.teamLogo = loserLogo;
+			thirdPlaceMatch.slotA.teamName = loserName ?? null;
+			thirdPlaceMatch.slotA.teamLogo = loserLogo ?? null;
 		} else if (semi.bracketPosition === thirdPlaceMatch.slotB.sourceMatchId) {
-			thirdPlaceMatch.slotB.teamName = loserName;
-			thirdPlaceMatch.slotB.teamLogo = loserLogo;
+			thirdPlaceMatch.slotB.teamName = loserName ?? null;
+			thirdPlaceMatch.slotB.teamLogo = loserLogo ?? null;
 		}
 	}
 	thirdPlaceMatch.isComplete =

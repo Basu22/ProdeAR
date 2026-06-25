@@ -211,7 +211,9 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 			screen.getByRole("button", { name: /ir a final/i }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: /ir a partido por el tercer puesto/i }),
+			screen.getByRole("button", {
+				name: /ir a partido por el tercer puesto/i,
+			}),
 		).toBeInTheDocument();
 	});
 
@@ -331,9 +333,10 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 
 	it("?round=3rd scrollea a columna F (3RD es sub-card de F)", async () => {
 		const bracket = makeEmptyBracket();
-		const { container } = renderWithRouter(<BracketQuadro bracket={bracket} />, [
-			"/?round=3rd",
-		]);
+		const { container } = renderWithRouter(
+			<BracketQuadro bracket={bracket} />,
+			["/?round=3rd"],
+		);
 
 		// Esperar a que el effect de URL→scroll se ejecute
 		await new Promise((resolve) => setTimeout(resolve, 50));
@@ -376,9 +379,7 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		const scrollToMock = Element.prototype.scrollTo as ReturnType<typeof vi.fn>;
 		const calls = scrollToMock.mock.calls;
 
-		const hasAutoBehavior = calls.some(
-			(call) => call[0]?.behavior === "auto",
-		);
+		const hasAutoBehavior = calls.some((call) => call[0]?.behavior === "auto");
 		expect(hasAutoBehavior).toBe(true);
 
 		// Restaurar el mock original

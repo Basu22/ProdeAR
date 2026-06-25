@@ -44,6 +44,17 @@ const MULTIPLIERS = [
 	{ stage: "Octavos de Final", multiplier: "×3" },
 	{ stage: "Cuartos de Final", multiplier: "×4" },
 	{ stage: "Semifinales", multiplier: "×5" },
+	// ============================================================================
+	// T0 HOTFIX 2026-06-25: Tercer Puesto = ×4 (alineado con scoring real)
+	// ============================================================================
+	// Este valor es la FUENTE DE VERDAD del multiplier para el partido por el
+	// 3er puesto. Coincide con:
+	//   - `src/lib/bracketTypes.ts` (ROUND_CATALOG["3RD"].multiplier)
+	//   - `supabase/functions/poll-scores/index.ts:92` (getStageMultiplier)
+	//   - `supabase/migrations/0006_bracket_stages.sql` (seed)
+	//
+	// Antes del hotfix, `bracketTypes.ts` tenía 5 (incorrecto), pero el scoring
+	// real siempre usó 4. Este component ya estaba correcto (×4).
 	{ stage: "Tercer Puesto", multiplier: "×4" },
 	{ stage: "Final", multiplier: "×6" },
 ];

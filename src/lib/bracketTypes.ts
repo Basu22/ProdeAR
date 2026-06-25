@@ -76,7 +76,20 @@ export const ROUND_CATALOG: Record<RoundAbbreviation, RoundMeta> = {
 	"3RD": {
 		abbr: "3RD",
 		label: "Tercer Puesto",
-		multiplier: 5,
+		// ============================================================================
+		// T0 HOTFIX 2026-06-25: stageMultiplier 3RD = 4 (no 5)
+		// ============================================================================
+		// El valor correcto es **4** (alineado con `poll-scores/index.ts:92` que es
+		// la fuente real de scoring, con `SolDeMayoRulesModal.tsx:47` que muestra
+		// "Tercer Puesto: ×4" en la UI pública, y con la migración 0006 seed).
+		//
+		// El valor anterior (5) era inconsistente: hacía que el engine del bracket
+		// generara partidos de 3RD con multiplier 5 (matching SF), pero el cálculo
+		// real de puntos del usuario (en `poll-scores`) siempre usó 4.
+		//
+		// Este hotfix alinea el engine con la realidad del scoring. **No rompe
+		// predicciones existentes** porque `points_earned` ya está calculado con 4.
+		multiplier: 4,
 		expectedMatches: 1,
 	},
 };
@@ -155,7 +168,9 @@ export interface ExtendedBracketMatch {
  * Retorna null si el input es null/inválido.
  * Ej: "2026-07-15T16:00:00Z" → "15/07"
  */
-export function formatKickoffDate(iso: string | null | undefined): string | null {
+export function formatKickoffDate(
+	iso: string | null | undefined,
+): string | null {
 	if (!iso) return null;
 	try {
 		return new Intl.DateTimeFormat("es-AR", {
@@ -172,7 +187,9 @@ export function formatKickoffDate(iso: string | null | undefined): string | null
  * Retorna null si el input es null/inválido.
  * Ej: "2026-07-15T16:00:00Z" → "16:00"
  */
-export function formatKickoffTime(iso: string | null | undefined): string | null {
+export function formatKickoffTime(
+	iso: string | null | undefined,
+): string | null {
 	if (!iso) return null;
 	try {
 		return new Intl.DateTimeFormat("es-AR", {

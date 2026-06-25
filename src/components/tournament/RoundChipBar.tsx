@@ -47,8 +47,8 @@
  * - liveRounds: Set de rondas con partidos en vivo (dot pulsante)
  */
 
-import type { RoundAbbreviation } from "../../lib/roundNames";
 import { getProgressPills } from "../../lib/bracketNavigation";
+import type { RoundAbbreviation } from "../../lib/roundNames";
 
 // ============================================================================
 // PROPS
@@ -168,7 +168,11 @@ export function RoundChipBar({
 	// El 3RD NO está en `getProgressPills()` (que retorna las 5 rondas
 	// principales), por lo que lo agregamos manualmente.
 	const pills = getProgressPills();
-	const thirdPlacePill = { abbr: "3RD" as const, short: "3er Puesto", full: "Tercer Puesto" };
+	const thirdPlacePill = {
+		abbr: "3RD" as const,
+		short: "3er Puesto",
+		full: "Tercer Puesto",
+	};
 	const allPills = [...pills, thirdPlacePill];
 	const thirdPlaceIndex = 4; // Separador entre F (índice 4) y 3RD (índice 5)
 

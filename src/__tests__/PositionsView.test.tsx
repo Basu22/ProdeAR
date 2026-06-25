@@ -215,9 +215,7 @@ describe("PositionsView", () => {
 			screen.getByRole("navigation", { name: /rondas del mundial/i }),
 		).toBeInTheDocument();
 		// Y debe haber al menos una columna con data-round (ej. R32)
-		expect(
-			document.querySelector('[data-round="R32"]'),
-		).toBeInTheDocument();
+		expect(document.querySelector('[data-round="R32"]')).toBeInTheDocument();
 		// El pill LLAVES ahora es el activo
 		expect(screen.getByRole("tab", { name: /LLAVES/i })).toHaveAttribute(
 			"aria-selected",
