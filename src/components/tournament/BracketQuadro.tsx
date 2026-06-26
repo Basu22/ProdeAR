@@ -57,9 +57,10 @@
  * - interactive: si true, los cards son clickeables
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useActiveRound } from "../../hooks/useActiveRound";
+import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
 import {
 	getRoundNavigatorState,
 	parseRoundParam,
@@ -163,30 +164,6 @@ function FadeGradient({ side }: { side: "left" | "right" }) {
 			className={`pointer-events-none absolute inset-y-0 ${side === "left" ? "left-0" : "right-0"} w-8 ${gradientClass} md:hidden`}
 		/>
 	);
-}
-
-// ============================================================================
-// HOOKS (custom, definidos inline para cohesión)
-// ============================================================================
-
-/**
- * Detecta si el usuario prefiere reduced motion.
- * Usa useState (no useRef) para que el componente re-renderice cuando
- * cambia la preferencia, y así el effect de scroll use el behavior correcto.
- */
-function usePrefersReducedMotion(): boolean {
-	const [reduced, setReduced] = useState(false);
-	useEffect(() => {
-		if (typeof window === "undefined" || !window.matchMedia) return;
-		const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-		setReduced(mq.matches);
-		const handler = (e: MediaQueryListEvent) => {
-			setReduced(e.matches);
-		};
-		mq.addEventListener("change", handler);
-		return () => mq.removeEventListener("change", handler);
-	}, []);
-	return reduced;
 }
 
 // ============================================================================

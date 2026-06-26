@@ -35,7 +35,9 @@
  * ============================================================================
  */
 
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import type { FullBracket } from "../../lib/bracketTypes";
+import { BracketHybrid } from "./bracket-v2/BracketHybrid";
 import { BracketQuadro } from "./BracketQuadro";
 
 // ============================================================================
@@ -53,8 +55,23 @@ interface BracketTreeProps {
 // ============================================================================
 
 /**
- * Wrapper retrocompatible que delega a `BracketQuadro` (carrusel horizontal).
+ * Wrapper retrocompatible que delega a la implementación correcta según
+ * el feature flag `BRACKET_V2`:
+ *
+ * - `BRACKET_V2 = false` (default) → `BracketQuadro` (carrusel horizontal legacy).
+ * - `BRACKET_V2 = true`           → `BracketHybrid` (Bracket V2 — Vista Global
+ *                                   + Vista Detalle, detrás de feature flag).
+ *
+ * Esto permite hacer rollout progresivo del nuevo diseño sin riesgo de
+ * regresión: el fallback al diseño legacy es instantáneo con un toggle
+ * del flag.
  */
 export function BracketTree(props: BracketTreeProps) {
+	const isV2 = useFeatureFlag("BRACKET_V2");
+
+	if (isV2) {
+		return <BracketHybrid {...props} />;
+	}
+
 	return <BracketQuadro {...props} />;
 }

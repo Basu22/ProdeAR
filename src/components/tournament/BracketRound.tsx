@@ -156,7 +156,6 @@ export function BracketRound({
 							match={match}
 							variant={cardVariant}
 							onOpenDetails={onOpenDetails}
-							bracketPosition={match.position}
 						/>
 					</div>
 				))}

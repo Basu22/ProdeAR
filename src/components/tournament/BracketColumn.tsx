@@ -168,7 +168,6 @@ export function BracketColumn({
 				round={round}
 				cardVariant={variant}
 				onOpenDetails={onOpenDetails}
-				isFirst={true}
 			/>
 
 			{/* 3RD sub-card (solo en la columna F) */}

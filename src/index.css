@@ -921,3 +921,76 @@
 		transition: none;
 	}
 }
+
+/* ============================================================================
+ * Bracket V2 — Animaciones de transición (Capa 4 + 5)
+ * ============================================================================ */
+
+/* Slide horizontal sutil al cambiar de ronda en Vista Detalle.
+   - left: viene de la derecha (swipe a la izquierda o tap en "next")
+   - right: viene de la izquierda (swipe a la derecha o tap en "prev") */
+@keyframes detailSlideInLeft {
+	from {
+		transform: translateX(24px);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+@keyframes detailSlideInRight {
+	from {
+		transform: translateX(-24px);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+.animate-detail-slide-in-left {
+	animation: detailSlideInLeft 280ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+.animate-detail-slide-in-right {
+	animation: detailSlideInRight 280ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Zoom-in (scale 0.96→1) + fade (opacity 0.7→1) para transición
+   Vista Global ↔ Vista Detalle. Capa 5 (pendiente de aplicar al
+   switch de viewMode en BracketHybrid). */
+@keyframes bracketZoomIn {
+	from {
+		transform: scale(0.96);
+		opacity: 0.7;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+@keyframes bracketZoomOut {
+	from {
+		transform: scale(1);
+		opacity: 1;
+	}
+	to {
+		transform: scale(0.96);
+		opacity: 0.7;
+	}
+}
+.animate-bracket-zoom-in {
+	animation: bracketZoomIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-bracket-zoom-out {
+	animation: bracketZoomOut 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-detail-slide-in-left,
+	.animate-detail-slide-in-right,
+	.animate-bracket-zoom-in,
+	.animate-bracket-zoom-out {
+		animation: none;
+	}
+}
