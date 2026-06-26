@@ -60,7 +60,7 @@
  * @module components/tournament/bracket-v2/BracketGlobalView
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoundAbbreviation } from "../../../lib/roundNames";
 import type {
 	FullBracket,
@@ -68,6 +68,7 @@ import type {
 } from "../../../lib/bracketTypes";
 import { BracketColumn } from "../BracketColumn";
 import { BracketConnectors } from "../BracketConnectors";
+import { RoundChipBar } from "../RoundChipBar";
 
 // ============================================================================
 // TYPES
@@ -76,7 +77,8 @@ import { BracketConnectors } from "../BracketConnectors";
 interface BracketGlobalViewProps {
 	bracket: FullBracket;
 	activeRound: RoundAbbreviation;
-	onOpenRound: (round: RoundAbbreviation) => void;
+	onBack: () => void;
+	onOpenRound?: (round: RoundAbbreviation) => void;
 	onOpenDetails?: (matchId: string) => void;
 	interactive?: boolean;
 }
@@ -114,6 +116,7 @@ const VARIANT_FOR_ROUND: Record<
 export function BracketGlobalView({
 	bracket,
 	activeRound: _activeRound,
+	onBack,
 	onOpenRound: _onOpenRound,
 	onOpenDetails,
 	interactive = true,
@@ -121,6 +124,30 @@ export function BracketGlobalView({
 	const { rounds, thirdPlaceMatch, champion } = bracket;
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [activeIndex, setActiveIndex] = useState(0);
+
+	// ── Derivar ronda activa para el chip bar (basado en scroll position) ──
+	const chipBarRound: RoundAbbreviation = ROUND_ORDER[activeIndex] ?? "R32";
+
+	// ── Handler para chip click → scroll horizontal a la columna ──
+	const handleChipClick = useCallback(
+		(round: RoundAbbreviation) => {
+			const container = scrollRef.current;
+			if (!container) return;
+			// Para 3RD, scrollear a la columna F (que contiene 3RD como sub-card)
+			const targetRound = round === "3RD" ? "F" : round;
+			const col = container.querySelector<HTMLElement>(
+				`[data-round="${targetRound}"]`,
+			);
+			if (col) {
+				col.scrollIntoView({
+					behavior: "smooth",
+					block: "nearest",
+					inline: "start",
+				});
+			}
+		},
+		[],
+	);
 
 	// ── Detectar live rounds (para DotIndicator en Capa 3, placeholder por ahora) ──
 	const liveRounds = new Set<RoundAbbreviation>();
@@ -209,18 +236,72 @@ export function BracketGlobalView({
 				<ChampionBannerInline champion={champion} />
 			)}
 
-			{/* Header Capa 2 — placeholder hasta Capa 3 (chip bar + título) */}
-			<div className="px-4 pt-2 pb-1 flex items-center justify-between gap-2">
-				<h2 className="font-headline-md text-sm font-black text-white uppercase tracking-wider">
-					Eliminatorias
-				</h2>
-				{/* Capa 3: acá va el RoundChipBar con 6 chips */}
-				<span className="font-label-caps text-[9px] text-on-surface-variant/60 uppercase tracking-widest">
-					{liveRounds.size > 0
-						? `${liveRounds.size} ronda${liveRounds.size > 1 ? "s" : ""} en vivo`
-						: `${bracket.champion ? "🏆 Finalizado" : "Vista global"}`}
-				</span>
-			</div>
+			{/* Chip bar de navegación (deep-link entre rondas) — sticky top-16 z-20 */}
+			<RoundChipBar
+				activeRound={chipBarRound}
+				onChipClick={handleChipClick}
+				liveRounds={liveRounds}
+			/>
+
+			{/* Header sticky "← Cerrar" — sticky top-[112px] z-30 (debajo del chip bar) */}
+			<header
+				className="
+					sticky top-[112px] z-30
+					backdrop-blur-xl bg-background/85
+					border-b border-white/5
+					shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]
+				"
+			>
+				<div className="flex items-center gap-2 px-2 py-2">
+					{/* Botón "← Cerrar" — vuelve a Vista Detalle */}
+					<button
+						type="button"
+						onClick={onBack}
+						aria-label="Cerrar árbol y volver a vista detalle"
+						className="
+							shrink-0
+							min-h-[44px] min-w-[44px]
+							inline-flex items-center justify-center gap-1.5
+							px-3
+							rounded-full
+							bg-surface-container/60 border border-white/10
+							hover:bg-surface-container-high
+							active:scale-[0.96]
+							transition-[transform,background-color] duration-200
+							motion-reduce:transition-none
+							focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background
+						"
+					>
+						<span
+							className="material-symbols-outlined text-white"
+							style={{ fontSize: "20px" }}
+							aria-hidden="true"
+						>
+							close
+						</span>
+						<span className="font-label-caps text-xs font-black text-white uppercase tracking-wider">
+							Cerrar
+						</span>
+					</button>
+
+					{/* Centro: título + live indicator */}
+					<div className="flex-1 min-w-0 flex items-center justify-center gap-2">
+						<h2 className="font-headline-md text-sm sm:text-base font-black text-white uppercase tracking-wider truncate">
+							Árbol
+						</h2>
+						<span className="font-label-caps text-[9px] text-on-surface-variant/60 uppercase tracking-widest flex-shrink-0">
+							{liveRounds.size > 0
+								? `${liveRounds.size} ronda${liveRounds.size > 1 ? "s" : ""} en vivo`
+								: bracket.champion
+									? "🏆 Finalizado"
+									: "Vista global"}
+						</span>
+					</div>
+
+					{/* Spacer para balancear el layout (mismo ancho que botón cerrar) */}
+					<div className="shrink-0 min-w-[44px]" aria-hidden="true" />
+				</div>
+			</header>
 
 			{/* Bracket grid — scroll horizontal contenido */}
 			<div
