@@ -34,7 +34,10 @@ const mockCompetitions: Competition[] = [
 		logoUrl: "",
 		season: "2026",
 		active: true,
-		format: null,
+		// `format: undefined` representa "competición sin formato definido".
+		// El hook `useCompetitions` filtra estas competiciones defensivamente
+		// (junto con `is_friendly: true` y `active: false`).
+		format: undefined,
 		is_friendly: true,
 	},
 ];

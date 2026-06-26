@@ -24,7 +24,6 @@
 
 import { describe, expect, it } from "vitest";
 import { getFullBracket, propagateBracketWinners } from "../lib/bracketEngine";
-import type { ExtendedBracketMatch } from "../lib/bracketTypes";
 import { ROUND_CATALOG } from "../lib/bracketTypes";
 import type { Match } from "../lib/types";
 import type { BestThirdsTable, GroupTable } from "../lib/worldCupGroups";
@@ -181,51 +180,10 @@ describe("T0 Hotfix #1: stageMultiplier 3RD = 4", () => {
 // ============================================================================
 // HOTFIX #2: getLoserOfBracketMatch maneja penales
 // ============================================================================
-
-/**
- * Helper: crea un ExtendedBracketMatch con score + decidedByPenalties + winner opcional.
- * No podemos testear `getLoserOfBracketMatch` directamente (es privada), pero podemos
- * testear su efecto a través de `propagateLosersToThirdPlace` (ver HOTFIX #3).
- */
-function makeSFMatch(
-	overrides: Partial<ExtendedBracketMatch>,
-): ExtendedBracketMatch {
-	return {
-		id: "SF-1",
-		position: 1,
-		slotA: {
-			slotType: "1st",
-			groupLetter: "A",
-			bestThirdRank: null,
-			teamName: "Argentina",
-			teamLogo: null,
-			isLive: false,
-			sourceMatchId: null,
-			decidedByPenalties: false,
-		},
-		slotB: {
-			slotType: "2nd",
-			groupLetter: "B",
-			bestThirdRank: null,
-			teamName: "Francia",
-			teamLogo: null,
-			isLive: false,
-			sourceMatchId: null,
-			decidedByPenalties: false,
-		},
-		isComplete: true,
-		dbMatchId: "m-sf-1",
-		winner: null,
-		winnerLogo: null,
-		score: null,
-		decidedByPenalties: false,
-		bracketPosition: "SF-1",
-		stadium: null,
-		kickOff: null,
-		stageMultiplier: 5,
-		...overrides,
-	};
-}
+//
+// No podemos testear `getLoserOfBracketMatch` directamente (es privada), pero
+// podemos testear su efecto a través de `propagateLosersToThirdPlace` (ver
+// HOTFIX #3 más abajo).
 
 // ============================================================================
 // HOTFIX #3: propagateLosersToThirdPlace maneja penales

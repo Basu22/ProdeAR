@@ -23,7 +23,7 @@
  *
  * - Componentes React (re-renderiza cuando cambia el flag):
  *   ```tsx
- *   import { useFeatureFlag } from "@/lib/featureFlags";
+ *   import { useFeatureFlag } from "@/hooks/useFeatureFlag";
  *   const bracketV2 = useFeatureFlag("BRACKET_V2");
  *   ```
  *

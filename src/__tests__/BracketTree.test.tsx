@@ -33,6 +33,21 @@ import type {
 import type { BestThirdsTable, GroupTable } from "../lib/worldCupGroups";
 
 // ============================================================================
+// MOCK: useFeatureFlag → false (forzamos BracketQuadro legacy)
+// ============================================================================
+//
+// Estos tests validan el comportamiento del wrapper `BracketTree` cuando
+// delega al `BracketQuadro` legacy (BRACKET_V2=false). Sin este mock, si
+// alguien tiene `VITE_BRACKET_V2=true` en `.env.local`, el wrapper
+// delegaría a `BracketHybrid` (Bracket V2) y los queries del DOM no
+// encontrarían los elementos legacy, rompiendo los 8 tests.
+//
+// Para testear el path del V2, ver `BracketHybrid.test.tsx` (TBD Capa 2+).
+vi.mock("../hooks/useFeatureFlag", () => ({
+	useFeatureFlag: () => false,
+}));
+
+// ============================================================================
 // HELPERS (duplicados de bracketEngine.test.ts para mantener tests aislados)
 // ============================================================================
 

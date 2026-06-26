@@ -94,7 +94,7 @@ function make12GroupTables(): GroupTable[] {
 		"K",
 		"L",
 	];
-	return groupNames.map((letter, i) =>
+	return groupNames.map((letter) =>
 		makeGroupTable(letter, [
 			{ name: `1°${letter}`, pts: 9, dg: 5, gf: 7 },
 			{ name: `2°${letter}`, pts: 6, dg: 2, gf: 4 },
@@ -414,7 +414,7 @@ describe("LEGACY (BRACKET_V2 = false)", () => {
 					penaltyWinner: null,
 					stageName: "Round of 32",
 					stadium: null,
-					kickOff: null,
+					kickOff: undefined,
 					stageMultiplier: 2,
 					status: "finished",
 					bracketPosition: m.bracketPosition,

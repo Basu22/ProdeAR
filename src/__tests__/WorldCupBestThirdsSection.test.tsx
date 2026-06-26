@@ -11,8 +11,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { Match } from "../../lib/types";
-import type { BestThirdsTable } from "../../lib/worldCupGroups";
+import type { Match } from "../lib/types";
+import type { BestThirdsTable } from "../lib/worldCupGroups";
 import { WorldCupBestThirdsSection } from "../components/ligas/WorldCupBestThirdsSection";
 
 // ============================================================================

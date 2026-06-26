@@ -24,6 +24,12 @@ export interface Competition {
 	 * Default: 'league'.
 	 */
 	format?: CompetitionFormat;
+	/**
+	 * Marca amistosos. Si es `true`, el hook `useCompetitions` los filtra del
+	 * selector de la ruta /ligas (junto con `format=null` e `active=false`).
+	 * Default: false.
+	 */
+	is_friendly?: boolean;
 }
 
 /**

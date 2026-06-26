@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { type FeatureFlag, isFeatureEnabled } from "./featureFlags";
+import { type FeatureFlag, isFeatureEnabled } from "../lib/featureFlags";
 
 export function useFeatureFlag(flag: FeatureFlag): boolean {
 	const [enabled, setEnabled] = useState(() => isFeatureEnabled(flag));

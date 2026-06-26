@@ -14,6 +14,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import {
 	CompetitionSelector,
@@ -53,7 +54,6 @@ const mockCompetitions: Competition[] = [
 
 function renderWithRouter(ui: React.ReactNode) {
 	// En el test usamos MemoryRouter via react-router para que useSearchParams funcione.
-	const { MemoryRouter } = require("react-router-dom");
 	return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 

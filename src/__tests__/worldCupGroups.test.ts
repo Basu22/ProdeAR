@@ -26,12 +26,14 @@ import {
 	getThirdForFirstPlace,
 	resolveBestThirdsAssignment,
 } from "../lib/fifaBracketDefinition";
+import type { GroupLetter } from "../lib/fifaBracketDefinition";
 import {
 	BEST_THIRDS_QUALIFY_COUNT,
 	BUILT_IN_TEAM_ALIASES,
 	calculateBestThirds,
 	findCanonicalTeam,
 	type GroupTable,
+	type GroupTeamStanding,
 	getFlagUrl,
 	getGroupLetterFromStage,
 	getGroupTables,
@@ -1688,12 +1690,16 @@ describe("resolveKnockoutMatchups (BRACKET_V2 = FIFA 2026)", () => {
 			// Para C-L: 1° y 2° con teamName=null (grupo aún no termina)
 			return {
 				...g,
-				standings: g.standings.map(
-					(s: { teamName: string; [k: string]: unknown }, i: number) =>
-						i < 2
-							? // Forzamos null para simular "grupo pendiente"
-								{ ...s, teamName: null as unknown as string }
-							: s,
+				standings: g.standings.map((s: GroupTeamStanding, i: number) =>
+					i < 2
+						? // Forzamos null para simular "grupo pendiente".
+							// El double-cast `as unknown as GroupTeamStanding` es
+							// necesario porque `GroupTeamStanding.teamName` es
+							// `string` (no nullable) en producción, pero el test
+							// simula estado "TBD" donde el team aún no está
+							// definido.
+							({ ...s, teamName: null } as unknown as GroupTeamStanding)
+						: s,
 				),
 			};
 		});
@@ -1741,7 +1747,16 @@ describe("resolveKnockoutMatchups (BRACKET_V2 = FIFA 2026)", () => {
 
 	it("getThirdForFirstPlace retorna el mismo grupo que el slotB del match", () => {
 		// Para la combinación "111111110000" (A,B,C,D,E,F,G,H qualify)
-		const qualifiedGroups = ["A", "B", "C", "D", "E", "F", "G", "H"];
+		const qualifiedGroups: GroupLetter[] = [
+			"A",
+			"B",
+			"C",
+			"D",
+			"E",
+			"F",
+			"G",
+			"H",
+		];
 		// Cada 1° que enfrenta a un 3° (E, I, A, L, D, G, B, K)
 		// debe tener su 3° rival según FIFA
 		expect(getThirdForFirstPlace("E", qualifiedGroups)).toBe("C"); // M74

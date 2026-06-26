@@ -1,7 +1,7 @@
 ---
 mode: subagent
 description: "Especialista en Frontend, Maquetación React, Tailwind CSS y enfoque Mobile-First."
-model: opencode-go/minimax-m3
+model: opencode-zen/mimo-v2.5  # 🎨 Reemplaza a minimax-m3
 temperature: 0.3
 steps: 10
 tools:

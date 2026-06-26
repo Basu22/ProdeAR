@@ -60,10 +60,8 @@ function getSlotLabel(slot: BracketSlot): string {
 
 function SlotDisplay({
 	slot,
-	position,
 }: {
 	slot: BracketSlot;
-	position: "A" | "B";
 }) {
 	const isResolved = slot.teamName !== null;
 	const isLive = slot.isLive;
@@ -165,7 +163,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
 			</div>
 
 			{/* Slot A */}
-			<SlotDisplay slot={slotA} position="A" />
+			<SlotDisplay slot={slotA} />
 
 			{/* VS separator */}
 			<div className="flex items-center justify-center">
@@ -175,7 +173,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
 			</div>
 
 			{/* Slot B */}
-			<SlotDisplay slot={slotB} position="B" />
+			<SlotDisplay slot={slotB} />
 		</article>
 	);
 }
