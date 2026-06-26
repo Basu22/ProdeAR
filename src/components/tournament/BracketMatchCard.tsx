@@ -73,12 +73,6 @@ interface BracketMatchCardProps {
 	variant: "compact" | "default" | "hero";
 	/** Callback al hacer click (abre MatchSheet con pronóstico) */
 	onOpenDetails?: (matchId: string) => void;
-	/**
-	 * Sprint 5D+: posición de la card en su ronda (1-16 para R32, 1-8 para R16, etc.).
-	 * Se usa como `data-card-position={n}` para que CSS y JS ubiquen la card
-	 * en el árbol de eliminatorias (margin-top proporcional según ronda).
-	 */
-	bracketPosition?: number;
 }
 
 // ============================================================================
@@ -111,17 +105,27 @@ function buildAriaLabel(
 /**
  * Construye el label para un slot TBD a partir de su `sourceMatchId`.
  * Convierte IDs como "R32-1", "R16-3", "SF-1" en labels legibles
- * como "Ganador de 16vos 1", "Ganador de 8vos 3", "Perdedor de Semis 1".
+ * como "Ganador de 16vos 1", "Ganador de 8vos 3", "Ganador de Semis 1".
  *
  * - `R32-N` → "Ganador de 16vos N" (slots de R16 dependen de ganadores R32)
  * - `R16-N` → "Ganador de 8vos N"  (slots de QF dependen de ganadores R16)
  * - `QF-N`  → "Ganador de 4tos N"  (slots de SF dependen de ganadores QF)
- * - `SF-N`  → "Perdedor de Semis N" (slots de 3RD dependen de perdedores SF)
+ * - `SF-N`  → depende del TARGET:
+ *   - Si el slot vive en F     → "Ganador de Semis N" (final: ganadores de SF)
+ *   - Si el slot vive en 3RD   → "Perdedor de Semis N" (3RD: perdedores de SF)
  *
  * Si el `sourceMatchId` no matchea el patrón esperado, retorna
  * `"Por definir"` como fallback.
+ *
+ * @param sourceMatchId - ID del partido del que depende este slot (ej. "SF-1")
+ * @param targetAbbr    - Ronda TARGET donde vive el slot ("R32"|"R16"|"QF"|"SF"|"F"|"3RD").
+ *                        Necesario porque tanto F como 3RD dependen de SF,
+ *                        pero uno quiere ganadores y el otro perdedores.
  */
-function buildTbdLabel(sourceMatchId: string | null): string {
+function buildTbdLabel(
+	sourceMatchId: string | null,
+	targetAbbr?: string,
+): string {
 	if (!sourceMatchId) return "Por definir";
 	const m = sourceMatchId.match(/^([A-Z0-9]+)-(\d+)$/);
 	if (!m) return "Por definir";
@@ -135,7 +139,10 @@ function buildTbdLabel(sourceMatchId: string | null): string {
 		"3RD": "3er Puesto",
 	};
 	const label = ROUND_LABELS[abbr] ?? abbr;
-	const prefix = abbr === "SF" ? "Perdedor de" : "Ganador de";
+	// El prefix depende del TARGET (dónde vive el slot), no del SOURCE.
+	// - 3RD usa los perdedores de SF → "Perdedor de Semis N"
+	// - F (y todas las demás) usan los ganadores → "Ganador de X N"
+	const prefix = targetAbbr === "3RD" ? "Perdedor de" : "Ganador de";
 	return `${prefix} ${label} ${pos}`;
 }
 
@@ -355,7 +362,6 @@ export function BracketMatchCard({
 	match,
 	variant,
 	onOpenDetails,
-	bracketPosition,
 }: BracketMatchCardProps) {
 	const styles = VARIANT_STYLES[variant];
 	const isInteractive = !!onOpenDetails && !!match.dbMatchId;
@@ -364,6 +370,10 @@ export function BracketMatchCard({
 	const winnerName = match.winner;
 	const isTbd = !match.slotA.teamName || !match.slotB.teamName;
 	const isHero = variant === "hero";
+	// Target abbr de este match (extraído de bracketPosition ej. "F-1" → "F").
+	// Necesario para que `buildTbdLabel` sepa si el slot es de F (usa ganadores
+	// de SF) o de 3RD (usa perdedores de SF).
+	const targetAbbr = match.bracketPosition.split("-")[0];
 
 	const handleClick = () => {
 		if (onOpenDetails && match.dbMatchId) {
@@ -404,7 +414,7 @@ export function BracketMatchCard({
 					isWinner={winnerName !== null && winnerName === match.slotA.teamName}
 					score={hasScore && match.score ? match.score.home : null}
 					variant={variant}
-					tbdLabel={buildTbdLabel(match.slotA.sourceMatchId)}
+					tbdLabel={buildTbdLabel(match.slotA.sourceMatchId, targetAbbr)}
 					showPenalties={
 						match.decidedByPenalties &&
 						hasScore &&
@@ -419,7 +429,7 @@ export function BracketMatchCard({
 					isWinner={winnerName !== null && winnerName === match.slotB.teamName}
 					score={hasScore && match.score ? match.score.away : null}
 					variant={variant}
-					tbdLabel={buildTbdLabel(match.slotB.sourceMatchId)}
+					tbdLabel={buildTbdLabel(match.slotB.sourceMatchId, targetAbbr)}
 					showPenalties={
 						match.decidedByPenalties &&
 						hasScore &&
