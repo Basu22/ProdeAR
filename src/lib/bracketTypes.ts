@@ -167,16 +167,26 @@ export interface ExtendedBracketMatch {
  * Formatea un ISO timestamp a "DD/MM" usando timezone del usuario.
  * Retorna null si el input es null/inválido.
  * Ej: "2026-07-15T16:00:00Z" → "15/07"
+ *
+ * NOTA: usamos `formatToParts` + padding manual porque `Intl.DateTimeFormat`
+ * con `month: "2-digit"` en locale `es-AR` retorna "7" (sin cero) para
+ * meses 1-9, no "07". El padding manual garantiza formato consistente
+ * "DD/MM" en todas las zonas horarias.
  */
 export function formatKickoffDate(
 	iso: string | null | undefined,
 ): string | null {
 	if (!iso) return null;
 	try {
-		return new Intl.DateTimeFormat("es-AR", {
+		const parts = new Intl.DateTimeFormat("es-AR", {
 			day: "2-digit",
 			month: "2-digit",
-		}).format(new Date(iso));
+		}).formatToParts(new Date(iso));
+		const day = parts.find((p) => p.type === "day")?.value ?? "";
+		const month = parts.find((p) => p.type === "month")?.value ?? "";
+		if (!day || !month) return null;
+		// Padding: "7" → "07", "15" → "15"
+		return `${day.padStart(2, "0")}/${month.padStart(2, "0")}`;
 	} catch {
 		return null;
 	}
