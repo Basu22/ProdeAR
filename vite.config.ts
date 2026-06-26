@@ -84,6 +84,10 @@ export default defineConfig({
 				type: "module",
 			},
 			injectManifest: {
+				// NOTA: el plugin v1.3.0 tiene `inlineDynamicImports: true` hardcodeado
+				// internamente (ver node_modules/vite-plugin-pwa/dist/*.js). El fix
+				// completo requiere upgrade a v2+ o cambiar de estrategia.
+				// El warning es non-blocking.
 				globPatterns: ["**/*.{js,css,html,ico,png,svg,mp3}"],
 			},
 			// Sin `workbox: { ... }` — la lógica de precaching + runtime caching

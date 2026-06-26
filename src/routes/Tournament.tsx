@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { MatchCard } from "../components/match/MatchCard";
 import { MatchSheet } from "../components/match/MatchSheet";
-import { BracketTree } from "../components/tournament/BracketTree";
+import { BracketTree } from "../components/tournament/BracketTreeLazy";
 import { PositionsRedirectCard } from "../components/tournament/PositionsRedirectCard";
 import { SolDeMayoCard } from "../components/tournament/SolDeMayoCard";
 import { SolDeMayoRulesModal } from "../components/tournament/SolDeMayoRulesModal";

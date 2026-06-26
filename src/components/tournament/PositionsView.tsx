@@ -43,7 +43,7 @@ import { calculateBestThirds } from "../../lib/worldCupGroups";
 import { GlassCard } from "../ui/GlassCard";
 import { PillTabs } from "../ui/PillTabs";
 import { BestThirdsTable } from "./BestThirdsTable";
-import { BracketTree } from "./BracketTree";
+import { BracketTree } from "./BracketTreeLazy";
 import { GroupTable } from "./GroupTable";
 
 type PositionsSubTab = "grupos" | "mejores3ros" | "llaves";

@@ -29,7 +29,7 @@
  */
 
 import type { FullBracket } from "../../lib/bracketTypes";
-import { BracketTree } from "../tournament/BracketTree";
+import { BracketTree } from "../tournament/BracketTreeLazy";
 
 interface WorldCupKnockoutSectionProps {
 	bracket: FullBracket;
