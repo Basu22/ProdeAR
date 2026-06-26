@@ -78,16 +78,23 @@ export function DetailHeader({
 				shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]
 			"
 		>
-			<div className="flex items-center gap-2 px-2 py-2">
-				{/* Tree button (opt-in Vista Global) */}
+			<div className="flex items-center gap-1.5 sm:gap-2 px-2 py-2">
+				{/* Tree button (opt-in Vista Global).
+				    Sprint 5D+ polish: oculto en mobile (`< md`) porque la Vista
+				    Global no se ve bien en viewports angostos (las cards compactas
+				    en columnas de 168px se truncan). En tablet/desktop sigue
+				    visible como opt-in. Los usuarios mobile pueden seguir
+				    accediendo vía deep link `?view=global` si lo desean. */}
 				<button
 					type="button"
 					onClick={onOpenTree}
 					aria-label="Ver árbol completo de eliminatorias"
 					className="
+						hidden
+						md:inline-flex
 						shrink-0
 						min-h-[44px] min-w-[44px]
-						inline-flex items-center justify-center
+						items-center justify-center
 						rounded-full
 						bg-surface-container/60 border border-white/10
 						hover:bg-surface-container-high
@@ -134,9 +141,9 @@ export function DetailHeader({
 						role="img"
 						aria-label={`${completedCount} de ${totalMatches} definidos`}
 						className="
-							hidden sm:inline-flex items-center px-2 py-0.5 rounded-full
+							inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full
 							bg-white/5 border border-white/10 text-on-surface-variant
-							font-label-caps text-[10px]
+							font-label-caps text-[9px] sm:text-[10px]
 							font-bold tracking-widest uppercase tabular-nums
 							flex-shrink-0
 						"
