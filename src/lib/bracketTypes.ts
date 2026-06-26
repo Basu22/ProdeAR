@@ -202,6 +202,30 @@ export function formatKickoffTime(
 	}
 }
 
+/**
+ * Formatea un ISO timestamp a día de semana corto en mayúsculas usando
+ * timezone del usuario. Retorna null si el input es null/inválido.
+ * Ej: "2026-07-15T16:00:00Z" → "JUE"
+ *
+ * Usado por `MatchLogistics` para prefijar la fecha con día de semana
+ * ("JUE 15/07 16:00") que es más legible que solo "15/07 16:00".
+ */
+export function formatKickoffDay(
+	iso: string | null | undefined,
+): string | null {
+	if (!iso) return null;
+	try {
+		const day = new Intl.DateTimeFormat("es-AR", {
+			weekday: "short",
+		}).format(new Date(iso));
+		// `Intl` puede devolver "jue." o "jue" dependiendo del runtime.
+		// Normalizamos a 3 letras mayúsculas sin punto: "JUE".
+		return day.replace(/\.$/, "").slice(0, 3).toUpperCase();
+	} catch {
+		return null;
+	}
+}
+
 // ============================================================================
 // RONDA
 // ============================================================================

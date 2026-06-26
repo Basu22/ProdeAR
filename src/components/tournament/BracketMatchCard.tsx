@@ -59,6 +59,7 @@ import React from "react";
 import {
 	type ExtendedBracketMatch,
 	formatKickoffDate,
+	formatKickoffDay,
 	formatKickoffTime,
 } from "../../lib/bracketTypes";
 import { LiveBadge } from "./LiveBadge";
@@ -296,11 +297,20 @@ interface MatchLogisticsProps {
 function MatchLogistics({ stadium, kickOff, variant }: MatchLogisticsProps) {
 	const styles = VARIANT_STYLES[variant];
 	const stadiumText = stadium ?? "Por confirmar";
+	const dayText = formatKickoffDay(kickOff);
 	const dateText = formatKickoffDate(kickOff) ?? "—";
 	const timeText = formatKickoffTime(kickOff) ?? "—";
 
+	// `aria-label` enriquecido para screen readers.
+	// Ej: "Jueves 15/07 a las 16:00 en Lusail Stadium"
+	const ariaLabel = `Fecha: ${dayText ?? "a confirmar"} ${dateText} a las ${timeText}. Estadio: ${stadiumText}`;
+
+	// Icono de estadio solo en variants default y hero (en compact queda apretado).
+	const showStadiumIcon = variant !== "compact";
+
 	return (
 		<div
+			aria-label={ariaLabel}
 			className="
 				flex flex-col justify-center gap-0.5
 				pl-2.5 ml-0.5
@@ -309,23 +319,36 @@ function MatchLogistics({ stadium, kickOff, variant }: MatchLogisticsProps) {
 				min-w-0
 			"
 		>
-			{/* Estadio (sin icono, solo texto) */}
+			{/* Estadio (con icono en default/hero, sin icono en compact) */}
 			<span
 				className={`
 					${styles.logisticsText} font-medium text-white/85 truncate
+					flex items-center justify-end gap-1
 				`.trim()}
 				title={stadiumText}
 			>
-				{stadiumText}
+				{showStadiumIcon && (
+					<span
+						className="material-symbols-outlined text-white/60 shrink-0"
+						style={{ fontSize: "12px" }}
+						aria-hidden="true"
+					>
+						stadium
+					</span>
+				)}
+				<span className="truncate">{stadiumText}</span>
 			</span>
 
-			{/* Fecha + hora (sin icono, solo texto) */}
+			{/* Día + fecha + hora (formato: "JUE 15/07 16:00") */}
 			<span
 				className={`
 					${styles.logisticsDateText} font-bold uppercase tracking-wider
 					text-on-surface-variant tabular-nums whitespace-pre
 				`.trim()}
 			>
+				{dayText && (
+					<span className="text-white/90 mr-0.5">{dayText}</span>
+				)}
 				{dateText} {timeText}
 			</span>
 		</div>
