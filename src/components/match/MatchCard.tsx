@@ -473,6 +473,9 @@ export function MatchCard({
 		awayScore !== "" &&
 		Number.parseInt(homeScore, 10) === Number.parseInt(awayScore, 10);
 	const showPenaltySelector = isPlayoffs && isDraw;
+	// Sprint Penales 2026: needsPenalty = selector visible + ganador no elegido.
+	// Usado para highlight visual del bloque (paridad con PredictionSlide del modal).
+	const needsPenalty = showPenaltySelector && penaltyWinner === null;
 
 	const pointsEarned = prediction?.pointsEarned;
 
@@ -948,11 +951,39 @@ export function MatchCard({
 
 									{/* Penalty Winner Selector for Playoffs draws */}
 									{showPenaltySelector && (
-										<div className="flex flex-col items-center space-y-2 animate-fade-in">
-											<p className="font-label-caps text-[9px] text-tertiary font-bold tracking-widest uppercase text-glowing-gold">
-												Desempate por Penales (Requerido)
+										<div
+											className={`flex flex-col items-center w-full max-w-[320px] rounded-xl p-2.5 space-y-2 transition-all duration-300 ${
+												needsPenalty
+													? "bg-primary/10 border border-primary/40 motion-safe:animate-pulse-soft"
+													: "bg-surface-container-high/40 border border-white/5"
+											}`}
+										>
+											<p
+												className={`font-label-caps text-[9px] font-bold tracking-widest uppercase flex items-center justify-center gap-1.5 ${
+													needsPenalty
+														? "text-primary text-glowing"
+														: "text-tertiary/80 text-glowing-gold"
+												}`}
+											>
+												<span
+													className="material-symbols-outlined text-[12px]"
+													style={{ fontVariationSettings: "'FILL' 1" }}
+													aria-hidden="true"
+												>
+													{needsPenalty ? "bolt" : "military_tech"}
+												</span>
+												<span>Desempate por Penales</span>
+												{needsPenalty && (
+													<span
+														className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-on-primary text-[8px] font-bold uppercase tracking-wider"
+														role="status"
+														aria-live="polite"
+													>
+														Elegí ganador
+													</span>
+												)}
 											</p>
-											<div className="flex gap-2 w-full max-w-[320px]">
+											<div className="flex gap-2 w-full">
 												<button
 													type="button"
 													disabled={isLocked}
@@ -988,6 +1019,11 @@ export function MatchCard({
 													Gana {translateTeamName(match.awayTeam)}
 												</button>
 											</div>
+											{needsPenalty && (
+												<p className="text-[10px] text-primary/80 text-center font-medium leading-tight">
+													Tocá el equipo que creés que gana por penales
+												</p>
+											)}
 										</div>
 									)}
 
