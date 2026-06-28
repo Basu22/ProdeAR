@@ -39,6 +39,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: 1,
 		awayScore: 0,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "live",
@@ -68,6 +75,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: 0,
 		awayScore: 0,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "live",
@@ -89,6 +103,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: 0,
 		awayScore: 1,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "live",
@@ -119,6 +140,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -138,6 +166,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -158,6 +193,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -177,6 +219,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Fase de Grupos",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -197,6 +246,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Grupo A",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -216,6 +272,13 @@ export const INITIAL_MATCHES: Match[] = [
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL en mock data porque estos partidos de Fase de Grupos
+		// no tienen ni tiempo extra ni penales.
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Grupo A",
 		stageMultiplier: 1,
 		status: "not_started",

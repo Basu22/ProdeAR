@@ -141,6 +141,11 @@ function makeMatch(overrides: Partial<Match> = {}): Match {
 		homeScore: null,
 		awayScore: null,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Group A",
 		stageMultiplier: 1,
 		status: "not_started",
@@ -224,6 +229,11 @@ describe("T0 Hotfix #3: SF con penales → 3RD propagado correctamente", () => {
 				homeScore: 2,
 				awayScore: 1,
 				penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 				stageName: "Semi-finals",
 				stageMultiplier: 5,
 				status: "finished",
@@ -236,6 +246,11 @@ describe("T0 Hotfix #3: SF con penales → 3RD propagado correctamente", () => {
 				homeScore: 1,
 				awayScore: 2,
 				penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 				stageName: "Semi-finals",
 				stageMultiplier: 5,
 				status: "finished",
@@ -301,6 +316,11 @@ describe("T0 Hotfix #3: SF con penales → 3RD propagado correctamente", () => {
 				homeScore: 2,
 				awayScore: 1,
 				penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 				stageName: "Semi-finals",
 				stageMultiplier: 5,
 				status: "finished",
@@ -359,7 +379,12 @@ describe("T0 Hotfix #3: SF con penales → 3RD propagado correctamente", () => {
 				awayTeam: bracket.rounds[3]?.matches[0]?.slotB.teamName ?? "?",
 				homeScore: 1,
 				awayScore: 1,
-				penaltyWinner: null, // SIN info de penales
+				penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null, // SIN info de penales
 				stageName: "Semi-finals",
 				stageMultiplier: 5,
 				status: "finished",

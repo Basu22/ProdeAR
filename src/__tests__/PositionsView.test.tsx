@@ -49,6 +49,11 @@ function makeMatches(count: number = 0): WorldCupMatch[] {
 		homeScore: 0,
 		awayScore: 0,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "Group A",
 		stageMultiplier: 1,
 		status: "finished",

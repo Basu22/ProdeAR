@@ -304,6 +304,12 @@ describe("GroupTable", () => {
 			homeScore: 1,
 			awayScore: 0,
 			status: "live",
+			// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+			extraTimeHome: null,
+			extraTimeAway: null,
+			penaltiesHome: null,
+			penaltiesAway: null,
+			penaltyWinner: null,
 		};
 		const group = makeGroup({ liveMatches: [liveMatch as WorldCupMatch] });
 		render(<GroupTable group={group} positionChanges={noChanges} />);

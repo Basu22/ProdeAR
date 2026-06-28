@@ -51,6 +51,12 @@ function mapDbMatchToFrontend(m: any): Match {
 		homeScore: m.home_score,
 		awayScore: m.away_score,
 		penaltyWinner: m.penalty_winner || null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+		// NULL-safe: si la columna no existe en DB (entornos viejos), no rompe.
+		extraTimeHome: m.extra_time_home ?? null,
+		extraTimeAway: m.extra_time_away ?? null,
+		penaltiesHome: m.penalties_home ?? null,
+		penaltiesAway: m.penalties_away ?? null,
 		stageName: m.stage_name,
 		stageMultiplier: m.stage_multiplier,
 		status: mapDbStatus(m.status),

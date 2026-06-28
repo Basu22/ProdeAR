@@ -16,6 +16,11 @@ function makeMatch(overrides: Partial<Match> = {}): Match {
 		homeScore: 1,
 		awayScore: 0,
 		penaltyWinner: null,
+		// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008)
+		extraTimeHome: null,
+		extraTimeAway: null,
+		penaltiesHome: null,
+		penaltiesAway: null,
 		stageName: "GROUP_STAGE",
 		stageMultiplier: 1,
 		status: "finished",

@@ -981,6 +981,31 @@ serve(async (req) => {
 				penaltyWinner =
 					f.score.penalty.home > f.score.penalty.away ? "home" : "away";
 			}
+			// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008):
+			// también extraemos los SCORES completos de penales y tiempo extra
+			// para persistirlos en `matches.penalties_home/away` y
+			// `matches.extra_time_home/away`. La UI los muestra en el bracket
+			// y en el detalle del partido (ej. "(4-3) PEN").
+			const penaltiesHome =
+				f.score?.penalty?.home !== null &&
+				f.score?.penalty?.home !== undefined
+					? f.score.penalty.home
+					: null;
+			const penaltiesAway =
+				f.score?.penalty?.away !== null &&
+				f.score?.penalty?.away !== undefined
+					? f.score.penalty.away
+					: null;
+			const extraTimeHome =
+				f.score?.extratime?.home !== null &&
+				f.score?.extratime?.home !== undefined
+					? f.score.extratime.home
+					: null;
+			const extraTimeAway =
+				f.score?.extratime?.away !== null &&
+				f.score?.extratime?.away !== undefined
+					? f.score.extratime.away
+					: null;
 
 			const mappedStatus = mapApiFootballStatus(f.fixture.status.short);
 
@@ -1318,6 +1343,29 @@ serve(async (req) => {
 				penaltyWinner =
 					f.score.penalty.home > f.score.penalty.away ? "home" : "away";
 			}
+			// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008):
+			// scores completos de penales y tiempo extra. Ver bloque análogo
+			// en la rama preview de más arriba (línea ~974).
+			const penaltiesHome =
+				f.score?.penalty?.home !== null &&
+				f.score?.penalty?.home !== undefined
+					? f.score.penalty.home
+					: null;
+			const penaltiesAway =
+				f.score?.penalty?.away !== null &&
+				f.score?.penalty?.away !== undefined
+					? f.score.penalty.away
+					: null;
+			const extraTimeHome =
+				f.score?.extratime?.home !== null &&
+				f.score?.extratime?.home !== undefined
+					? f.score.extratime.home
+					: null;
+			const extraTimeAway =
+				f.score?.extratime?.away !== null &&
+				f.score?.extratime?.away !== undefined
+					? f.score.extratime.away
+					: null;
 
 			// Obtener data del batch fetch (o fallback al existingMatch)
 			let stats = existingMatch?.stats || [];
@@ -1407,6 +1455,12 @@ serve(async (req) => {
 				home_score: f.goals.home !== undefined ? f.goals.home : null,
 				away_score: f.goals.away !== undefined ? f.goals.away : null,
 				penalty_winner: penaltyWinner,
+				// Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+				// Scores completos de penales y tiempo extra (NULL si no aplican).
+				penalties_home: penaltiesHome,
+				penalties_away: penaltiesAway,
+				extra_time_home: extraTimeHome,
+				extra_time_away: extraTimeAway,
 				stage_name: f.league.round,
 				stage_multiplier: getStageMultiplier(f.league.round),
 				status: mappedStatus,

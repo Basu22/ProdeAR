@@ -40,6 +40,12 @@ export function PredictionSlide({
 	const saveMutation = useSavePrediction();
 	const [home, setHome] = useState<number>(prediction?.predictedHome ?? 0);
 	const [away, setAway] = useState<number>(prediction?.predictedAway ?? 0);
+	// Sprint "Llaves Eliminatorias con Penales" 2026: en playoffs con empate
+	// el usuario debe pronosticar quién gana la tanda. Estado sincronizado
+	// con `prediction.predictedWinner` (que ya existe en el tipo Prediction).
+	const [penaltyWinner, setPenaltyWinner] = useState<"home" | "away" | null>(
+		prediction?.predictedWinner ?? null,
+	);
 	const [isDirty, setIsDirty] = useState(false);
 	const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
 		"idle",
@@ -49,6 +55,7 @@ export function PredictionSlide({
 	useEffect(() => {
 		setHome(prediction?.predictedHome ?? 0);
 		setAway(prediction?.predictedAway ?? 0);
+		setPenaltyWinner(prediction?.predictedWinner ?? null);
 		setIsDirty(false);
 		setSaveState("idle");
 	}, [prediction]);
@@ -83,16 +90,40 @@ export function PredictionSlide({
 		setSaveState("idle");
 	};
 
+	// Sprint "Llaves Eliminatorias con Penales" 2026: toggle del ganador
+	// de penales. Click en el mismo botón lo deselecciona (comportamiento
+	// idéntico al MatchCard legacy). Marca el slide como dirty.
+	const togglePenalty = (side: "home" | "away") => {
+		if (locked) return;
+		setPenaltyWinner(penaltyWinner === side ? null : side);
+		setIsDirty(true);
+		setSaveState("idle");
+	};
+
+	// Detección de modo playoffs + empate para mostrar el selector de penales.
+	// stageMultiplier > 1 → octavos/cuartos/semis/final/3er puesto.
+	const isPlayoffs = match.stageMultiplier > 1;
+	const isDraw = home === away;
+	const showPenaltySelector = isPlayoffs && isDraw;
+	// needsPenalty es true cuando el selector está visible y todavía no
+	// se eligió ganador. Bloquea el botón Guardar con label ámbar.
+	const needsPenalty = showPenaltySelector && penaltyWinner === null;
+
 	const handleSave = async () => {
 		if (locked || !isDirty) return;
 		setSaveState("saving");
 		try {
+			// Sprint "Llaves Eliminatorias con Penales" 2026: enviar
+			// `predictedWinner` SOLO cuando el selector de penales está
+			// visible (playoffs + empate). En grupos o partidos con
+			// resultado definido en 90 min, se envía null (el ganador
+			// se deriva del score predicho).
 			await saveMutation.mutateAsync({
 				matchId: match.id,
 				tournamentId: tournament.id,
 				predictedHome: home,
 				predictedAway: away,
-				predictedWinner: null,
+				predictedWinner: showPenaltySelector ? penaltyWinner : null,
 			});
 			// Haptic feedback en mobile (API estándar, no requiere permiso)
 			// Solo en modo editable: no tiene sentido haptic en consulta
@@ -117,6 +148,9 @@ export function PredictionSlide({
 		if (viewMode !== "editable") return ""; // No se renderiza
 		if (saveState === "saving") return "GUARDANDO...";
 		if (saveState === "saved") return "✓ GUARDADO";
+		// Sprint "Llaves Eliminatorias con Penales" 2026: si es playoff con
+		// empate y todavía no eligió ganador de penales, mostrar CTA ámbar.
+		if (needsPenalty) return "⚽ ELEGÍ GANADOR DE PENALES";
 		if (isDirty) return "GUARDAR PRONÓSTICO";
 		if (prediction) return "ACTUALIZADO ✓";
 		return "GUARDAR PRONÓSTICO";
@@ -126,6 +160,10 @@ export function PredictionSlide({
 		if (viewMode !== "editable") return ""; // No se renderiza
 		if (saveState === "saved")
 			return "bg-pitch-green/10 border border-pitch-green/30 text-pitch-green";
+		if (needsPenalty)
+			// Estado de "falta completar": estilo ámbar, no-redirecting.
+			// El botón queda disabled hasta que elija un ganador.
+			return "bg-amber-500/10 border border-amber-500/30 text-amber-400 cursor-default";
 		if (isDirty)
 			return "bg-error border border-error/30 text-white shadow-[0_0_15px_rgba(255,42,42,0.3)]";
 		return "bg-primary/10 border border-primary/30 text-primary";
@@ -216,6 +254,58 @@ export function PredictionSlide({
 					</div>
 				)}
 
+				{/* === Sprint "Llaves Eliminatorias con Penales" 2026: Selector de penales === */}
+				{/* Solo visible en modo editable + playoffs + empate. */}
+				{/* Concentric check: slide p-4 (16) → PenaltyButton rounded-xl (12). */}
+				{showPenaltySelector && viewMode === "editable" && (
+					<div className="space-y-2 pt-2 border-t border-white/5 animate-fade-in">
+						<p className="font-label-caps text-[9px] text-tertiary font-bold tracking-widest uppercase text-center text-glowing-gold flex items-center justify-center gap-1">
+							<span
+								className="material-symbols-outlined text-[11px]"
+								style={{ fontVariationSettings: "'FILL' 1" }}
+								aria-hidden="true"
+							>
+								military_tech
+							</span>
+							Desempate por Penales (Requerido)
+						</p>
+						<div className="flex gap-2">
+							<PenaltyButton
+								teamName={match.homeTeam}
+								selected={penaltyWinner === "home"}
+								disabled={locked}
+								onClick={() => togglePenalty("home")}
+							/>
+							<PenaltyButton
+								teamName={match.awayTeam}
+								selected={penaltyWinner === "away"}
+								disabled={locked}
+								onClick={() => togglePenalty("away")}
+							/>
+						</div>
+					</div>
+				)}
+
+				{/* Confirmación del ganador de penales (modo lectura / locked) */}
+				{/* Muestra el ganador elegido tanto en consult como en results. */}
+				{prediction?.predictedWinner && !showPenaltySelector && (
+					<div className="flex items-center justify-center gap-1.5 pt-2 border-t border-white/5">
+						<span
+							className="material-symbols-outlined text-[12px] text-amber-400"
+							style={{ fontVariationSettings: "'FILL' 1" }}
+							aria-hidden="true"
+						>
+							military_tech
+						</span>
+						<span className="font-label-caps text-[9px] text-amber-400 font-bold uppercase tracking-widest">
+							Ganador Penales:{" "}
+							{prediction.predictedWinner === "home"
+								? match.homeTeam
+								: match.awayTeam}
+						</span>
+					</div>
+				)}
+
 				{/* === Puntos potenciales (edición) o ganados (results) === */}
 				{match.status === "finished" && finishedResult ? (
 					<div className="flex items-center justify-center gap-3 text-[10px] font-label-caps uppercase tracking-widest pt-1 border-t border-white/5">
@@ -273,7 +363,7 @@ export function PredictionSlide({
 					<button
 						type="button"
 						onClick={handleSave}
-						disabled={!isDirty || saveState === "saving"}
+						disabled={!isDirty || saveState === "saving" || needsPenalty}
 						className={`w-full py-2.5 rounded-xl font-label-caps text-[11px] font-bold uppercase tracking-widest transition-all ${buttonClass}`}
 					>
 						{buttonLabel}
@@ -360,5 +450,57 @@ function Stepper({
 				<span className="material-symbols-outlined text-base">add</span>
 			</button>
 		</div>
+	);
+}
+
+/**
+ * PenaltyButton — botón atómico para elegir ganador de penales.
+ * Sprint "Llaves Eliminatorias con Penales" 2026.
+ *
+ * - Hit area ≥44px (min-h-[44px])
+ * - Scale on press 0.96 (tactile feedback, nunca menos)
+ * - Estado seleccionado: bg-primary/20 + border-primary + celestial-glow
+ * - Estado idle: bg-surface-container-high/40 + border-white/5
+ * - Specific transition (no `transition-all`): transition-colors + transform
+ * - Rótulo "Gana {teamName}" — usa el nombre canónico de la API
+ *   (la traducción a español se hace en otra capa si es necesario)
+ */
+function PenaltyButton({
+	teamName,
+	selected,
+	disabled,
+	onClick,
+}: {
+	teamName: string;
+	selected: boolean;
+	disabled?: boolean;
+	onClick: () => void;
+}) {
+	const selectedClass = selected
+		? "bg-primary/20 border-primary text-primary celestial-glow"
+		: "bg-surface-container-high/40 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white";
+	const disabledClass = disabled
+		? "opacity-50 cursor-not-allowed"
+		: "cursor-pointer";
+	return (
+		<button
+			type="button"
+			aria-pressed={selected}
+			aria-label={`Gana ${teamName} por penales`}
+			disabled={disabled}
+			onClick={onClick}
+			className={`flex-1 min-h-[44px] py-2 px-3 rounded-xl border text-[10px] font-bold tracking-wider transition-colors active:scale-[0.96] transition-transform ${selectedClass} ${disabledClass}`}
+		>
+			{selected && (
+				<span
+					className="material-symbols-outlined text-[12px] mr-1 align-middle"
+					style={{ fontVariationSettings: "'FILL' 1" }}
+					aria-hidden="true"
+				>
+					check_circle
+				</span>
+			)}
+			Gana {teamName}
+		</button>
 	);
 }

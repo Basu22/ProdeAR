@@ -144,6 +144,21 @@ export interface Match {
 	homeScore: number | null;
 	awayScore: number | null;
 	penaltyWinner: "home" | "away" | null;
+	/**
+	 * Goles en tiempo extra (120 min). NULL si no hubo tiempo extra.
+	 * Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+	 * Persistido por `poll-scores` desde `score.extratime` de API-Football.
+	 */
+	extraTimeHome: number | null;
+	extraTimeAway: number | null;
+	/**
+	 * Goles en la tanda de penales. NULL si no hubo penales.
+	 * Sprint "Llaves Eliminatorias con Penales" 2026 (migration 0008).
+	 * Persistido por `poll-scores` desde `score.penalty` de API-Football.
+	 * Junto con `penaltyWinner`, permiten mostrar "(4-3) PEN" en la UI.
+	 */
+	penaltiesHome: number | null;
+	penaltiesAway: number | null;
 	stageName: string;
 	stageMultiplier: number;
 	status: MatchStatus;
