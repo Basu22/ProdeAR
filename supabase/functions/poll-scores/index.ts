@@ -1360,7 +1360,7 @@ serve(async (req) => {
 						decision.needsLineups &&
 						Array.isArray(processed.lineups) &&
 						processed.lineups.length === 1 &&
-						(!exLineups || exLineups.length === 0)
+						(!existingMatch?.lineups || existingMatch.lineups.length === 0)
 					) {
 						lineups = processed.lineups;
 						lineupsWereUpdated = true;
@@ -1421,7 +1421,7 @@ serve(async (req) => {
 				// en polls que no tocaron lineups).
 				lineups_updated_at: lineupsWereUpdated
 					? new Date().toISOString()
-					: (exLineupsUpdatedAt ?? null),
+					: (existingMatch?.lineups_updated_at ?? null),
 				// Canonicalización Sprint 3 (server-side, opcional en DB)
 				group_letter: groupLetter,
 				home_team_canonical: homeResolved.canonical,
