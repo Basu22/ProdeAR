@@ -10,7 +10,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased] — Sprint Penales 2026: UX/UI Polish
 
 ### Changed (visible al usuario)
-- 🔄 **Highlight del selector de penales** (`src/components/match/PredictionSlide.tsx:257-313`): el bloque ahora tiene 2 estados visuales dinámicos. Cuando falta elegir ganador (`needsPenalty === true`): `bg-primary/10` + `border-primary/40` + animación `pulse-soft` + icono `bolt` (rayo) + badge "Elegí ganador" con `aria-live="polite"`. Cuando ya eligió: estado relajado con icono `military_tech` (medalla) en `text-tertiary/80`. `prefers-reduced-motion` respetado vía `motion-safe:animate-pulse-soft`.
+- 🔄 **Highlight del selector de penales** (`src/components/match/PredictionSlide.tsx:257-313` + `src/components/match/MatchCard.tsx:949-1041`): el bloque ahora tiene 2 estados visuales dinámicos en **ambos componentes** (modal y cards inline del dashboard) para mantener paridad visual. Cuando falta elegir ganador (`needsPenalty === true`): `bg-primary/10` + `border-primary/40` + animación `pulse-soft` + icono `bolt` (rayo) + badge "Elegí ganador" con `aria-live="polite"`. Cuando ya eligió: estado relajado con icono `military_tech` (medalla) en `text-tertiary/80`. `prefers-reduced-motion` respetado vía `motion-safe:animate-pulse-soft`.
 - 🔄 **Flechas nativas de `input[type="number"]` ocultas globalmente** (`src/index.css:170-181`): regla en `@layer base` que aplica a TODOS los inputs number del proyecto (no solo al del modal). Cubre WebKit (`::-webkit-outer/inner-spin-button`) y Firefox (`-moz-appearance: textfield`).
 
 ### Internal (no visible al usuario)

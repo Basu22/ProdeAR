@@ -811,11 +811,11 @@ Para que el usuario pueda ver el nombre completo al hover/tap largo, se agregó 
 
 ## Feature: UX/UI Polish — Highlight de Penales + Hide Native Number Arrows *(2026-06-28)*
 
-**Sprint**: "Sprint Penales 2026 — UX/UI Polish" · **Issues resueltos**: 2 · **Tests**: 720 passing, 0 regresiones, 0 errores TS.
+**Sprint**: "Sprint Penales 2026 — UX/UI Polish" · **Issues resueltos**: 2 (+ 1 P1 de paridad) · **Commits**: `81a1b23` + `c1d101a` · **Tests**: 720 passing, 0 regresiones, 0 errores TS.
 
 ### Issue 1 — Highlight del selector de penales
 
-Bloque `src/components/match/PredictionSlide.tsx:257-313` reescrito con estados visuales dinámicos en función de `needsPenalty` (computado como `showPenaltySelector && penaltyWinner === null`).
+Bloque `src/components/match/PredictionSlide.tsx:257-313` (modal) **y** `src/components/match/MatchCard.tsx:949-1041` (cards inline del dashboard) reescritos con estados visuales dinámicos en función de `needsPenalty` (computado como `showPenaltySelector && penaltyWinner === null`). **Paridad visual**: ambos componentes comparten el mismo patrón de feedback, así el usuario ve el mismo highlight tanto en el modal como en la card del dashboard.
 
 | Estado | Trigger | Visual |
 |---|---|---|

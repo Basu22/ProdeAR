@@ -513,9 +513,9 @@ Issues resueltos en el bottom modal de predicción de partido (`PredictionSlide.
 - [x] **Issue 2**: Ocultar flechas nativas del `<input type="number">` globalmente en `@layer base` (`src/index.css:170-181`). Cubre `PredictionSlide.tsx:435` y `MatchCard.tsx:848,891` sin tocarlos individualmente.
 - [x] Soporte CSS: keyframe `pulseSoft` + clase `animate-pulse-soft` (`src/index.css:593-608`) + entrada en `@media (prefers-reduced-motion: reduce)` (línea 856).
 
-### Pendiente (P1)
+### Pendiente (P1) — ✅ Resuelto en commit `c1d101a`
 
-- [ ] Considerar si el mismo highlight aplica al `src/components/match/MatchCard.tsx:962-985` cuando `isPlayoffs && isDraw && penaltyWinner === null` — para mantener paridad visual entre card y modal. Por ahora solo se aplicó al `PredictionSlide` del modal, no a las cards inline del dashboard.
+- [x] Paridad visual entre `MatchCard.tsx:962-985` (cards inline del dashboard) y `PredictionSlide.tsx` (modal). Ahora ambos componentes comparten los 3 estados visuales cuando `isPlayoffs && isDraw && penaltyWinner === null`. Commit: `c1d101a feat(penales-ux): paridad visual del highlight de penales en MatchCard`.
 
 ### Validaciones
 
@@ -523,15 +523,24 @@ Issues resueltos en el bottom modal de predicción de partido (`PredictionSlide.
 |---|---|
 | `npx tsc -b --noEmit` | ✅ 0 errores |
 | `npm test` | ✅ 720 passing, 6 fallos pre-existentes (todos `isFeatureEnabled("BRACKET_V2")` en `hotfixT0`, `worldCupGroups`, `PositionsView`; confirmados pre-existentes con `git stash` + test) |
-| `biome check` (archivos modificados) | ⚠️ Solo warnings de `!important` (consistentes con patrón existente en `index.css`) |
+| `biome check` (archivos modificados) | ⚠️ Solo warnings de `!important` (consistentes con patrón existente en `index.css`). 1 error pre-existente en `MatchCard.tsx:583` (`aria-label` en `<span>`) que no toqué. |
+
+### Commits
+
+```
+81a1b23 feat(penales-ux): highlight del selector de penales + hide native number arrows
+c1d101a feat(penales-ux): paridad visual del highlight de penales en MatchCard
+```
 
 ### Archivos modificados
 
 ```
-M src/components/match/PredictionSlide.tsx  (+30 / -3)
-M src/index.css                              (+34 / 0)
+M src/components/match/PredictionSlide.tsx  (+30 / -3)   (commit 81a1b23)
+M src/index.css                              (+34 / 0)    (commit 81a1b23)
+M src/components/match/MatchCard.tsx         (+40 / -4)   (commit c1d101a)
 M task.md                                    (esta entrada)
-M CHANGELOG.md                               (entrada [Unreleased] arriba de Sprint 5)
+M CHANGELOG.md                               (entradas [Unreleased] arriba de Sprint 5)
+M walkthrough.md                             (sección "Feature: UX/UI Polish" + nota de paridad)
 M walkthrough.md                             (nueva sección "Feature: UX/UI Polish")
 ```
 
