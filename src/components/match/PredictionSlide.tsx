@@ -256,18 +256,40 @@ export function PredictionSlide({
 
 				{/* === Sprint "Llaves Eliminatorias con Penales" 2026: Selector de penales === */}
 				{/* Solo visible en modo editable + playoffs + empate. */}
+				{/* Sprint UX/UI 2026: highlight visual cuando falta elegir ganador. */}
 				{/* Concentric check: slide p-4 (16) → PenaltyButton rounded-xl (12). */}
 				{showPenaltySelector && viewMode === "editable" && (
-					<div className="space-y-2 pt-2 border-t border-white/5 animate-fade-in">
-						<p className="font-label-caps text-[9px] text-tertiary font-bold tracking-widest uppercase text-center text-glowing-gold flex items-center justify-center gap-1">
+					<div
+						className={`mt-2 rounded-xl p-3 space-y-2 transition-all duration-300 ${
+							needsPenalty
+								? "bg-primary/10 border border-primary/40 motion-safe:animate-pulse-soft"
+								: "bg-surface-container-high/40 border border-white/5"
+						}`}
+					>
+						<p
+							className={`font-label-caps text-[9px] font-bold tracking-widest uppercase text-center flex items-center justify-center gap-1.5 ${
+								needsPenalty
+									? "text-primary text-glowing"
+									: "text-tertiary/80 text-glowing-gold"
+							}`}
+						>
 							<span
-								className="material-symbols-outlined text-[11px]"
+								className="material-symbols-outlined text-[12px]"
 								style={{ fontVariationSettings: "'FILL' 1" }}
 								aria-hidden="true"
 							>
-								military_tech
+								{needsPenalty ? "bolt" : "military_tech"}
 							</span>
-							Desempate por Penales (Requerido)
+							<span>Desempate por Penales</span>
+							{needsPenalty && (
+								<span
+									className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-on-primary text-[8px] font-bold uppercase tracking-wider"
+									role="status"
+									aria-live="polite"
+								>
+									Elegí ganador
+								</span>
+							)}
 						</p>
 						<div className="flex gap-2">
 							<PenaltyButton
@@ -283,6 +305,11 @@ export function PredictionSlide({
 								onClick={() => togglePenalty("away")}
 							/>
 						</div>
+						{needsPenalty && (
+							<p className="text-[10px] text-primary/80 text-center font-medium leading-tight">
+								Tocá el equipo que creés que gana por penales
+							</p>
+						)}
 					</div>
 				)}
 

@@ -503,3 +503,35 @@ git push origin main
 4. **Considerar agregar más ligas** (LPF, Premier) — ahora el selector soporta 20+ sin scroll horizontal
 5. **Refactor opcional**: `KnockoutBracket.tsx` está marcado `@deprecated` desde Sprint 4. Considerar eliminarlo si nadie lo usa.
 
+---
+
+## Sprint Penales 2026 — UX/UI Polish *(2026-06-28)*
+
+Issues resueltos en el bottom modal de predicción de partido (`PredictionSlide.tsx` + `index.css`):
+
+- [x] **Issue 1**: Highlight visual del selector de penales cuando hay empate en playoffs (`src/components/match/PredictionSlide.tsx:257-313`). Dos estados: "atención" (primary + `pulse-soft` + icono `bolt` + badge "Elegí ganador" con `aria-live="polite"`) y "relajado" (tertiary + icono `military_tech`). `prefers-reduced-motion` respetado en 2 capas (`motion-safe:` + override en `@media`).
+- [x] **Issue 2**: Ocultar flechas nativas del `<input type="number">` globalmente en `@layer base` (`src/index.css:170-181`). Cubre `PredictionSlide.tsx:435` y `MatchCard.tsx:848,891` sin tocarlos individualmente.
+- [x] Soporte CSS: keyframe `pulseSoft` + clase `animate-pulse-soft` (`src/index.css:593-608`) + entrada en `@media (prefers-reduced-motion: reduce)` (línea 856).
+
+### Pendiente (P1)
+
+- [ ] Considerar si el mismo highlight aplica al `src/components/match/MatchCard.tsx:962-985` cuando `isPlayoffs && isDraw && penaltyWinner === null` — para mantener paridad visual entre card y modal. Por ahora solo se aplicó al `PredictionSlide` del modal, no a las cards inline del dashboard.
+
+### Validaciones
+
+| Check | Resultado |
+|---|---|
+| `npx tsc -b --noEmit` | ✅ 0 errores |
+| `npm test` | ✅ 720 passing, 6 fallos pre-existentes (todos `isFeatureEnabled("BRACKET_V2")` en `hotfixT0`, `worldCupGroups`, `PositionsView`; confirmados pre-existentes con `git stash` + test) |
+| `biome check` (archivos modificados) | ⚠️ Solo warnings de `!important` (consistentes con patrón existente en `index.css`) |
+
+### Archivos modificados
+
+```
+M src/components/match/PredictionSlide.tsx  (+30 / -3)
+M src/index.css                              (+34 / 0)
+M task.md                                    (esta entrada)
+M CHANGELOG.md                               (entrada [Unreleased] arriba de Sprint 5)
+M walkthrough.md                             (nueva sección "Feature: UX/UI Polish")
+```
+

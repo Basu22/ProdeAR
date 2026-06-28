@@ -7,6 +7,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
+## [Unreleased] — Sprint Penales 2026: UX/UI Polish
+
+### Changed (visible al usuario)
+- 🔄 **Highlight del selector de penales** (`src/components/match/PredictionSlide.tsx:257-313`): el bloque ahora tiene 2 estados visuales dinámicos. Cuando falta elegir ganador (`needsPenalty === true`): `bg-primary/10` + `border-primary/40` + animación `pulse-soft` + icono `bolt` (rayo) + badge "Elegí ganador" con `aria-live="polite"`. Cuando ya eligió: estado relajado con icono `military_tech` (medalla) en `text-tertiary/80`. `prefers-reduced-motion` respetado vía `motion-safe:animate-pulse-soft`.
+- 🔄 **Flechas nativas de `input[type="number"]` ocultas globalmente** (`src/index.css:170-181`): regla en `@layer base` que aplica a TODOS los inputs number del proyecto (no solo al del modal). Cubre WebKit (`::-webkit-outer/inner-spin-button`) y Firefox (`-moz-appearance: textfield`).
+
+### Internal (no visible al usuario)
+- 🔧 Nuevo keyframe `pulseSoft` (`box-shadow` only, no `transform/opacity` → no causa reflow) + utility `.animate-pulse-soft` (`src/index.css:593-608`). Override en `@media (prefers-reduced-motion: reduce)` (línea 856).
+- 🔧 Decisión: sin nueva dependencia. Iconos via Material Symbols `bolt` y `military_tech` (consistente con los 9 Material Symbols ya en `PredictionSlide.tsx`), no `lucide-react`.
+- 🔧 Decisión: regla global de `input[type="number"]` en `@layer base` (DRY: arregla también los 2 inputs de `src/components/match/MatchCard.tsx:848,891` sin tocarlos).
+- 🔧 Accesibilidad: badge con `role="status"` + `aria-live="polite"`, icono decorativo con `aria-hidden="true"`.
+
+---
+
 ## [Unreleased] — Sprint 5: Refinamientos mobile-first
 
 ### Added (visible al usuario)

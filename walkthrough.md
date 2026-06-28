@@ -809,6 +809,72 @@ Para que el usuario pueda ver el nombre completo al hover/tap largo, se agregó 
 
 ---
 
+## Feature: UX/UI Polish — Highlight de Penales + Hide Native Number Arrows *(2026-06-28)*
+
+**Sprint**: "Sprint Penales 2026 — UX/UI Polish" · **Issues resueltos**: 2 · **Tests**: 720 passing, 0 regresiones, 0 errores TS.
+
+### Issue 1 — Highlight del selector de penales
+
+Bloque `src/components/match/PredictionSlide.tsx:257-313` reescrito con estados visuales dinámicos en función de `needsPenalty` (computado como `showPenaltySelector && penaltyWinner === null`).
+
+| Estado | Trigger | Visual |
+|---|---|---|
+| Atención | `needsPenalty === true` | `bg-primary/10` + `border-primary/40` + `motion-safe:animate-pulse-soft` + icono `bolt` (rayo) en `text-primary text-glowing` + badge `<span role="status" aria-live="polite">Elegí ganador</span>` + hint "Tocá el equipo que creés que gana por penales" |
+| Relajado | `penaltyWinner !== null` | `bg-surface-container-high/40` + `border-white/5` + icono `military_tech` (medalla) en `text-tertiary/80 text-glowing-gold` (sin badge, sin hint, sin animación) |
+| Oculto | `!isPlayoffs \|\| !isDraw` | No se monta (igual que antes) |
+
+**Accesibilidad**: `prefers-reduced-motion` respetado en 2 capas (`motion-safe:animate-pulse-soft` como wrapper + entrada explícita en `@media (prefers-reduced-motion: reduce)` con `animation: none !important`). Icono decorativo con `aria-hidden="true"`. Badge con `role="status"` + `aria-live="polite"` para que screenreaders anuncien el cambio de estado.
+
+### Issue 2 — Hide native number arrows
+
+Regla global agregada en `src/index.css:170-181` (`@layer base`) que oculta las flechas nativas (▲▼) de **todos** los `input[type="number"]` del proyecto. Cubre:
+
+- `src/components/match/PredictionSlide.tsx:435` (el input del Stepper del bottom modal — el de la captura)
+- `src/components/match/MatchCard.tsx:848` y `891` (los 2 inputs del editor inline legacy)
+
+```css
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: none;
+}
+```
+
+**Decisión**: regla global (no por clase utilitaria) → DRY → cualquier `input[type="number"]` futuro hereda el fix automáticamente.
+
+**Mobile también**: no se dejaron las flechas nativas en mobile. Justificación: el Stepper ya tiene sus propios botones `+`/`-` (líneas 425-451 de `PredictionSlide.tsx` con `material-symbols-outlined` `add`/`remove`), mantener 2 affordances para la misma acción solo genera inconsistencia visual entre plataformas.
+
+### Decisiones técnicas relevantes
+
+1. **Material Symbols sobre `lucide-react`**: el archivo ya usa 9 Material Symbols (incluido el icono actual del selector `military_tech`). Para mantener consistencia, se usó `bolt` (rayo) y se mantuvo `military_tech` (medalla) — ambos con `fontVariationSettings: "'FILL' 1"`. La librería `lucide-react` está instalada y se usa en 4 componentes UI (`UpdateIcon`, `UpdateBlockingModal`, `NotificationToast`, `NavSidebar`), pero romper consistencia en `PredictionSlide.tsx` era peor que la convención local.
+2. **Sin nueva dependencia**: 0 paquetes agregados. El highlight se implementó 100% con Tailwind v4 utilities + 1 keyframe CSS de 12 líneas.
+3. **Animación `box-shadow` only**: el keyframe `pulseSoft` solo anima `box-shadow` (no `transform` ni `opacity`) para evitar reflow del layout. Duración 2.4s, `ease-in-out`, `infinite`. Esto lo hace amable con la `prefers-reduced-motion` y con componentes que ya tienen otras animaciones en el mismo árbol.
+4. **Label "Desempate por Penales"** (sin "(Requerido)"): se quitó el sufijo "(Requerido)" porque el badge "Elegí ganador" + el CTA ámbar del botón Guardar ("⚽ ELEGÍ GANADOR DE PENALES") ya comunican el estado de "falta completar" de forma más rica y accesible.
+
+### Validaciones
+
+| Check | Resultado |
+|---|---|
+| `npx tsc -b --noEmit` | ✅ 0 errores |
+| `npm test` | ✅ 720 passing, 6 fallos pre-existentes (todos `isFeatureEnabled("BRACKET_V2")` en `hotfixT0`, `worldCupGroups`, `PositionsView`; confirmados pre-existentes con `git stash` + test) |
+| `biome check` (archivos modificados) | ⚠️ Solo warnings de `!important` (consistentes con patrón existente en `index.css`) |
+
+### Pasos para probar
+
+1. `npm run dev`
+2. Login → abrir un partido de **playoffs** (ej. 16vos del Mundial) que esté en estado `not_started` y editable
+3. Tocar los botones `+`/`-` del stepper hasta dejar el score 1-1 → debería aparecer el bloque "Desempate por Penales" con **highlight animado** (`bg-primary/10` + `pulse-soft`) + **icono `bolt` celeste** + **badge "Elegí ganador"** + **hint** "Tocá el equipo que creés que gana por penales"
+4. Tocar uno de los `PenaltyButton` → el bloque cambia al **estado relajado** (ámbar, icono de medalla, sin animación, sin badge, sin hint)
+5. Cambiar el score a 2-1 → el bloque desaparece (porque `isDraw === false`)
+6. **Verificar accesibilidad**: el badge anuncia "Elegí ganador" a screen readers (NVDA / VoiceOver). DevTools → Rendering → "Emulate CSS `prefers-reduced-motion: reduce`" → la animación `pulse-soft` debe detenerse y quedar estática con el highlight de color.
+7. **Verificar inputs**: NO deben verse flechas ▲▼ a la derecha de los inputs de score ni en el modal ni en las `MatchCard` de la lista, en **Chrome / Edge / Firefox / Safari** y también en mobile (iOS Safari + Chrome Android).
+
+---
+
 ## Referencias
 
 - **Spec UX/UI del Match Bottom Sheet**: `docs/match-bottom-sheet-ux-spec.md` (117KB)

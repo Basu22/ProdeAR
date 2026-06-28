@@ -166,6 +166,20 @@
 		background: var(--color-primary-container);
 		color: var(--color-on-primary-container);
 	}
+
+	/* === Ocultar flechas nativas de <input type="number"> ===
+	   El proyecto usa sus propios botones +/- como affordance principal
+	   (ver Stepper en PredictionSlide), así que las flechas nativas del
+	   browser son ruido duplicado. Cubre WebKit + Firefox. */
+	input[type="number"]::-webkit-outer-spin-button,
+	input[type="number"]::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+	input[type="number"] {
+		-moz-appearance: textfield;
+		appearance: none;
+	}
 }
 
 @layer components {
@@ -576,6 +590,23 @@
 		border-color: #f59e0b !important;
 	}
 
+	/* === Penalty Highlight Pulse (Sprint Penales 2026) ===
+	   Pulso sutil de glow celeste para indicar "este bloque te falta cargar".
+	   Usa solo box-shadow (sin transform ni opacity) para evitar reflow,
+	   ser amable con prefers-reduced-motion y no chocar con otras animaciones. */
+	@keyframes pulseSoft {
+		0%,
+		100% {
+			box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+		}
+		50% {
+			box-shadow: 0 0 0 6px rgba(0, 229, 255, 0.12);
+		}
+	}
+	.animate-pulse-soft {
+		animation: pulseSoft 2.4s ease-in-out infinite;
+	}
+
 	/* === Sprint 1: Tab Content Enter (F10) — cross-fade between tabs === */
 	@keyframes tabContentEnter {
 		from {
@@ -820,6 +851,9 @@
 		.stadium-glow-green,
 		.stadium-glow-red,
 		.stadium-glow-amber {
+			animation: none !important;
+		}
+		.animate-pulse-soft {
 			animation: none !important;
 		}
 		.animate-arrow-march > * {
