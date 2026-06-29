@@ -8,8 +8,8 @@
  * RoundStepper" por un carrusel horizontal con scroll snap:
  * - **Mobile** (< 768px): 2 columnas visibles simultáneamente,
  *   swipe horizontal entre rondas.
- * - **Desktop** (≥ 768px): 5+1 columnas completas en single viewport
- *   (sin scroll horizontal, las 5 rondas + 3RD sub-card de F).
+ * - **Desktop** (≥ 768px): 6 columnas completas en single viewport
+ *   (R32 + R16 + QF + SF + F + 3RD).
  *
  * ============================================================================
  * ARQUITECTURA
@@ -17,16 +17,15 @@
  * ```
  * BracketQuadro
  *   ├── ChampionBanner              (si champion !== null && F visible)
- *   ├── RoundChipBar                (sticky, 6 chips)
- *   ├── DotIndicator                (5+1 dots, mobile only)
+ *   ├── DotIndicator                (6 dots, mobile only)
  *   ├── <div> carrusel              (overflow-x-auto, snap-x mandatory)
  *   │     ├── BracketColumn[R32]    (data-round="R32", panel-R32)
  *   │     ├── BracketColumn[R16]    (data-round="R16", panel-R16)
  *   │     ├── BracketColumn[QF]     (data-round="QF", panel-QF)
  *   │     ├── BracketColumn[SF]     (data-round="SF", panel-SF)
- *   │     └── BracketColumn[F]      (data-round="F", panel-F)
- *   │           ├── BracketRound    (Final match)
- *   │           └── ThirdPlaceSeparator + 3RD sub-card
+ *   │     ├── BracketColumn[F]      (data-round="F", panel-F)
+ *   │     └── BracketColumn[3RD]    (data-round="3RD", panel-3RD)
+ *   │           └── BracketMatchCard (3rd place match)
  *   └── FadeGradient (left + right, mobile only)
  * ```
  *
@@ -45,9 +44,7 @@
  * ============================================================================
  * - `<section aria-roledescription="carrusel">` con `aria-label` descriptivo
  * - Keyboard nav: ArrowLeft/Right (paso a paso), Home/End (inicio/fin)
- * - Tap targets ≥ 44×44px (en chips, via RoundChipBar)
  * - `prefers-reduced-motion`: scroll-behavior auto, sin transiciones
- * - aria-current="page" en el chip activo (via RoundChipBar)
  *
  * ============================================================================
  * PROPS
@@ -64,13 +61,15 @@ import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
 import {
 	getRoundNavigatorState,
 	parseRoundParam,
+	ROUND_ORDER,
 } from "../../lib/bracketNavigation";
 import type { FullBracket } from "../../lib/bracketTypes";
 import type { RoundAbbreviation } from "../../lib/roundNames";
 import { BracketColumn } from "./BracketColumn";
 import { BracketConnectors } from "./BracketConnectors";
+import { BracketMatchCard } from "./BracketMatchCard";
+import { BracketRound } from "./BracketRound";
 import { ChampionBanner } from "./ChampionBanner";
-import { RoundChipBar } from "./RoundChipBar";
 
 // ============================================================================
 // PROPS
@@ -81,15 +80,6 @@ interface BracketQuadroProps {
 	onOpenDetails?: (matchId: string) => void;
 	interactive?: boolean;
 }
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-/**
- * Orden cronológico de las rondas (sin 3RD que es sub-card de F).
- */
-const ROUND_ORDER: RoundAbbreviation[] = ["R32", "R16", "QF", "SF", "F"];
 
 // ============================================================================
 // SUBCOMPONENTS
@@ -348,7 +338,7 @@ export function BracketQuadro({
 	): "compact" | "default" | "hero" => {
 		if (abbr === "R32" || abbr === "R16") return "compact";
 		if (abbr === "QF" || abbr === "SF") return "default";
-		return "hero"; // F
+		return "hero"; // F, 3RD
 	};
 
 	// ── Si onOpenDetails no se pasa pero interactive es true, no-op silencioso ──
@@ -377,6 +367,10 @@ export function BracketQuadro({
 	const showChampion =
 		champion && (activeRound === "F" || currentRound === "F");
 
+	// ── 3RD como columna navegable (Sprint 5+) ──
+	// Si thirdPlaceMatch existe, lo mostramos como una columna más al final.
+	const showThirdPlaceColumn = !!thirdPlaceMatch;
+
 	return (
 		<section
 			aria-label="Rondas del Mundial 2026: 16vos, 8vos, 4tos, Semifinal, Final y 3er Puesto"
@@ -385,13 +379,6 @@ export function BracketQuadro({
 		>
 			{/* Champion Banner (solo si F es visible) */}
 			{showChampion && champion && <ChampionBanner champion={champion} />}
-
-			{/* Round Chip Bar (sticky) */}
-			<RoundChipBar
-				activeRound={activeRound ?? currentRound}
-				onChipClick={navigateToRound}
-				liveRounds={liveRounds}
-			/>
 
 			{/* Dot Indicator (mobile only) */}
 			{activeIndex >= 0 && (
@@ -421,19 +408,48 @@ export function BracketQuadro({
 				{/* Sprint 5D+: SVG overlay con las líneas conectoras del árbol */}
 				<BracketConnectors containerRef={scrollRef} rounds={rounds} />
 
-				{/* 5 columnas de rondas */}
+				{/* 5 columnas de rondas principales */}
 				{rounds.map((round) => (
 					<BracketColumn
 						key={round.meta.abbr}
 						round={round}
 						variant={variantForRound(round.meta.abbr)}
 						onOpenDetails={handleOpen}
-						thirdPlaceMatch={
-							round.meta.abbr === "F" ? thirdPlaceMatch : undefined
-						}
 						isLeaving={leavingRound === round.meta.abbr}
 					/>
 				))}
+
+				{/* 3RD como columna independiente (Sprint 5+) */}
+				{showThirdPlaceColumn && thirdPlaceMatch && (
+					<div
+						id="panel-3RD"
+						data-round="3RD"
+						data-leaving={leavingRound === "3RD" ? "true" : "false"}
+						className={`
+							shrink-0
+							min-w-[55vw] sm:min-w-[50vw]
+							snap-start
+							md:min-w-0 md:flex-1
+							border-l-2 border-l-tertiary
+							pl-3 pr-1
+							${leavingRound === "3RD" ? "bracket-column-leaving" : ""}
+						`.trim()}
+					>
+						<BracketRound
+							round={{
+								meta: {
+									abbr: "3RD",
+									full: "Tercer Puesto",
+									short: "3er Puesto",
+									multiplier: 4,
+								},
+								matches: [thirdPlaceMatch],
+							}}
+							cardVariant="hero"
+							onOpenDetails={handleOpen}
+						/>
+					</div>
+				)}
 			</div>
 
 			{/* Live region para screen readers */}

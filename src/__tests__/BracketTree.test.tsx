@@ -175,19 +175,14 @@ function renderWithRouter(
 	);
 }
 
-describe("BracketTree (Sprint 5D: wrapper de BracketQuadro)", () => {
-	it("renderiza R32 por default con chip activo en el RoundChipBar", () => {
+describe("BracketTree (Sprint 5+: 3RD como columna navegable, sin RoundChipBar)", () => {
+	it("renderiza R32 por default con la columna visible", () => {
 		const bracket = makeEmptyBracket();
-		renderWithRouter(<BracketTree bracket={bracket} />);
-
-		// El chip R32 debe estar activo (aria-current="page")
-		const r32Chip = screen.getByRole("button", {
-			name: /ir a 16vos de final/i,
-		});
-		expect(r32Chip).toHaveAttribute("aria-current", "page");
-
-		// La columna R32 debe estar en el DOM con data-round
 		const { container } = renderWithRouter(<BracketTree bracket={bracket} />);
+
+		// Sprint 5+: ya no hay RoundChipBar (pills superiores eliminadas).
+		// La navegación entre rondas es via scroll + teclado.
+		// Verificamos que la columna R32 está en el DOM.
 		const r32Column = container.querySelector('[data-round="R32"]');
 		expect(r32Column).toBeInTheDocument();
 	});

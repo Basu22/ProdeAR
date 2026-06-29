@@ -42,6 +42,11 @@ function mapDbMatchToFrontend(m: any): Match {
 		id: m.id,
 		competitionId: String(m.competition_id),
 		competitionName: m.competitions?.name || undefined,
+		// Sprint "Amistosos Read-Only" 2026-06-29: poblar isFriendly desde
+		// competitions.is_friendly. El query (más abajo) hace JOIN con
+		// competitions(name, is_friendly) para que este campo esté disponible.
+		// Default `false` si la columna no existe en DB.
+		isFriendly: m.competitions?.is_friendly ?? false,
 		homeTeam: m.home_team,
 		awayTeam: m.away_team,
 		homeLogo: m.home_logo || null,
@@ -64,6 +69,11 @@ function mapDbMatchToFrontend(m: any): Match {
 		tvChannel: m.tv_channel || null,
 		minute: m.elapsed ?? undefined,
 		rawStatus: m.raw_status || undefined,
+		// Sprint "Full Bracket" 2026-06-29: mapeo crítico de bracket_position.
+		// Sin este campo, propagateBracketWinners no puede matchear los
+		// matches de DB con los slots del bracket visual, y los datos
+		// de stadium/kickOff/score NO se propagan → la UI muestra TBD.
+		bracketPosition: m.bracket_position ?? null,
 		events: m.events
 			? typeof m.events === "string"
 				? JSON.parse(m.events)
@@ -301,7 +311,12 @@ export const matchesApi = {
 		};
 
 		if (isSupabaseConfigured) {
-			let query = supabase.from("matches").select("*, competitions(name)");
+			// Sprint "Amistosos Read-Only" 2026-06-29: incluir `is_friendly`
+			// en el JOIN con competitions para que mapDbMatchToFrontend
+			// pueda popular `isFriendly` en el Match del frontend.
+			let query = supabase
+				.from("matches")
+				.select("*, competitions(name, is_friendly)");
 
 			if (competitionId) {
 				const compIdNum = Number.parseInt(competitionId, 10);

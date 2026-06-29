@@ -15,7 +15,7 @@
  * - Mantener el componente React enfocado en UI/animaciones
  *
  * ============================================================================
- * COMPORTAMIENTO POR RONDA
+ * COMPORTAMIENTO POR RONDA (Sprint 5+: 3RD como columna navegable)
  * ============================================================================
  *
  * ┌────────────┬──────────────┬──────────────┐
@@ -25,12 +25,9 @@
  * │ 8vos (R16) │ → 16vos (R32)│ → 4tos (QF)  │
  * │ 4tos (QF)  │ → 8vos (R16) │ → Semis (SF) │
  * │ Semis (SF) │ → 4tos (QF)  │ → Final (F)  │
- * │ Final (F)  │ → Semis (SF) │ 🔒 disabled  │
- * │ 3RD       │ → Semis (SF) │ 🔒 disabled  │
+ * │ Final (F)  │ → Semis (SF) │ → 3RD       │
+ * │ 3RD       │ → Final (F)  │ 🔒 disabled  │
  * └────────────┴──────────────┴──────────────┘
- *
- * 3RD es un "apéndice" de la Final (perdedores de semis).
- * No tiene flecha derecha (es la última vista).
  *
  * ============================================================================
  */
@@ -39,9 +36,16 @@ import type { RoundAbbreviation } from "./roundNames";
 
 /**
  * Orden de las rondas en navegación (izquierda a derecha).
- * 3RD se maneja aparte como "apéndice de la Final".
+ * Sprint 5+: 3RD se incluye como una ronda navegable más (columna propia).
  */
-const ROUND_ORDER: RoundAbbreviation[] = ["R32", "R16", "QF", "SF", "F"];
+export const ROUND_ORDER: RoundAbbreviation[] = [
+	"R32",
+	"R16",
+	"QF",
+	"SF",
+	"F",
+	"3RD",
+];
 
 /**
  * Estado de UNA flecha del navegador.
@@ -62,11 +66,11 @@ export interface RoundNavigatorState {
 	current: RoundAbbreviation;
 	left: ArrowState;
 	right: ArrowState;
-	/** Índice de la ronda actual en ROUND_ORDER (0-based). -1 si es 3RD. */
+	/** Índice de la ronda actual en ROUND_ORDER (0-based). */
 	currentIndex: number;
-	/** Total de rondas en ROUND_ORDER (5). */
+	/** Total de rondas en ROUND_ORDER (6). */
 	totalRounds: number;
-	/** Si la ronda actual es 3RD (apéndice de la Final). */
+	/** Si la ronda actual es 3RD. */
 	isThirdPlace: boolean;
 }
 
@@ -98,13 +102,13 @@ const ROUND_SHORT_LABELS: Record<RoundAbbreviation, string> = {
 /**
  * Devuelve el estado completo del navegador para una ronda actual.
  *
- * Reglas:
+ * Reglas (Sprint 5+ con 3RD como ronda navegable):
  * - 16vos (R32): ◀ disabled, ▶ → 8vos
  * - 8vos (R16): ◀ → 16vos, ▶ → 4tos
  * - 4tos (QF): ◀ → 8vos, ▶ → Semis
  * - Semis (SF): ◀ → 4tos, ▶ → Final
- * - Final (F): ◀ → Semis, ▶ disabled
- * - 3er Puesto (3RD): ◀ → Semis, ▶ disabled
+ * - Final (F): ◀ → Semis, ▶ → 3RD
+ * - 3RD: ◀ → Final, ▶ disabled
  *
  * @param current - Ronda actualmente visible.
  * @returns RoundNavigatorState con left, right, currentIndex, totalRounds, isThirdPlace.
@@ -112,18 +116,12 @@ const ROUND_SHORT_LABELS: Record<RoundAbbreviation, string> = {
 export function getRoundNavigatorState(
 	current: RoundAbbreviation,
 ): RoundNavigatorState {
+	const currentIndex = ROUND_ORDER.indexOf(current);
 	const isThirdPlace = current === "3RD";
-	const currentIndex = isThirdPlace ? -1 : ROUND_ORDER.indexOf(current);
 
-	// Flecha izquierda: apunta a la ronda anterior.
-	// Caso especial 3RD: como los perdedores vienen de las semis, la flecha
-	// izquierda de 3RD va a SF (no a la ronda anterior en el array, porque
-	// 3RD no está en ROUND_ORDER).
-	const leftTarget = isThirdPlace
-		? "SF"
-		: currentIndex > 0
-			? ROUND_ORDER[currentIndex - 1]
-			: null;
+	// Flecha izquierda: apunta a la ronda anterior en ROUND_ORDER.
+	const leftTarget =
+		currentIndex > 0 ? ROUND_ORDER[currentIndex - 1] : null;
 	const leftEnabled = leftTarget !== null;
 	const left: ArrowState = {
 		enabled: leftEnabled,
@@ -134,8 +132,7 @@ export function getRoundNavigatorState(
 	};
 
 	// Flecha derecha: siempre apunta a la siguiente ronda.
-	// Deshabilitada si current es la última (F) o si es 3RD (también
-	// la "última" en términos de navegación).
+	// Deshabilitada si current es la última (3RD).
 	const rightTarget =
 		currentIndex >= 0 && currentIndex < ROUND_ORDER.length - 1
 			? ROUND_ORDER[currentIndex + 1]

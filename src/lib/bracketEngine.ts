@@ -838,6 +838,28 @@ export function propagateBracketWinners(
 		ebMatch.stadium = dbMatch.stadium ?? null;
 		ebMatch.kickOff = dbMatch.kickOff ?? null;
 
+		// Sprint "Full Bracket" 2026-06-29: propagar equipos reales desde DB.
+		// Las definiciones FIFA del bracket tienen placeholders estáticos
+		// (ej. "México" para 2°A, "Canadá" para 2°B en R32-1), pero los
+		// equipos reales se cargan por poll-scores desde API-Football.
+		// Sin esta propagación, el bracket muestra los placeholders FIFA
+		// en vez de los equipos reales.
+		//
+		// Preferencia: usar canonical (español, ej. "México") si está
+		// disponible, sino fallback al nombre crudo de la API (inglés).
+		const homeTeamName =
+			dbMatch.homeTeamCanonical || dbMatch.homeTeam || null;
+		const awayTeamName =
+			dbMatch.awayTeamCanonical || dbMatch.awayTeam || null;
+		if (homeTeamName) {
+			ebMatch.slotA.teamName = homeTeamName;
+			ebMatch.slotA.teamLogo = dbMatch.homeLogo;
+		}
+		if (awayTeamName) {
+			ebMatch.slotB.teamName = awayTeamName;
+			ebMatch.slotB.teamLogo = dbMatch.awayLogo;
+		}
+
 		// Solo propagar score y winner si el match tiene resultado
 		if (dbMatch.homeScore === null || dbMatch.awayScore === null) continue;
 

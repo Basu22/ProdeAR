@@ -50,43 +50,53 @@ describe("getRoundNavigatorState", () => {
 		expect(state.right.target).toBe("F");
 	});
 
-	it("Final (F): flecha izquierda habilitada, derecha deshabilitada", () => {
+	it("Final (F): flecha izquierda habilitada, derecha → 3RD", () => {
 		const state = getRoundNavigatorState("F");
 		expect(state.currentIndex).toBe(4);
 		expect(state.left.enabled).toBe(true);
 		expect(state.left.target).toBe("SF");
+		expect(state.right.enabled).toBe(true);
+		expect(state.right.target).toBe("3RD");
+		expect(state.right.label).toBe("Ronda siguiente: Tercer Puesto");
+	});
+
+	it("3er Puesto (3RD): solo flecha izquierda habilitada (← F)", () => {
+		const state = getRoundNavigatorState("3RD");
+		expect(state.isThirdPlace).toBe(true);
+		expect(state.currentIndex).toBe(5);
+		expect(state.left.enabled).toBe(true);
+		expect(state.left.target).toBe("F");
 		expect(state.right.enabled).toBe(false);
 		expect(state.right.target).toBeNull();
 		expect(state.right.label).toBe("Última ronda");
 	});
 
-	it("3er Puesto (3RD): solo flecha izquierda habilitada (→ SF)", () => {
-		const state = getRoundNavigatorState("3RD");
-		expect(state.isThirdPlace).toBe(true);
-		expect(state.currentIndex).toBe(-1);
-		expect(state.left.enabled).toBe(true);
-		expect(state.left.target).toBe("SF");
-		expect(state.right.enabled).toBe(false);
-	});
-
-	it("totalRounds siempre es 5 (R32, R16, QF, SF, F)", () => {
+	it("totalRounds siempre es 6 (R32, R16, QF, SF, F, 3RD)", () => {
 		const states: RoundAbbreviation[] = ["R32", "R16", "QF", "SF", "F", "3RD"];
 		for (const r of states) {
-			expect(getRoundNavigatorState(r).totalRounds).toBe(5);
+			expect(getRoundNavigatorState(r).totalRounds).toBe(6);
 		}
 	});
 });
 
 describe("getProgressPills", () => {
-	it("retorna 5 pills en orden: 16vos, 8vos, 4tos, Semis, Final", () => {
+	it("retorna 6 pills en orden: 16vos, 8vos, 4tos, Semis, Final, 3er Puesto", () => {
 		const pills = getProgressPills();
-		expect(pills).toHaveLength(5);
-		expect(pills.map((p) => p.abbr)).toEqual(["R32", "R16", "QF", "SF", "F"]);
+		expect(pills).toHaveLength(6);
+		expect(pills.map((p) => p.abbr)).toEqual([
+			"R32",
+			"R16",
+			"QF",
+			"SF",
+			"F",
+			"3RD",
+		]);
 		expect(pills[0]?.short).toBe("16vos");
 		expect(pills[1]?.short).toBe("8vos");
 		expect(pills[2]?.short).toBe("4tos");
 		expect(pills[3]?.short).toBe("Semis");
 		expect(pills[4]?.short).toBe("Final");
+		expect(pills[5]?.short).toBe("3er Puesto");
 	});
 });
 

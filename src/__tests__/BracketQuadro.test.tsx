@@ -1,25 +1,22 @@
 /**
  * Tests para `src/components/tournament/BracketQuadro.tsx`.
  *
- * Sprint 5D: Carrusel horizontal del arbol de eliminatorias.
+ * Sprint 5+: Carrusel horizontal del arbol de eliminatorias con 3RD
+ * como columna navegable independiente.
  *
  * ============================================================================
- * COBERTURA (10 tests)
+ * COBERTURA (7 tests)
  * ============================================================================
- * 1. Renderiza 5 columnas (R32, R16, QF, SF, F) con data-round correcto
- * 2. RoundChipBar tiene role="navigation" con 5 chips
- * 3. 3RD se renderiza como sub-card dentro de columna F (NO columna aparte)
+ * 1. Renderiza 6 columnas (R32, R16, QF, SF, F, 3RD) con data-round correcto
+ * 2. NO renderiza RoundChipBar (pills superiores eliminadas)
+ * 3. 3RD se renderiza como COLUMNA APARTE (NO sub-card de F)
  * 4. ChampionBanner visible cuando ?round=f y hay champion
  * 5. ChampionBanner NO visible cuando ?round=qf (evita spoilers)
  * 6. Empty state cuando rounds.length === 0
- * 7. Click en chip actualiza URL (?round=r16)
- * 8. ?round=3rd scrollea a columna F (3RD es sub-card de F)
- * 9. prefers-reduced-motion desactiva scroll-smooth (test de integracion)
- * 10. Aria-controls en chips apunta al id del panel (data-round)
+ * 7. ?round=3rd scrollea a la columna 3RD (no a F)
+ * 8. prefers-reduced-motion desactiva scroll-smooth (test de integracion)
+ * 9. Cada columna tiene id panel-{abbr}
  * ============================================================================
- *
- * NOTA: getProgressPills() retorna 5 items (R32, R16, QF, SF, F).
- * El chip 3RD se agrega manualmente en RoundChipBar para total 6 chips.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -162,79 +159,53 @@ function renderWithRouter(
 	);
 }
 
-describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
-	it("renderiza 5 columnas (R32, R16, QF, SF, F) con data-round correcto", () => {
+describe("BracketQuadro (Sprint 5+: 3RD como columna navegable)", () => {
+	it("renderiza 6 columnas (R32, R16, QF, SF, F, 3RD) con data-round correcto", () => {
 		const bracket = makeEmptyBracket();
 		const { container } = renderWithRouter(<BracketQuadro bracket={bracket} />);
 
 		// Buscar todas las columnas con data-round
 		const columns = container.querySelectorAll("[data-round]");
-		expect(columns).toHaveLength(5);
+		expect(columns).toHaveLength(6);
 
 		// Verificar que cada columna tiene el data-round correcto
 		const roundValues = Array.from(columns).map((col) =>
 			col.getAttribute("data-round"),
 		);
-		expect(roundValues).toEqual(["R32", "R16", "QF", "SF", "F"]);
+		expect(roundValues).toEqual(["R32", "R16", "QF", "SF", "F", "3RD"]);
 	});
 
-	it("RoundChipBar tiene role='navigation' con 6 chips (incluyendo 3RD)", () => {
+	it("NO renderiza RoundChipBar (pills superiores eliminadas)", () => {
 		const bracket = makeEmptyBracket();
 		renderWithRouter(<BracketQuadro bracket={bracket} />);
 
-		// El nav debe tener role="navigation" y aria-label descriptivo
-		const nav = screen.getByRole("navigation", {
+		// El nav de las pills superiores NO debe estar presente
+		const nav = screen.queryByRole("navigation", {
 			name: /rondas del mundial/i,
 		});
-		expect(nav).toBeInTheDocument();
-
-		// Debe tener 6 chips (botones): R32, R16, QF, SF, F, 3RD
-		const chips = screen.getAllByRole("button", {
-			name: /ir a/i,
-		});
-		expect(chips).toHaveLength(6);
-
-		// Verificar que los chips tienen los labels correctos
-		expect(
-			screen.getByRole("button", { name: /ir a 16vos de final/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /ir a 8vos de final/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /ir a 4tos de final/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /ir a semifinal/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /ir a final/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", {
-				name: /ir a partido por el tercer puesto/i,
-			}),
-		).toBeInTheDocument();
+		expect(nav).not.toBeInTheDocument();
 	});
 
-	it("3RD se renderiza como sub-card dentro de columna F (NO columna aparte)", () => {
+	it("3RD se renderiza como COLUMNA APARTE (NO sub-card de F)", () => {
 		const bracket = makeEmptyBracket();
 		const { container } = renderWithRouter(<BracketQuadro bracket={bracket} />);
 
-		// El separator del 3RD debe estar presente
-		const separator = screen.getByRole("separator", {
+		// NO debe haber un separator de 3RD dentro de F (ya no es sub-card)
+		const separator = screen.queryByRole("separator", {
 			name: /sección tercer puesto/i,
 		});
-		expect(separator).toBeInTheDocument();
+		expect(separator).not.toBeInTheDocument();
 
-		// El separator debe estar DENTRO de la columna F (data-round="F")
+		// La columna F NO debe contener un card de 3RD dentro
 		const fColumn = container.querySelector('[data-round="F"]');
 		expect(fColumn).toBeInTheDocument();
-		expect(fColumn?.contains(separator)).toBe(true);
 
-		// NO debe haber una columna separada con data-round="3RD"
+		// SÍ debe haber una columna separada con data-round="3RD"
 		const thirdPlaceColumn = container.querySelector('[data-round="3RD"]');
-		expect(thirdPlaceColumn).not.toBeInTheDocument();
+		expect(thirdPlaceColumn).toBeInTheDocument();
+
+		// La columna 3RD debe ser hermana de F (no hija)
+		expect(fColumn?.parentElement?.contains(thirdPlaceColumn!)).toBe(true);
 	});
 
 	it("ChampionBanner visible cuando ?round=f y hay champion", () => {
@@ -307,31 +278,7 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		expect(emptyStateDesc).toBeInTheDocument();
 	});
 
-	it("click en chip actualiza URL (?round=r16)", async () => {
-		const user = userEvent.setup();
-		const bracket = makeEmptyBracket();
-		renderWithRouter(<BracketQuadro bracket={bracket} />);
-
-		// Inicialmente, el chip R32 debe estar activo (aria-current="page")
-		const r32Chip = screen.getByRole("button", {
-			name: /ir a 16vos de final/i,
-		});
-		expect(r32Chip).toHaveAttribute("aria-current", "page");
-
-		// Hacer click en el chip R16
-		const r16Chip = screen.getByRole("button", {
-			name: /ir a 8vos de final/i,
-		});
-		await user.click(r16Chip);
-
-		// Despues del click, el chip R16 debe estar activo
-		expect(r16Chip).toHaveAttribute("aria-current", "page");
-
-		// El chip R32 ya no debe estar activo
-		expect(r32Chip).not.toHaveAttribute("aria-current");
-	});
-
-	it("?round=3rd scrollea a columna F (3RD es sub-card de F)", async () => {
+	it("?round=3rd scrollea a la columna 3RD (no a F)", async () => {
 		const bracket = makeEmptyBracket();
 		const { container } = renderWithRouter(
 			<BracketQuadro bracket={bracket} />,
@@ -342,16 +289,12 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		// scrollTo (NO scrollIntoView) debe haber sido llamado al menos una vez
-		// (Sprint 5D Issue #1: scrollTo opera solo sobre el contenedor, evita
-		// scroll vertical no deseado del body).
 		const scrollToMock = Element.prototype.scrollTo as ReturnType<typeof vi.fn>;
 		expect(scrollToMock.mock.calls.length).toBeGreaterThan(0);
 
-		// Verificar que el effect determino que el target es F (no 3RD):
-		const fColumn = container.querySelector('[data-round="F"]');
-		expect(fColumn).toBeInTheDocument();
+		// SÍ debe existir una columna con data-round="3RD"
 		const thirdPlaceColumn = container.querySelector('[data-round="3RD"]');
-		expect(thirdPlaceColumn).not.toBeInTheDocument();
+		expect(thirdPlaceColumn).toBeInTheDocument();
 	});
 
 	it("prefers-reduced-motion desactiva scroll-smooth (test de integracion)", async () => {
@@ -386,35 +329,19 @@ describe("BracketQuadro (Sprint 5D: carrusel horizontal)", () => {
 		window.matchMedia = originalMatchMedia;
 	});
 
-	it("aria-controls en chips apunta al id del panel (data-round)", () => {
+	it("cada columna con data-round tiene un id panel-{abbr}", () => {
 		const bracket = makeEmptyBracket();
 		const { container } = renderWithRouter(<BracketQuadro bracket={bracket} />);
 
-		// Obtener todos los chips
-		const chips = screen.getAllByRole("button", {
-			name: /ir a/i,
-		});
+		// Las 6 columnas deben tener un id panel-{abbr}
+		const expectedIds = ["panel-R32", "panel-R16", "panel-QF", "panel-SF", "panel-F", "panel-3RD"];
+		for (const id of expectedIds) {
+			const panel = container.querySelector(`#${id}`);
+			expect(panel).toBeInTheDocument();
 
-		// Verificar que cada chip tiene aria-controls apuntando al panel correcto
-		for (const chip of chips) {
-			const ariaControls = chip.getAttribute("aria-controls");
-			expect(ariaControls).toBeTruthy();
-
-			// El aria-controls debe ser "panel-{ROUND}" (incluye 3RD)
-			expect(ariaControls).toMatch(/^panel-(R32|R16|QF|SF|F|3RD)$/);
-
-			// El 3RD no tiene columna propia (vive dentro de F), pero
-			// el aria-controls sigue apuntando a un id valido.
-			// Para los 5 rounds principales, verificamos que el panel existe.
-			if (ariaControls !== "panel-3RD") {
-				const panel = container.querySelector(`#${ariaControls}`);
-				expect(panel).toBeInTheDocument();
-
-				// El panel debe tener el data-round correspondiente
-				const roundFromId = ariaControls?.replace("panel-", "");
-				const dataRound = panel?.getAttribute("data-round");
-				expect(dataRound).toBe(roundFromId);
-			}
+			// Verificar que data-round coincide con el id
+			const abbr = id.replace("panel-", "");
+			expect(panel?.getAttribute("data-round")).toBe(abbr);
 		}
 	});
 });
