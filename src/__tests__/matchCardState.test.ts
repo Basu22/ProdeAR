@@ -122,8 +122,8 @@ describe("deriveMatchCardState", () => {
 		);
 	});
 
-	it("MATCH_CARD_STATES contiene exactamente los 6 estados", () => {
-		expect(MATCH_CARD_STATES).toHaveLength(6);
+	it("MATCH_CARD_STATES contiene exactamente los 7 estados (incluye read_only)", () => {
+		expect(MATCH_CARD_STATES).toHaveLength(7);
 		expect(MATCH_CARD_STATES).toEqual([
 			"pending_action",
 			"locked",
@@ -131,7 +131,52 @@ describe("deriveMatchCardState", () => {
 			"predicted_locked",
 			"live",
 			"finished",
+			"read_only", // Sprint "Amistosos Read-Only" 2026-06-29
 		]);
+	});
+
+	// Sprint "Amistosos Read-Only" 2026-06-29
+	describe("read_only state (amistosos)", () => {
+		it("isFriendly=true + not_started → read_only (gana sobre pending_action)", () => {
+			const match = makeMatch({
+				isFriendly: true,
+				status: "not_started",
+				kickOff: "2026-06-12T18:00:00Z", // futuro, pronosticable
+			});
+			expect(deriveMatchCardState(match, false, true, NOW)).toBe(
+				"read_only",
+			);
+		});
+
+		it("isFriendly=true + live → live (tiene prioridad sobre read_only)", () => {
+			const match = makeMatch({ isFriendly: true, status: "live" });
+			expect(deriveMatchCardState(match, false, false, NOW)).toBe("live");
+		});
+
+		it("isFriendly=true + finished → finished (tiene prioridad sobre read_only)", () => {
+			const match = makeMatch({ isFriendly: true, status: "finished" });
+			expect(deriveMatchCardState(match, false, false, NOW)).toBe(
+				"finished",
+			);
+		});
+
+		it("isFriendly=true + cancelled → read_only (amistoso gana sobre cancelled)", () => {
+			const match = makeMatch({ isFriendly: true, status: "cancelled" });
+			expect(deriveMatchCardState(match, false, false, NOW)).toBe(
+				"read_only",
+			);
+		});
+
+		it("isFriendly=false + not_started + pronosticable → pending_action (default)", () => {
+			const match = makeMatch({
+				isFriendly: false,
+				status: "not_started",
+				kickOff: "2026-06-12T18:00:00Z",
+			});
+			expect(deriveMatchCardState(match, false, true, NOW)).toBe(
+				"pending_action",
+			);
+		});
 	});
 
 	it("es determinística: mismo input → mismo output (100 iteraciones)", () => {

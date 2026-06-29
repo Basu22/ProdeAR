@@ -104,6 +104,29 @@ export function MatchStatusBar({
 		);
 	}
 
+	// read_only (Sprint "Amistosos Read-Only" 2026-06-29):
+	// Partido de una competición amistosa. El usuario NO puede pronosticar.
+	// Mostramos un badge distintivo con ícono de visibilidad.
+	if (state === "read_only") {
+		return (
+			<div
+				className="flex items-center gap-1.5 text-tertiary/80"
+				role="status"
+				aria-label="Amistoso Internacional — solo vista"
+			>
+				<span
+					className="material-symbols-outlined text-[12px]"
+					aria-hidden="true"
+				>
+					visibility
+				</span>
+				<span className="font-label-caps text-[9px] md:text-[10px] font-extrabold tracking-widest uppercase">
+					Amistoso Internacional
+				</span>
+			</div>
+		);
+	}
+
 	// locked (sin predicción, ventana de predicción cerrada)
 	if (state === "locked") {
 		return (

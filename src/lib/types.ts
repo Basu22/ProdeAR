@@ -135,6 +135,20 @@ export interface Match {
 	id: string;
 	competitionId: string;
 	competitionName?: string;
+	/**
+	 * Sprint "Amistosos Read-Only" 2026-06-29: indica si el partido pertenece
+	 * a una competición marcada como `is_friendly=true` en la DB.
+	 *
+	 * Cuando es `true`:
+	 * - La card muestra badge "Amistoso Internacional" (sin opción de predecir)
+	 * - El MatchSheet abre en modo read-only (oculta tab "Pronósticos")
+	 * - `isMatchPredictable()` retorna `false` (no se puede pronosticar)
+	 * - `deriveMatchCardState()` retorna `"read_only"`
+	 *
+	 * Se popula server-side desde `competitions.is_friendly` (migration 0007).
+	 * Si la columna no existe en DB (entornos viejos), default `false`.
+	 */
+	isFriendly?: boolean;
 	homeTeam: string;
 	awayTeam: string;
 	homeLogo: string | null;

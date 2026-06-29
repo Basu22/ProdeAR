@@ -15,13 +15,19 @@ export const PREDICTION_LOCK_OFFSET_MS = 15 * 60 * 1000;
 /**
  * Determina si un partido es "pronosticable" en este momento.
  * Un partido es pronosticable cuando:
- *   1. Su status es "not_started" (no está en vivo, finalizado, etc.)
- *   2. La ventana de pronóstico aún no cerró (kickOff - 15min > now)
+ *   1. NO es un partido de una competición "amistosa" (isFriendly === false)
+ *   2. Su status es "not_started" (no está en vivo, finalizado, etc.)
+ *   3. La ventana de pronóstico aún no cerró (kickOff - 15min > now)
+ *
+ * Sprint "Amistosos Read-Only" 2026-06-29: amistosos NUNCA son
+ * pronosticables, independientemente de su estado o ventana de tiempo.
  */
 export function isMatchPredictable(
 	match: Match,
 	now: number = Date.now(),
 ): boolean {
+	// Amistosos no se pueden pronosticar (read-only en la UI)
+	if (match.isFriendly === true) return false;
 	if (match.status !== "not_started") return false;
 	const lockTime =
 		new Date(match.kickOff).getTime() - PREDICTION_LOCK_OFFSET_MS;

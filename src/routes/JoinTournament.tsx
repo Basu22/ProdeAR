@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { GlassCard } from "../components/ui/GlassCard";
-import { useCompetitions } from "../hooks/useTournament";
+import { useCompetitions } from "../hooks/useCompetitions";
 import { tournamentsApi } from "../lib/api/tournaments";
 
 const extractInviteCode = (input: string): string => {
@@ -30,7 +30,7 @@ export function JoinTournament() {
 	const [activeTab, setActiveTab] = useState<"join" | "create">("join");
 	const [tournamentName, setTournamentName] = useState("");
 	const [selectedCompId, setSelectedCompId] = useState("");
-	const { data: competitions } = useCompetitions();
+	const { competitions } = useCompetitions();
 
 	const handleJoin = useCallback(
 		async (targetCode: string) => {

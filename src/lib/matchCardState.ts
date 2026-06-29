@@ -16,7 +16,8 @@ export type MatchCardState =
 	| "predicted_editable" // Con predicción, pronosticable → EDITABLE (cyan)
 	| "predicted_locked" // Con predicción, ventana cerrada → CONFIRMADO (emerald)
 	| "live" // En vivo
-	| "finished"; // Finalizado
+	| "finished" // Finalizado
+	| "read_only"; // Amistoso (Sprint "Amistosos Read-Only" 2026-06-29)
 
 export const MATCH_CARD_STATES: readonly MatchCardState[] = [
 	"pending_action",
@@ -25,6 +26,7 @@ export const MATCH_CARD_STATES: readonly MatchCardState[] = [
 	"predicted_locked",
 	"live",
 	"finished",
+	"read_only",
 ] as const;
 
 const VALID_STATES: ReadonlySet<string> = new Set(MATCH_CARD_STATES);
@@ -36,11 +38,12 @@ const VALID_STATES: ReadonlySet<string> = new Set(MATCH_CARD_STATES);
  * Reglas (en orden de prioridad):
  *   1. status === "live" → "live" (gana sobre todo)
  *   2. status === "finished" → "finished" (gana sobre todo)
- *   3. status === "cancelled" o "postponed" → "locked" (sin acción)
- *   4. hasPrediction && isPredictable → "predicted_editable"
- *   5. hasPrediction && !isPredictable → "predicted_locked"
- *   6. !hasPrediction && isPredictable → "pending_action"
- *   7. !hasPrediction && !isPredictable → "locked"
+ *   3. match.isFriendly === true → "read_only" (amistoso, no pronosticable)
+ *   4. status === "cancelled" o "postponed" → "locked" (sin acción)
+ *   5. hasPrediction && isPredictable → "predicted_editable"
+ *   6. hasPrediction && !isPredictable → "predicted_locked"
+ *   7. !hasPrediction && isPredictable → "pending_action"
+ *   8. !hasPrediction && !isPredictable → "locked"
  */
 export function deriveMatchCardState(
 	match: Match,
@@ -49,9 +52,14 @@ export function deriveMatchCardState(
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	_now: number = Date.now(),
 ): MatchCardState {
-	// Prioridad 1-3: estados terminales
+	// Prioridad 1-2: estados terminales (live/finished ganan sobre todo)
 	if (match.status === "live") return "live";
 	if (match.status === "finished") return "finished";
+
+	// Prioridad 3: amistosos siempre son read-only (sin importar status o tiempo)
+	// Esto cubre: not_started, cancelled, postponed, etc. — todos son read-only.
+	// Live y finished ya fueron filtrados arriba (tienen prioridad).
+	if (match.isFriendly === true) return "read_only";
 
 	// Recalcular isPredictable con el `now` provisto (consistencia con tests)
 	const predictable = match.status === "not_started" ? isPredictableArg : false;

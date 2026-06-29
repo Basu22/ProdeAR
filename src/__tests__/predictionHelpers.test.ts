@@ -89,6 +89,25 @@ describe("isMatchPredictable", () => {
 		const match = makeMatch({ status: "postponed" });
 		expect(isMatchPredictable(match, NOW)).toBe(false);
 	});
+
+	// Sprint "Amistosos Read-Only" 2026-06-29
+	it("retorna false para match amistoso (isFriendly=true) aunque sea pronosticable", () => {
+		const match = makeMatch({
+			isFriendly: true,
+			kickOff: "2026-06-12T18:00:00Z", // futuro, would be predictable
+		});
+		expect(isMatchPredictable(match, NOW)).toBe(false);
+	});
+
+	it("retorna false para match amistoso en vivo (read-only sigue aplicando)", () => {
+		const match = makeMatch({ isFriendly: true, status: "live" });
+		expect(isMatchPredictable(match, NOW)).toBe(false);
+	});
+
+	it("retorna false para match amistoso finalizado", () => {
+		const match = makeMatch({ isFriendly: true, status: "finished" });
+		expect(isMatchPredictable(match, NOW)).toBe(false);
+	});
 });
 
 describe("getPendingMatches", () => {

@@ -22,12 +22,10 @@ export function useTournamentMembers(tournamentId: string) {
 	});
 }
 
-export function useCompetitions() {
-	return useQuery({
-		queryKey: ["competitions"],
-		queryFn: tournamentsApi.getCompetitions,
-	});
-}
+// Nota: `useCompetitions` (con filtrado de amistosos) vive en
+// `./useCompetitions.ts`. NO exportar un duplicado acá — el de `useTournament.ts`
+// no filtraba y permitía que el dropdown de "Crear Torneo" mostrara
+// competiciones amistosas, contradiciendo la policy de DB (migration 0010).
 
 export function useUpdateTournament(id: string) {
 	const queryClient = useQueryClient();

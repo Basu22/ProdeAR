@@ -154,6 +154,15 @@ interface MatchCardProps {
 	 * mantiene el comportamiento de acordeón para edición del pronóstico.
 	 */
 	onOpenDetails?: (matchId: string) => void;
+	/**
+	 * Sprint "Amistosos Read-Only" 2026-06-29: si `true`, el partido es
+	 * de una competición amistosa. La card muestra el badge "Amistoso
+	 * Internacional" y deshabilita la expansión del acordeón de predicción.
+	 * (El badge ya se muestra vía cardState="read_only" en MatchStatusBar,
+	 * pero este prop permite acceso explícito en la card para casos sin
+	 * cardState definido, ej. skeleton o estados legacy.)
+	 */
+	isFriendly?: boolean;
 }
 
 export function MatchCard({

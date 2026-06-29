@@ -269,6 +269,9 @@ export function Dashboard() {
 					tournaments={tournaments ?? []}
 					isOpen={!!selectedMatchId}
 					onClose={() => setSelectedMatchId(null)}
+					// Sprint "Amistosos Read-Only" 2026-06-29: oculta tab
+					// "Pronósticos" y deshabilita share para partidos amistosos.
+					readOnly={selectedMatch?.isFriendly === true}
 				/>
 
 				{/* PRÓXIMOS PARTIDOS */}
@@ -394,6 +397,11 @@ export function Dashboard() {
 											isFullyPredicted={isFullyPredicted}
 											predictionCount={matchPreds.length}
 											onSelect={setSelectedMatchId}
+											// Sprint "Amistosos Read-Only" 2026-06-29:
+											// Pasa isFriendly para que MatchCard pueda
+											// mostrar el badge "Amistoso Internacional"
+											// y deshabilitar la predicción inline.
+											isFriendly={match.isFriendly === true}
 										/>
 									</div>
 								);

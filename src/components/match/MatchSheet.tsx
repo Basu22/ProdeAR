@@ -22,6 +22,13 @@ export interface MatchSheetProps {
 	tournaments: Tournament[];
 	isOpen: boolean;
 	onClose: () => void;
+	/**
+	 * Sprint "Amistosos Read-Only" 2026-06-29: si `true`, oculta el tab
+	 * "Pronósticos" y deshabilita el botón de compartir predicción.
+	 * Se usa para partidos de competiciones amistosas (is_friendly=true
+	 * en la DB), donde el usuario NO puede pronosticar.
+	 */
+	readOnly?: boolean;
 }
 
 /**
@@ -32,6 +39,10 @@ export interface MatchSheetProps {
  * - Tab default dinámico según estado del partido
  * - Componentes extraídos a `tabs/` y `SheetTabBar`/`SheetActions`
  * - Elimina el doble mount de MatchDetailsTabs
+ *
+ * Sprint "Amistosos Read-Only" 2026-06-29:
+ * - Si `readOnly === true`, oculta tab "Pronósticos" y deshabilita share
+ * - Default tab: "events" si live/finished, "lineups" si upcoming (cuando hay)
  */
 export function MatchSheet({
 	match,
@@ -39,12 +50,23 @@ export function MatchSheet({
 	tournaments,
 	isOpen,
 	onClose,
+	readOnly = false,
 }: MatchSheetProps) {
 	// === Estado del tab activo ===
-	// Tab default dinámico: Pronósticos si upcoming, Eventos si live/finished
+	// Tab default dinámico:
+	// - live/finished → "events"
+	// - upcoming + readOnly + lineups → "lineups"
+	// - upcoming + readOnly sin lineups → "stats" (si hay) o primer tab
+	// - normal → "predictions"
 	const [activeTab, setActiveTab] = useState<SheetTabId>(() => {
-		if (match?.status === "live" || match?.status === "finished") {
+		if (!match) return "predictions";
+		if (match.status === "live" || match.status === "finished") {
 			return "events";
+		}
+		if (readOnly) {
+			// Amistoso: fallback a lineups si hay, sino al primer tab disponible
+			if ((match.lineups?.length ?? 0) >= 2) return "lineups";
+			return "predictions"; // será filtrado, pero al menos tenemos un default
 		}
 		return "predictions";
 	});
@@ -172,8 +194,18 @@ export function MatchSheet({
 	const lineupsTabIcon = isUpcomingWithLineups ? "groups" : "sports_soccer";
 
 	// === Tabs disponibles según estado del partido ===
+	// Sprint "Amistosos Read-Only" 2026-06-29: si readOnly, NO incluir
+	// el tab "predictions" (los amistosos no se pueden pronosticar).
 	const tabsAvailable: SheetTabDef[] = [
-		{ id: "predictions", label: "Pronós", icon: "stadia_controller" },
+		...(readOnly
+			? []
+			: [
+					{
+						id: "predictions" as const,
+						label: "Pronós",
+						icon: "stadia_controller" as const,
+					},
+				]),
 		...(isLive || isFinished
 			? [{ id: "events" as const, label: "Eventos", icon: "bolt" }]
 			: []),
@@ -192,10 +224,15 @@ export function MatchSheet({
 			: []),
 	];
 
-	// Si el activeTab ya no está disponible (cambio de estado), fallback al primero
-	const safeActiveTab = tabsAvailable.some((t) => t.id === activeTab)
+	// Si el activeTab ya no está disponible (cambio de estado), fallback al primero.
+	// Sprint "Amistosos Read-Only" 2026-06-29: si tabsAvailable está vacío
+	// (caso: amistoso upcoming sin lineups), usar null como sentinel para
+	// mostrar un empty state en lugar de crashear con tabsAvailable[0].id.
+	const safeActiveTab: SheetTabId | null = tabsAvailable.some(
+		(t) => t.id === activeTab,
+	)
 		? activeTab
-		: tabsAvailable[0].id;
+		: (tabsAvailable[0]?.id ?? null);
 
 	return (
 		<BottomSheet
@@ -210,7 +247,10 @@ export function MatchSheet({
 					<SheetActions
 						shareState={shareState}
 						hasUnsavedChanges={hasUnsavedChanges}
-						canShare={predictions.length > 0}
+						// Sprint "Amistosos Read-Only" 2026-06-29:
+						// Deshabilitar share en modo readOnly (amistosos no
+						// tienen predicciones para compartir).
+						canShare={predictions.length > 0 && !readOnly}
 						onShare={handleShare}
 						onClose={handleClose}
 					/>
@@ -218,7 +258,7 @@ export function MatchSheet({
 				</div>
 
 				{/* Tab bar (solo si hay 2+ tabs) */}
-				{tabsAvailable.length > 1 && (
+				{tabsAvailable.length > 1 && safeActiveTab && (
 					<SheetTabBar
 						tabs={tabsAvailable}
 						activeTab={safeActiveTab}
@@ -232,6 +272,31 @@ export function MatchSheet({
 
 				{/* Contenido scrollable: lazy mount por tab con cross-fade */}
 				<div className="flex-1 overflow-y-auto px-2 py-4 space-y-6">
+					{/* Sprint "Amistosos Read-Only" 2026-06-29: empty state
+						para partidos amistosos upcoming sin lineups.
+						Si safeActiveTab es null, no hay tabs disponibles. */}
+					{safeActiveTab === null && (
+						<div
+							className="flex flex-col items-center justify-center text-center py-12 px-6 space-y-3"
+							role="status"
+						>
+							<span
+								className="material-symbols-outlined text-on-surface-variant/40"
+								style={{ fontSize: "48px" }}
+								aria-hidden="true"
+							>
+								visibility
+							</span>
+							<p className="font-label-caps text-xs text-on-surface-variant uppercase tracking-widest font-bold">
+								Amistoso Internacional
+							</p>
+							<p className="font-body-md text-sm text-on-surface-variant/60 max-w-xs">
+								Este partido es solo vista. No hay eventos, estadísticas
+								ni formaciones disponibles todavía.
+							</p>
+						</div>
+					)}
+
 					{mountedTabs.has("predictions") &&
 						safeActiveTab === "predictions" && (
 							<div
