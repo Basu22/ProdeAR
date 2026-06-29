@@ -560,3 +560,121 @@ M CHANGELOG.md                               (entradas [Unreleased] arriba de Sp
 M walkthrough.md                             (sección "Feature: UX/UI Polish" + nota de paridad + nota de transición)
 ```
 
+
+---
+
+## ⏭️ Parking Lot — Deuda técnica pre-existente al 2026-06-29
+
+**Contexto**: 22 archivos modificados/creados quedaron en el working tree al cierre de la sesión del **2026-06-29** (sesión del subagente `@release-manager`). El usuario decidió **no commitearlos en esa sesión** porque corresponden a features en desarrollo que prefiere retomar en sesiones dedicadas.
+
+**Estado actual del working tree al parking**:
+- 19 archivos modificados (M): cambios en `src/` y `supabase/`
+- 3 archivos sin trackear (??): scripts SQL y migration
+- 4 errores TS pre-existentes (bloquean `npm run build`)
+
+### 📂 Inventario completo de archivos pendientes
+
+#### Feature: Bracket V2 — refactor incompleto (3RD como columna independiente)
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `src/components/tournament/BracketColumn.tsx` | M (89 +/-) | ✅ Migrado: eliminó prop `thirdPlaceMatch` |
+| `src/components/tournament/BracketQuadro.tsx` | M (78 +/-) | ❌ Migración incompleta: hardcodea `meta: { full, short, ... }` que no existe en `RoundMeta` |
+| `src/components/tournament/bracket-v2/BracketGlobalView.tsx` | — (commiteado, ROTO) | ❌ Aún pasa `thirdPlaceMatch` a `BracketColumn` (líneas 343 y 418) |
+| `src/lib/bracketNavigation.ts` | M (49 +/-) | Helper adicional (probablemente `parseRoundParam`) |
+| `src/__tests__/bracketNavigation.test.ts` | M (34 +/-) | Tests del helper nuevo |
+| `src/__tests__/BracketQuadro.test.tsx` | M (151 +/-) | ❌ Importa `userEvent` sin usarlo (TS6133 línea 23) |
+| `src/__tests__/BracketTree.test.tsx` | M (17 +/-) | Tests ajustados al refactor |
+| `src/components/tournament/BracketColumn.tsx` | (también arriba) | ❌ Importa `BracketMatchCard` sin usarlo |
+
+**Fix sugerido**:
+1. `BracketQuadro.tsx` línea 442: cambiar el objeto meta hardcodeado por `ROUND_CATALOG["3RD"]` (que ya tiene `label: "Tercer Puesto"`, `multiplier: 4`):
+   ```tsx
+   <BracketRound
+     round={{ meta: ROUND_CATALOG["3RD"], matches: [thirdPlaceMatch] }}
+     cardVariant="hero"
+     onOpenDetails={handleOpen}
+   />
+   ```
+2. `bracket-v2/BracketGlobalView.tsx`: eliminar la prop `thirdPlaceMatch` de `GlobalColumn` (línea 343) y de la llamada a `BracketColumn` (línea 418). Renderizar 3RD como columna aparte después del map de rounds (igual que `BracketQuadro.tsx` ya lo hace).
+3. Eliminar imports muertos: `userEvent` en `BracketQuadro.test.tsx:23`, `BracketMatchCard` en `BracketQuadro.tsx:70`.
+
+#### Feature: Match Bottom Sheet — enrichment
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `src/components/match/MatchCard.tsx` | M (+9) | Mejoras menores |
+| `src/components/match/MatchSheet.tsx` | M (81 +/-) | Enrichment del sheet (probablemente carrusel multi-torneo, tabs, dirty check) |
+| `src/components/match/MatchStatusBar.tsx` | M (+23) | Nuevo componente o mejora |
+| `src/lib/matchCardState.ts` | M (22 +/-) | State machine del card |
+| `src/lib/predictionHelpers.ts` | M (10 +/-) | Helpers de predicción |
+| `src/__tests__/matchCardState.test.ts` | M (49 +/-) | Tests del state |
+| `src/__tests__/predictionHelpers.test.ts` | M (+19) | Tests de los helpers |
+
+#### Feature: API / Lib
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `src/lib/api/matches.ts` | M (17 +/-) | API de matches |
+| `src/lib/bracketEngine.ts` | M (+22) | Engine del bracket (probablemente lógica 3RD) |
+| `src/lib/types.ts` | M (+14) | Tipos nuevos |
+| `src/routes/Dashboard.tsx` | M (+8) | Integración en dashboard |
+| `src/__tests__/PositionsView.test.tsx` | M (31 +/-) | Tests ajustados |
+
+#### Feature: Edge Function `poll-scores`
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `supabase/functions/poll-scores/index.ts` | M (+30) | Probablemente fix del R32 reconciliation en el polling |
+
+#### Feature: DB — R32 reconciliation
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `supabase/migrations/0009_auto_reconcile_r32.sql` | ?? (nuevo, 83 líneas) | Migration oficial |
+| `scripts/load-r32-venues.sql` | ?? (nuevo, 218 líneas) | Script de carga de venues |
+| `scripts/reconcile-bracket-positions.sql` | ?? (nuevo, 96 líneas) | Script de reconciliación |
+
+### 🐛 Errores TS a resolver (4)
+
+```
+src/__tests__/BracketQuadro.test.tsx(23,1): error TS6133: 'userEvent' is declared but its value is never read.
+src/components/tournament/BracketQuadro.tsx(70,1): error TS6133: 'BracketMatchCard' is declared but its value is never read.
+src/components/tournament/BracketQuadro.tsx(442,10): error TS2353: Object literal may only specify known properties, and 'full' does not exist in type 'RoundMeta'.
+src/components/tournament/bracket-v2/BracketGlobalView.tsx(418,5): error TS2322: ...Property 'thirdPlaceMatch' does not exist on type 'IntrinsicAttributes & BracketColumnProps'.
+```
+
+**Consecuencia**: `npx tsc -b` falla, lo que hace que `npm run build` falle, lo que hace que **Vercel rechace el deploy** hasta que se arreglen.
+
+### 📋 Plan de acción sugerido (4-5 commits)
+
+Cuando retomes esta deuda, la estrategia recomendada es:
+
+1. **`fix(bracket-v2):` 3RD como columna independiente + dead imports**
+   - Arregla `BracketQuadro.tsx:442` (usar `ROUND_CATALOG["3RD"]`).
+   - Arregla `bracket-v2/BracketGlobalView.tsx:343, 418` (eliminar `thirdPlaceMatch` y renderizar 3RD como columna aparte).
+   - Eliminar imports muertos en `BracketQuadro.test.tsx:23` y `BracketQuadro.tsx:70`.
+   - **Este commit es prerequisito** de los demás (sin esto el build no compila).
+
+2. **`feat(match-sheet):` enrichment del Match Bottom Sheet** (7 archivos)
+
+3. **`feat(api):` cambios en `matches.ts`, `bracketEngine.ts`, `types.ts`, `Dashboard.tsx`** (4 archivos + 1 test)
+
+4. **`fix(poll-scores):` edge function** (1 archivo)
+
+5. **`feat(db):` R32 reconciliation** (1 migration + 2 scripts SQL)
+
+6. **`test(bracket):` ajustes de tests** (si quedan cambios sueltos)
+
+### ✅ Validaciones al cerrar el parking
+
+- `npx tsc -b --noEmit` → 0 errores
+- `npm test` → 100% passing (o documentar fallos pre-existentes)
+- `npx vite build` → OK
+
+### 📝 Notas para retomar
+
+- El usuario mencionó en sesión que tiene **otras cosas que completar justamente de esto** (Bracket V2 y/o R32 reconciliation). Arrancá preguntando en qué feature area querés profundizar primero.
+- El refactor del Bracket V2 es la **prioridad 1** porque bloquea el build.
+- El resto se puede commitear en cualquier orden sin riesgo de romper el build (asumiendo que Fase 1 está OK).
+- Los SQL nuevos no testean automáticamente; revisar el contenido antes de merge.
