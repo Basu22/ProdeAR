@@ -7,7 +7,47 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
-## [Unreleased] — Sprint Penales 2026: UX/UI Polish
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Internal
+
+### Breaking changes
+
+---
+
+## [Released] — Sprint 6: Bracket + Amistosos read-only (commit 62d6a34, 2026-06-29)
+
+### Added (visible al usuario)
+- 🆕 **Amistosos read-only**: partidos de competiciones amistosas muestran badge "Amistoso Internacional" y ocultan la tab "Pronósticos" en el MatchSheet.
+- 🆕 **3RD como columna navegable**: el partido por el 3er puesto aparece como una columna más en el bracket.
+- 🆕 **Estadios y horarios reales en R32**: los 16 partidos de R32 muestran estadio, fecha/hora y equipos reales.
+- 🆕 **Subagente @release-manager**: flujo semiautomático de releases con version.json desde CHANGELOG (`scripts/sync-version.mjs`).
+
+### Changed
+- 🔄 **Bracket sin RoundChipBar**: eliminada la barra de chips de ronda. Navegación por flechas y columnas.
+- 🔄 **MatchCard para amistosos**: badge "Amistoso Internacional" + estado read_only.
+
+### Fixed
+- 🐛 Bracket no mostraba estadios/horarios (bracketPosition no se mapeaba en `mapDbMatchToFrontend`).
+- 🐛 Cards mostraban equipos FIFA placeholder (teamName no se propagaba en `propagateBracketWinners`).
+- 🐛 Dropdown de Crear Torneo mostraba amistosos (useCompetitions local no filtraba `is_friendly`).
+
+### Internal
+- 🔧 Migration 0009: función `reconcile_r32_bracket_positions(competition_id)`.
+- 🔧 Migration 0010: índice `idx_tournaments_competition_id` + trigger `prevent_friendly_tournaments()` + política RLS.
+- 🔧 poll-scores invoca RPC auto-reconciliadora post-upsert.
+- 🔧 `scripts/lib/parse-changelog.mjs` + `scripts/sync-version.mjs` para regenerar version.json desde CHANGELOG.
+- 🧪 8 tests nuevos (5 matchCardState read_only + 3 predictionHelpers isFriendly).
+
+---
+
+## [Released] — Sprint Penales 2026: UX/UI Polish (commit 7b17bb6, 2026-06-28)
 
 ### Changed (visible al usuario)
 - 🔄 **Highlight del selector de penales** (`src/components/match/PredictionSlide.tsx:257-313` + `src/components/match/MatchCard.tsx:949-1041`): el bloque ahora tiene 2 estados visuales dinámicos en **ambos componentes** (modal y cards inline del dashboard) para mantener paridad visual. Cuando falta elegir ganador (`needsPenalty === true`): `bg-primary/10` + `border-primary/40` + animación `pulse-soft` + icono `bolt` (rayo) + badge "Elegí ganador" con `aria-live="polite"`. Cuando ya eligió: estado relajado con icono `military_tech` (medalla) en `text-tertiary/80`. `prefers-reduced-motion` respetado vía `motion-safe:animate-pulse-soft`.
@@ -25,7 +65,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ---
 
-## [Unreleased] — Sprint 5: Refinamientos mobile-first
+## [Released] — Sprint 5: Refinamientos mobile-first (commit 7b17bb6, 2026-06-28)
 
 ### Added (visible al usuario)
 - 🆕 **Selector de competiciones escalable**: nuevo formato (trigger + panel desplegable) que reemplaza los chips horizontales. Soporta 20+ ligas sin scroll horizontal. Persistencia en `?comp=` y localStorage intactas. Mobile-first con panel tipo listbox.

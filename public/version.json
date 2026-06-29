@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0",
-  "buildTime": "2026-06-29T20:45:10.685Z",
-  "minSupportedVersion": "0.1.0",
+  "version": "0.2.0",
+  "buildTime": "2026-06-29T22:17:36.281Z",
+  "minSupportedVersion": "0.2.0",
   "forceUpdate": false,
-  "changelog": "🆕 Tab \"POSICIONES\" en el Mundial con 3 sub-pills (GRUPOS | LIGA 3ROS | LLAVES). • 🆕 Liga de terceros visible en `/ligas` con cutoff en ..."
+  "changelog": "🆕 **Amistosos read-only**: partidos de competiciones amistosas muestran badge \"Amistoso Internacional\" y ocultan la tab \"Pronósticos\" en..."
 }

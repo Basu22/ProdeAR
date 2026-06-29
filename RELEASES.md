@@ -14,7 +14,7 @@ a mano**: se va a sobrescribir en la próxima release.
 
 | # | Versión | Fecha | Sprint / Nombre | Commits | Tag | SHA |
 |---|---------|-------|------------------|---------|-----|-----|
-| _— sin releases registradas todavía —_ |
+| 1 | 0.2.0 | 2026-06-29 | Sprint 6: Bracket + Amistosos read-only | 10 | `v0.2.0-sprint-bracket-amistosos` | `62d6a34` |
 
 ---
 
