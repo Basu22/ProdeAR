@@ -443,6 +443,7 @@ export function BracketQuadro({
 									expectedMatches: 1,
 								},
 								matches: [thirdPlaceMatch],
+								completedCount: 0,
 							}}
 							cardVariant="hero"
 							onOpenDetails={handleOpen}

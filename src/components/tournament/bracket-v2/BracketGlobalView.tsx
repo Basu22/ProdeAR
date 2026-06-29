@@ -121,7 +121,7 @@ export function BracketGlobalView({
 	onOpenDetails,
 	interactive = true,
 }: BracketGlobalViewProps) {
-	const { rounds, thirdPlaceMatch, champion } = bracket;
+	const { rounds, champion } = bracket;
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [activeIndex, setActiveIndex] = useState(0);
 
@@ -339,9 +339,6 @@ export function BracketGlobalView({
 						round={round}
 						variant={VARIANT_FOR_ROUND[round.meta.abbr]}
 						onOpenDetails={interactive ? onOpenDetails : undefined}
-						thirdPlaceMatch={
-							round.meta.abbr === "F" ? thirdPlaceMatch : undefined
-						}
 					/>
 				))}
 			</div>
@@ -393,7 +390,6 @@ function GlobalColumn({
 	round,
 	variant,
 	onOpenDetails,
-	thirdPlaceMatch,
 }: {
 	round: KnockoutRound;
 	variant: "compact" | "default" | "hero";
