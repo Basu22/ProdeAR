@@ -260,7 +260,7 @@ export function PredictionSlide({
 				{/* Concentric check: slide p-4 (16) → PenaltyButton rounded-xl (12). */}
 				{showPenaltySelector && viewMode === "editable" && (
 					<div
-						className={`mt-2 rounded-xl p-3 space-y-2 transition-all duration-300 ${
+						className={`mt-2 rounded-xl p-3 space-y-2 transition-all duration-300 animate-penalty-enter ${
 							needsPenalty
 								? "bg-primary/10 border border-primary/40 motion-safe:animate-pulse-soft"
 								: "bg-surface-container-high/40 border border-white/5"

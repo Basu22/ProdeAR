@@ -607,6 +607,27 @@
 		animation: pulseSoft 2.4s ease-in-out infinite;
 	}
 
+	/* === Penalty Block Enter (Sprint Penales 2026) ===
+	   Slide-down + fade-in al montar el bloque de penales (cuando aparece
+	   tras pasar de 1-0 → 1-1 con el stepper). CSS-only, sin estado React,
+	   sin librerías externas.
+	   Limitación aceptada: el unmount es instantáneo (React quita el nodo
+	   del DOM antes de que termine cualquier exit animation). Para un exit
+	   animado en el futuro, usar patrón useState que retrase el unmount. */
+	@keyframes penaltyBlockEnter {
+		from {
+			opacity: 0;
+			transform: translateY(-8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.animate-penalty-enter {
+		animation: penaltyBlockEnter 240ms ease-out both;
+	}
+
 	/* === Sprint 1: Tab Content Enter (F10) — cross-fade between tabs === */
 	@keyframes tabContentEnter {
 		from {
@@ -854,6 +875,9 @@
 			animation: none !important;
 		}
 		.animate-pulse-soft {
+			animation: none !important;
+		}
+		.animate-penalty-enter {
 			animation: none !important;
 		}
 		.animate-arrow-march > * {

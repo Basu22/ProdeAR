@@ -952,7 +952,7 @@ export function MatchCard({
 									{/* Penalty Winner Selector for Playoffs draws */}
 									{showPenaltySelector && (
 										<div
-											className={`flex flex-col items-center w-full max-w-[320px] rounded-xl p-2.5 space-y-2 transition-all duration-300 ${
+											className={`flex flex-col items-center w-full max-w-[320px] rounded-xl p-2.5 space-y-2 transition-all duration-300 animate-penalty-enter ${
 												needsPenalty
 													? "bg-primary/10 border border-primary/40 motion-safe:animate-pulse-soft"
 													: "bg-surface-container-high/40 border border-white/5"
