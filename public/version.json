@@ -1,7 +1,7 @@
 {
-	"version": "0.1.0",
-	"buildTime": "2026-06-19T16:30:00Z",
-	"minSupportedVersion": "0.1.0",
-	"forceUpdate": false,
-	"changelog": "Sección Ligas rediseñada con códigos FIFA, formato +/- GF-GC, y tour de onboarding."
+  "version": "0.1.0",
+  "buildTime": "2026-06-29T20:45:10.685Z",
+  "minSupportedVersion": "0.1.0",
+  "forceUpdate": false,
+  "changelog": "🆕 Tab \"POSICIONES\" en el Mundial con 3 sub-pills (GRUPOS | LIGA 3ROS | LLAVES). • 🆕 Liga de terceros visible en `/ligas` con cutoff en ..."
 }

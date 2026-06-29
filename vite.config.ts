@@ -1,14 +1,36 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
+import {
+	extractLatestEntry,
+	summarizeChangelog,
+} from "./scripts/lib/parse-changelog.mjs";
 
 const pkg = JSON.parse(
 	readFileSync(resolve(__dirname, "package.json"), "utf-8"),
 );
+
+/**
+ * Lee el changelog real desde `CHANGELOG.md` (entrada [Released] o
+ * [Unreleased] más reciente). Si CHANGELOG.md no existe o no tiene
+ * entradas parseables, devuelve un string vacío (y el banner del cliente
+ * mostrará su fallback "Nueva versión disponible.").
+ *
+ * Reutiliza la misma lib que `scripts/sync-version.mjs` y el subagente
+ * `@release-manager` para garantizar una sola fuente de verdad.
+ */
+function readChangelogFromFile(): string {
+	const changelogPath = resolve(__dirname, "CHANGELOG.md");
+	if (!existsSync(changelogPath)) return "";
+	const text = readFileSync(changelogPath, "utf-8");
+	const entry = extractLatestEntry(text);
+	if (!entry) return "";
+	return summarizeChangelog(entry.body);
+}
 
 /**
  * Plugin que genera `version.json` con metadata del build en `public/`.
@@ -16,23 +38,32 @@ const pkg = JSON.parse(
  * nuevas versiones y mostrar el update prompt.
  *
  * Formato compatible con `VersionInfo` en `src/lib/versionCheck.ts`.
+ *
+ * El campo `changelog` se lee de la entrada [Released] (o [Unreleased]
+ * fallback) más reciente de CHANGELOG.md. Esto habilita el botón de
+ * actualización con changelog real (antes estaba hardcodeado en
+ * "Nueva versión con mejoras." y nunca reflejaba lo nuevo).
  */
 function versionJsonPlugin(): Plugin {
+	const buildVersionData = () => {
+		const changelog = readChangelogFromFile();
+		return {
+			version: pkg.version,
+			buildTime: new Date().toISOString(),
+			minSupportedVersion: pkg.version,
+			forceUpdate: false,
+			changelog,
+		};
+	};
+
 	return {
 		name: "prodear-version-json",
 		apply: "build",
 		generateBundle() {
-			const versionData = {
-				version: pkg.version,
-				buildTime: new Date().toISOString(),
-				minSupportedVersion: pkg.version,
-				forceUpdate: false,
-				changelog: "Nueva versión con mejoras.",
-			};
 			this.emitFile({
 				type: "asset",
 				fileName: "version.json",
-				source: JSON.stringify(versionData, null, 2),
+				source: `${JSON.stringify(buildVersionData(), null, 2)}\n`,
 			});
 		},
 		writeBundle() {
@@ -40,16 +71,9 @@ function versionJsonPlugin(): Plugin {
 			const distDir = resolve(__dirname, "dist");
 			try {
 				mkdirSync(distDir, { recursive: true });
-				const versionData = {
-					version: pkg.version,
-					buildTime: new Date().toISOString(),
-					minSupportedVersion: pkg.version,
-					forceUpdate: false,
-					changelog: "Nueva versión con mejoras.",
-				};
 				writeFileSync(
 					resolve(distDir, "version.json"),
-					JSON.stringify(versionData, null, 2),
+					`${JSON.stringify(buildVersionData(), null, 2)}\n`,
 				);
 			} catch {
 				// dist/ no existe en dev, no es problema

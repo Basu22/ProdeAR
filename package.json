@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate-vapid": "node scripts/generate-vapid-keys.mjs"
+    "generate-vapid": "node scripts/generate-vapid-keys.mjs",
+    "version:sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
