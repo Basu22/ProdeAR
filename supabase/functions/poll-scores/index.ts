@@ -1525,6 +1525,36 @@ serve(async (req) => {
 			}
 		}
 
+		// ── Auto-reconciliar bracket_position para R32 del Mundial ──
+		// Sprint "Full Bracket" 2026-06-29: después de cada upsert masivo,
+		// invocamos la función RPC reconcile_r32_bracket_positions(1) que asigna
+		// automáticamente R32-1 a R32-16 por orden cronológico a los partidos
+		// de "Round of 32" que aún no tengan bracket_position.
+		//
+		// • Idempotente: solo afecta partidos con bracket_position IS NULL.
+		// • try/catch: si falla, NO rompe el poll (loggeamos y seguimos).
+		// • Solo aplica a Mundial 2026 (competition_id = 1).
+		// • Solo si NO es preview ni raw.
+		if (!preview && !raw) {
+			try {
+				const { data: reconciledCount, error: reconcileErr } = await supabase
+					.rpc("reconcile_r32_bracket_positions", { p_competition_id: 1 });
+
+				if (reconcileErr) {
+					console.error(
+						"[Auto-reconcile R32] Error en RPC:",
+						reconcileErr,
+					);
+				} else if (reconciledCount && reconciledCount > 0) {
+					console.log(
+						`[Auto-reconcile R32] ${reconciledCount} partidos R32 sin bracket_position fueron reconciliados.`,
+					);
+				}
+			} catch (err) {
+				console.error("[Auto-reconcile R32] Excepción:", err);
+			}
+		}
+
 		// ── Fase 3: Notificaciones de cierre de pronósticos ──
 		// Solo ejecutar si NO es preview ni raw.
 		// Se ejecuta en try/catch independiente para no romper la respuesta

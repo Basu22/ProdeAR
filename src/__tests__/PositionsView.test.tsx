@@ -16,7 +16,7 @@
  * que la vista recibe, sin depender del cálculo real.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -215,12 +215,17 @@ describe("PositionsView", () => {
 
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
 
-		// El nav del RoundChipBar del BracketQuadro debe aparecer
-		expect(
-			await screen.findByRole("navigation", { name: /rondas del mundial/i }),
-		).toBeInTheDocument();
-		// Y debe haber al menos una columna con data-round (ej. R32)
-		expect(document.querySelector('[data-round="R32"]')).toBeInTheDocument();
+		// Sprint 5+: el RoundChipBar (pills superiores) fue ELIMINADO.
+		// La navegación entre rondas ahora es via scroll + teclado.
+		// Verificamos que el bracket se renderiza con al menos una columna R32.
+		await waitFor(() => {
+			expect(
+				document.querySelector('[data-round="R32"]'),
+			).toBeInTheDocument();
+		});
+		// Y debe haber 6 columnas (R32 + R16 + QF + SF + F + 3RD)
+		const columns = document.querySelectorAll("[data-round]");
+		expect(columns.length).toBeGreaterThanOrEqual(6);
 		// El pill LLAVES ahora es el activo
 		expect(screen.getByRole("tab", { name: /LLAVES/i })).toHaveAttribute(
 			"aria-selected",
@@ -238,16 +243,18 @@ describe("PositionsView", () => {
 
 		// 1. Click en LLAVES
 		await user.click(screen.getByRole("tab", { name: /LLAVES/i }));
-		expect(
-			await screen.findByRole("navigation", { name: /rondas del mundial/i }),
-		).toBeInTheDocument();
+		await waitFor(() => {
+			expect(
+				document.querySelector('[data-round="R32"]'),
+			).toBeInTheDocument();
+		});
 
 		// 2. Click en GRUPOS
 		await user.click(screen.getByRole("tab", { name: /GRUPOS/i }));
 		expect(await screen.findByText("Grupo A")).toBeInTheDocument();
-		// El nav del RoundChipBar ya NO debe estar
+		// Sprint 5+: las columnas del bracket ya NO deben estar visibles
 		expect(
-			screen.queryByRole("navigation", { name: /rondas del mundial/i }),
+			document.querySelector('[data-round="R32"]'),
 		).not.toBeInTheDocument();
 	});
 
