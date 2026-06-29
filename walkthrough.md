@@ -904,5 +904,6 @@ input[type="number"] {
 - **API Reference**: `docs/API_FOOTBALL_REFERENCE.md` (1,631 líneas, incluye §10.0.1 sobre `flagcdn.com` y §10.1 sobre estrategia de imágenes)
 - **Deploy Guide**: `docs/DEPLOY_SPRINT_3.md` (490 líneas, checklist paso a paso para push nocturno)
 - **Tests**: 344/344 pasando en 21 archivos (134 originales + 78 lib/hook POSICIONES + 68 component tests + 64 Sprint 1+2+3)
+- **Subagente `@release-manager`**: `docs/SUBAGENTE_RELEASE_MANAGER.md` (commit `568cdaa`, sprint Penales 2026)
 
 **Estado del proyecto al cierre de las sesiones Sprint 1+2+3+POSICIONES**: ✅ Nav funciona, ✅ Match Bottom Sheet funciona con 4 tabs enriquecidos, ✅ POSICIONES con 3 sub-pills live, ✅ Documentación completa (Arquitectura, API ref, Deploy guide), ✅ 0 errores en consola, ✅ 344/344 tests, ✅ 0 errores TypeScript, ✅ Build OK, ✅ 6 commits ahead de origin/main listos para push
