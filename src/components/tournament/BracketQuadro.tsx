@@ -67,7 +67,6 @@ import type { FullBracket } from "../../lib/bracketTypes";
 import type { RoundAbbreviation } from "../../lib/roundNames";
 import { BracketColumn } from "./BracketColumn";
 import { BracketConnectors } from "./BracketConnectors";
-import { BracketMatchCard } from "./BracketMatchCard";
 import { BracketRound } from "./BracketRound";
 import { ChampionBanner } from "./ChampionBanner";
 
@@ -439,9 +438,9 @@ export function BracketQuadro({
 							round={{
 								meta: {
 									abbr: "3RD",
-									full: "Tercer Puesto",
-									short: "3er Puesto",
+									label: "Tercer Puesto",
 									multiplier: 4,
+									expectedMatches: 1,
 								},
 								matches: [thirdPlaceMatch],
 							}}

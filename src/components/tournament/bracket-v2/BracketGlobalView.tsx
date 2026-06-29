@@ -398,7 +398,6 @@ function GlobalColumn({
 	round: KnockoutRound;
 	variant: "compact" | "default" | "hero";
 	onOpenDetails?: (matchId: string) => void;
-	thirdPlaceMatch?: import("../../../lib/bracketTypes").ExtendedBracketMatch;
 }) {
 	return (
 		<div
@@ -415,7 +414,6 @@ function GlobalColumn({
 				round={round}
 				variant={variant}
 				onOpenDetails={onOpenDetails}
-				thirdPlaceMatch={thirdPlaceMatch}
 			/>
 		</div>
 	);
