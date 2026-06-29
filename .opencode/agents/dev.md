@@ -21,6 +21,11 @@ permission:
     "qa-engineer": allow
     "brainstormer": allow
     "documentacion": allow
+    "db-admin":allow
+    "frontend-react": allow   # 🆕 ¡Habilitado!
+    "ts-expert": allow        # 🆕 ¡Habilitado!
+    "api-expert": allow       # 🆕 ¡Habilitado!
+    "release-manager": allow  # 🆕 ¡Habilitado!
 ---
 
 Sos el agente encargado del desarrollo activo y la implementación de código en el espacio de trabajo.
