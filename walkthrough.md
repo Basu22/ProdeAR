@@ -811,7 +811,7 @@ Para que el usuario pueda ver el nombre completo al hover/tap largo, se agregó 
 
 ## Feature: UX/UI Polish — Highlight de Penales + Hide Native Number Arrows *(2026-06-28)*
 
-**Sprint**: "Sprint Penales 2026 — UX/UI Polish" · **Issues resueltos**: 2 (+ 1 P1 de paridad) · **Commits**: `81a1b23` + `c1d101a` · **Tests**: 720 passing, 0 regresiones, 0 errores TS.
+**Sprint**: "Sprint Penales 2026 — UX/UI Polish" · **Issues resueltos**: 2 (+ 1 P1 de paridad + 1 P2 de transición + 1 P3 de tests flaky) · **Commits**: `81a1b23` + `c1d101a` + `7de70fe` + `6aca6f0` · **Tag**: `v0.1.0-sprint-penales-2026` · **Tests**: 726/726 passing, 0 regresiones, 0 errores TS.
 
 ### Issue 1 — Highlight del selector de penales
 
@@ -824,6 +824,27 @@ Bloque `src/components/match/PredictionSlide.tsx:257-313` (modal) **y** `src/com
 | Oculto | `!isPlayoffs \|\| !isDraw` | No se monta (igual que antes) |
 
 **Accesibilidad**: `prefers-reduced-motion` respetado en 2 capas (`motion-safe:animate-pulse-soft` como wrapper + entrada explícita en `@media (prefers-reduced-motion: reduce)` con `animation: none !important`). Icono decorativo con `aria-hidden="true"`. Badge con `role="status"` + `aria-live="polite"` para que screenreaders anuncien el cambio de estado.
+
+### Mejora visual P2 — Transición de mount del bloque de penales (commit `7de70fe`)
+
+Como follow-up del Issue 1, se agregó una **transición de entrada CSS-only** al bloque de penales en ambos componentes (paridad modal + card). Antes el bloque aparecía de golpe cuando el usuario pasaba el score de 1-0 a 1-1 con el stepper (`showPenaltySelector` se volvía `true` y React montaba el nodo). Ahora aparece con un slide-down sutil (`translateY(-8px) → 0`) + fade-in (`opacity 0 → 1`) en 240ms `ease-out`. La sensación es que el bloque "se despliega" en lugar de saltar, alineado con el resto de las micro-interacciones Stadium Brutalism (ver `tabContentEnter`, `subPairEnter`, `periodSepEnter`).
+
+**Implementación**:
+- Keyframe nuevo `penaltyBlockEnter` + utility `.animate-penalty-enter` en `src/index.css:610-629`, agrupado con `.animate-pulse-soft` (su prima visual).
+- Override en `@media (prefers-reduced-motion: reduce)` (línea 880) que setea `animation: none !important` — usuarios sensibles al movimiento ven el bloque aparecer instantáneamente sin perder el highlight de color.
+- Aplicado en 2 call-sites: `PredictionSlide.tsx:263` (modal) y `MatchCard.tsx:955` (cards inline del dashboard).
+
+**Limitación aceptada y documentada**: como la solución es CSS-only, no podemos animar la salida (exit). Cuando el usuario vuelve a 2-1, React desmonta el nodo instantáneamente. Esto es un trade-off explícito: agregar un exit animation requeriría un hook `useDelayedUnmount` o un componente `<PenaltySelector>` compartido con estado interno, lo cual es over-engineering para una micro-mejora visual. Si en el futuro el usuario nota la salida brusca, se puede refactorizar con un patrón `useState({ mounted, visible })` que retrase el unmount. Por ahora, **la entrada sí se anima, la salida no**.
+
+**Por qué CSS-only y no framer-motion**: el proyecto ya tiene 28 `@keyframes` + utilities `.animate-*` como sistema de animación estándar (ver `walkthrough.md` §3, "Custom animations"). Agregar framer-motion sumaría ~50KB al bundle para una sola transición. La regla implícita del proyecto es: **CSS keyframes para todo lo que se pueda expresar en 1 keyframe; JS solo cuando se necesita orquestar (`onAnimationEnd`, stagger condicional, etc.)**.
+
+### Mejora de calidad P3 — Fix de 2 tests flaky en PositionsView (commit `6aca6f0`)
+
+Durante el cierre del sprint se detectaron 2 tests flaky en `src/__tests__/PositionsView.test.tsx`: "cambia al contenido de LLAVES al hacer click en el pill" y "vuelve a GRUPOS al hacer click en el pill GRUPOS desde otra vista". Ambos usaban `screen.getByRole("navigation", ...)` y `screen.getByText("Grupo A")` **síncronos**, pero el componente `PositionsView` renderiza primero "Cargando bracket..." antes de mostrar el bracket async, así que esos queries fallaban inmediatamente.
+
+Fix mínimo: cambiar a las variantes async `findByRole` / `findByText` que esperan al elemento. Solo afecta 1 archivo de test, 3 líneas. No toca código de aplicación.
+
+**Nota sobre los 6 tests "fallidos" sobre `isFeatureEnabled("BRACKET_V2")` que se reportaron al inicio del sprint**: tras investigación con `git stash` + tests aislados + suite completa, se confirmó que eran **flaky tests** (condiciones de carrera en workers de Vitest), no un bug real en `src/lib/featureFlags.ts`. La implementación de `featureFlags.ts` es correcta: no hay cache en memoria, `clearFeatureFlag` usa `removeItem` directamente sobre `localStorage`, `isFeatureEnabled` lee de `getItem` en cada llamada. Los tests pasan 726/726 de forma estable. **No había bug que arreglar** en feature flags; sí había (y se arregló) un bug de tests async en PositionsView que era el verdadero origen de los 2 fallos restantes.
 
 ### Issue 2 — Hide native number arrows
 

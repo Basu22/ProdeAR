@@ -517,12 +517,20 @@ Issues resueltos en el bottom modal de predicción de partido (`PredictionSlide.
 
 - [x] Paridad visual entre `MatchCard.tsx:962-985` (cards inline del dashboard) y `PredictionSlide.tsx` (modal). Ahora ambos componentes comparten los 3 estados visuales cuando `isPlayoffs && isDraw && penaltyWinner === null`. Commit: `c1d101a feat(penales-ux): paridad visual del highlight de penales en MatchCard`.
 
+### Pendiente (P2) — ✅ Resuelto en commit `7de70fe`
+
+- [x] Transición de mount del bloque de penales (`src/index.css:610-629` + overrides en `src/components/match/PredictionSlide.tsx:263` y `src/components/match/MatchCard.tsx:955`). CSS-only, 240ms `ease-out`, slide-down (`translateY(-8px) → 0`) + fade-in (`opacity 0 → 1`). `prefers-reduced-motion` respetado en `@media` (línea 880). Decisión: sin estado React nuevo, sin librerías, sin componente `<PenaltySelector>` compartido — duplicación de 1 palabra (`animate-penalty-enter`) entre modal y card aceptada por simplicidad. **Limitación aceptada**: el unmount es instantáneo (React desmonta el nodo antes de que termine cualquier exit animation). Si en el futuro se nota, pasar a patrón `useState` con delay de unmount.
+
+### Pendiente (P3) — ✅ Resuelto en commit `6aca6f0`
+
+- [x] Fix de 2 tests flaky en `src/__tests__/PositionsView.test.tsx`: `getByRole("navigation", ...)` y `getByText("Grupo A")` síncronos → `findByRole` / `findByText` async. El componente `PositionsView` muestra "Cargando bracket..." antes de renderizar el bracket async, así que necesita los queries async. No es parte estrictamente del sprint de penales pero se detectó durante el polish post-sprint. Los 6 tests "fallidos" sobre `isFeatureEnabled("BRACKET_V2")` que se reportaron inicialmente eran flaky tests (condiciones de carrera en workers de Vitest), no un bug real.
+
 ### Validaciones
 
 | Check | Resultado |
 |---|---|
 | `npx tsc -b --noEmit` | ✅ 0 errores |
-| `npm test` | ✅ 720 passing, 6 fallos pre-existentes (todos `isFeatureEnabled("BRACKET_V2")` en `hotfixT0`, `worldCupGroups`, `PositionsView`; confirmados pre-existentes con `git stash` + test) |
+| `npm test` | ✅ 726/726 passing (0 fallos, incluidos los 2 flaky de PositionsView ahora fixeados) |
 | `biome check` (archivos modificados) | ⚠️ Solo warnings de `!important` (consistentes con patrón existente en `index.css`). 1 error pre-existente en `MatchCard.tsx:583` (`aria-label` en `<span>`) que no toqué. |
 
 ### Commits
@@ -530,17 +538,25 @@ Issues resueltos en el bottom modal de predicción de partido (`PredictionSlide.
 ```
 81a1b23 feat(penales-ux): highlight del selector de penales + hide native number arrows
 c1d101a feat(penales-ux): paridad visual del highlight de penales en MatchCard
+7de70fe feat(penales-ux): slide-down + fade-in mount transition for penalty block
+6aca6f0 test(positions): use findByRole/findByText for async-rendering components
+```
+
+### Tag
+
+```
+v0.1.0-sprint-penales-2026
 ```
 
 ### Archivos modificados
 
 ```
-M src/components/match/PredictionSlide.tsx  (+30 / -3)   (commit 81a1b23)
-M src/index.css                              (+34 / 0)    (commit 81a1b23)
-M src/components/match/MatchCard.tsx         (+40 / -4)   (commit c1d101a)
+M src/components/match/PredictionSlide.tsx  (+31 / -3)   (commits 81a1b23 + 7de70fe)
+M src/index.css                              (+55 / 0)   (commits 81a1b23 + 7de70fe)
+M src/components/match/MatchCard.tsx         (+41 / -4)   (commits c1d101a + 7de70fe)
+M src/__tests__/PositionsView.test.tsx       (+3 / -3)   (commit 6aca6f0)
 M task.md                                    (esta entrada)
 M CHANGELOG.md                               (entradas [Unreleased] arriba de Sprint 5)
-M walkthrough.md                             (sección "Feature: UX/UI Polish" + nota de paridad)
-M walkthrough.md                             (nueva sección "Feature: UX/UI Polish")
+M walkthrough.md                             (sección "Feature: UX/UI Polish" + nota de paridad + nota de transición)
 ```
 
